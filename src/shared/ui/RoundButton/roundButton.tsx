@@ -1,7 +1,6 @@
-import { View, Image } from "react-native";
+import { View } from "react-native";
 import { styles } from "./roundButton.module";
-import { IMAGES } from "../../images";
-import { IRoundButtonProps } from "./roundButton.types";
+import type { IRoundButtonProps } from "./roundButton.types";
 
 export function RoundButton(props: IRoundButtonProps) {
 	const {icon} = props

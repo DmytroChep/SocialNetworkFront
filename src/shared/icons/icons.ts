@@ -1,25 +1,25 @@
-import { HomeIcon } from "./home";
-import { PeopleIcon } from "./people";
-import { ChatIcon } from "./chat"
-import { EyeIcon } from "./eye"
-import { CheckboxIcon } from "./checkbox"
-import { ImageIcon } from "./image"
-import { SettingsIcon } from "./settings"
-import { ExitIcon } from "./exit";
-import { PlusIcon } from "./plus"
-import { LikeIcon } from "./like"
-import { DotsIcon } from "./dots";
-import { SmileIcon } from "./smile";
-import { MicroIcon } from "./micro";
-import { PlaneIcon } from "./plane";
-import { RoundIcon } from "./round"
-import { TrashIcon } from "./trash"
-import { EditIcon } from "./edit";
-import { CaretIcon } from "./caret";
-import { SearchIcon } from "./search";
-import { CheckboxOutlineIcon } from "./checkboxOutline";
-import { HeartIcon } from "./heart";
-import { HeartFillIcon } from "./heartFill";
+import { HomeIcon } from "./_icons/home";
+import { PeopleIcon } from "./_icons/people";
+import { ChatIcon } from "./_icons/chat"
+import { EyeIcon } from "./_icons/eye"
+import { CheckboxIcon } from "./_icons/checkbox"
+import { ImageIcon } from "./_icons/image"
+import { SettingsIcon } from "./_icons/settings"
+import { ExitIcon } from "./_icons/exit";
+import { PlusIcon } from "./_icons/plus"
+import { LikeIcon } from "./_icons/like"
+import { DotsIcon } from "./_icons/dots";
+import { SmileIcon } from "./_icons/smile";
+import { MicroIcon } from "./_icons/micro";
+import { PlaneIcon } from "./_icons/plane";
+import { RoundIcon } from "./_icons/round"
+import { TrashIcon } from "./_icons/trash"
+import { EditIcon } from "./_icons/edit";
+import { CaretIcon } from "./_icons/caret";
+import { SearchIcon } from "./_icons/search";
+import { CheckboxOutlineIcon } from "./_icons/checkboxOutline";
+import { HeartIcon } from "./_icons/heart";
+import { HeartFillIcon } from "./_icons/heartFill";
 
 
 export const ICONS = {

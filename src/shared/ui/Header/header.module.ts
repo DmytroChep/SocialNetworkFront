@@ -2,11 +2,12 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
 	header: {
 		width: "100%",
-		height: 56,
 		paddingHorizontal: 16,
+		paddingVertical: 10, 
 		justifyContent: "space-between",
 		flexDirection: "row",
 		alignItems: "center",
+		paddingTop: 8,
 	},
 	logo: {
 		height: 18,

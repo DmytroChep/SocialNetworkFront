@@ -1,4 +1,4 @@
-import worldItLogo from "./worldItLogo.png"
+import worldItLogo from "../../assets/images/worldItLogo.png"
 export const IMAGES = {
     worldItLogo: worldItLogo
 }
