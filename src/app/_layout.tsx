@@ -1,23 +1,23 @@
-import { Stack } from "expo-router";
+import { TabList, Tabs, TabSlot, TabTrigger } from "expo-router/ui";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Header } from "../shared/ui/Header";
+import React from "react";
+import { View } from "react-native";
+import { styles } from "../shared/ui/Header/header.module";
+import { Stack } from "expo-router";
 
 export default function RootLayout() {
 	return (
 		<SafeAreaProvider>
 			<Stack
 				screenOptions={{
-					header: () => {
-                        return (<Header hiddenButtons={{plus: true, exit: true, settings: true}}/>)
-                    },
-                    
+					headerShown: true,
+					contentStyle: {backgroundColor: "white"}
 				}}
 			>
-				<Stack.Screen name="index" />
-                <Stack.Screen name="main" />
-				<Stack.Screen name="my-publications" />
-				<Stack.Screen name="friends" />
-				<Stack.Screen name="chats" />
+				<Stack.Screen name="index"/>
+				
+				<Stack.Screen name="(tabs)" options={{headerShown: false}}/>
 			</Stack>
 		</SafeAreaProvider>
 	);

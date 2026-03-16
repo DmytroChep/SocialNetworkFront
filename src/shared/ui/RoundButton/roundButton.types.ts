@@ -1,3 +1,4 @@
 export interface IRoundButtonProps {
-    icon: React.JSX.Element
+    icon: React.JSX.Element,
+    greyBG?: boolean
 }

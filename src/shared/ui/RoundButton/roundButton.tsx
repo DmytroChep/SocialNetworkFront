@@ -3,9 +3,9 @@ import { styles } from "./roundButton.module";
 import type { IRoundButtonProps } from "./roundButton.types";
 
 export function RoundButton(props: IRoundButtonProps) {
-	const {icon} = props
+	const {icon, greyBG} = props
 	return (
-		<View style={styles.button}>
+		<View style={greyBG ? styles.greyButton : styles.button}>
 			{icon}
         </View>
 	);

@@ -5,17 +5,37 @@ import { RoundButton } from "../RoundButton";
 import { ICONS } from "../../icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { IHeaderProps } from "./header.types";
+import { useRouter } from "expo-router";
+import { usePathname } from "expo-router";
 
 export function Header(props: IHeaderProps) {
-	const {hiddenButtons} = props
+	const { hiddenButtons } = props;
+	const router = useRouter();
+	const pathname = usePathname();
+
 	return (
 		<SafeAreaView edges={["top"]} style={styles.header}>
 			<Image style={styles.logo} source={IMAGES.worldItLogo} />
 			<View style={styles.buttonsView}>
 				{hiddenButtons?.plus ? <RoundButton icon={<ICONS.plus />} /> : false}
-				{hiddenButtons?.settings ? <RoundButton icon={<ICONS.settings />} /> : false}
+				{hiddenButtons?.settings ? (
+					<RoundButton
+						greyBG={pathname === "/settings"}
+						icon={
+							<ICONS.settings
+								onPress={() => {
+									pathname === "/settings"
+										? router.back()
+										: router.navigate("/settings");
+								}}
+							/>
+						}
+					/>
+				) : (
+					false
+				)}
 				{hiddenButtons?.exit ? <RoundButton icon={<ICONS.exit />} /> : false}
-			
+
 				{/* <RoundButton icon={<ICONS.settings />} />
 				<RoundButton icon={<ICONS.exit />} /> */}
 			</View>
