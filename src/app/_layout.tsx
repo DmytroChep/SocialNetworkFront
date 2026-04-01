@@ -18,6 +18,7 @@ export default function RootLayout() {
 				<Stack.Screen name="index"/>
 				
 				<Stack.Screen name="(tabs)" options={{headerShown: false}}/>
+				<Stack.Screen name="registration" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
 			</Stack>
 		</SafeAreaProvider>
 	);

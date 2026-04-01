@@ -1,10 +1,10 @@
 import { View, Image } from "react-native";
-import { styles } from "./header.module";
+import { styles } from "./form.module";
 import { IMAGES } from "../../images";
 import { RoundButton } from "../RoundButton";
 import { ICONS } from "../../icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { IHeaderProps } from "./header.types";
+import { IHeaderProps } from "./form.types";
 import { useRouter } from "expo-router";
 import { usePathname } from "expo-router";
 

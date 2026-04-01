@@ -7,43 +7,48 @@ import { Header } from "../../shared/ui/Header";
 import { COLORS } from "../../shared/constants";
 
 export const styles = StyleSheet.create({
-  activeInner: {
-    borderTopColor: COLORS.darkBlue,
-    borderTopWidth: 2,
-    alignItems: "center",
-    paddingTop: 6,
-    paddingHorizontal: 4,
-  },
-  inactiveInner: {
-    alignItems: "center",
-    paddingTop: 9,
-    paddingHorizontal: 4,
-  },
-  footer: {
-    height: 64,
-  },
+	activeInner: {
+		borderTopColor: COLORS.darkBlue,
+		borderTopWidth: 2,
+		alignItems: "center",
+		paddingTop: 6,
+		paddingHorizontal: 4,
+	},
+	inactiveInner: {
+		alignItems: "center",
+		paddingTop: 9,
+		paddingHorizontal: 4,
+	},
+	footer: {
+		height: 64,
+		width: "auto",
+	},
 });
 
 const TabButton = ({ route, children, ...props }: any) => {
-  const pathname = usePathname();
-  const isActive = pathname.includes(route);
+	const pathname = usePathname();
+	const isActive = pathname.includes(route);
 
-  return (
-    <Pressable
-      {...props}
-      style={{ flex: 1, alignItems: "center", justifyContent: "flex-start" }}
-    >
-      <View style={isActive ? styles.activeInner : styles.inactiveInner}>
-        {children}
-      </View>
-    </Pressable>
-  );
+	return (
+		<Pressable
+			{...props}
+			style={{ alignItems: "center", justifyContent: "flex-start" }}
+		>
+			<View style={isActive ? styles.activeInner : styles.inactiveInner}>
+				{children}
+			</View>
+		</Pressable>
+	);
 };
 export default function TabsLayout() {
 	return (
 		<SafeAreaView
 			edges={["bottom"]}
-			style={{ flex: 1, backgroundColor: "white" }}
+			style={{
+				flex: 1,
+				backgroundColor: "white",
+				width: "100%",
+			}}
 		>
 			<Tabs
 				screenOptions={{
