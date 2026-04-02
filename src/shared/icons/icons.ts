@@ -20,6 +20,7 @@ import { SearchIcon } from "./_icons/search";
 import { CheckboxOutlineIcon } from "./_icons/checkboxOutline";
 import { HeartIcon } from "./_icons/heart";
 import { HeartFillIcon } from "./_icons/heartFill";
+import { EyeClosed } from "./_icons/eye-closed";
 
 
 export const ICONS = {
@@ -44,5 +45,6 @@ export const ICONS = {
     search: SearchIcon,
     checkboxOutline: CheckboxOutlineIcon,
     heart: HeartIcon,
-    heartFill: HeartFillIcon
+    heartFill: HeartFillIcon,
+    eyeClosed: EyeClosed 
 }  

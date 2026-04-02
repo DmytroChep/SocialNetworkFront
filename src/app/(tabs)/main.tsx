@@ -1,6 +1,5 @@
 import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Footer } from "../../shared/ui/Footer";
 
 export default function Main() {
 	return (
