@@ -6,6 +6,8 @@ import { registrationValidator } from "../../../modules/auth/models/lib/registra
 import { Input } from "../input";
 import { Button } from "../button";
 import { Link, useRouter } from "expo-router";
+import { IAuthUser } from "../../context/types";
+import { useRegistrationMutation } from "../../api/baseApi";
 
 interface RegistrationForm {
   email: string;
@@ -28,37 +30,23 @@ export function RegistrationForm() {
 
   const router = useRouter()
 
+  const [registerUser, { isLoading }] = useRegistrationMutation();
+
   const onSubmit = async (data: RegistrationForm) => {
     try {
-
-      console.log(data)
-      const {passwordConfirm, ...finalData} = data
-      const response = await fetch('http://10.0.2.2:8000/user/registration', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(finalData), 
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.log('Ошибка сервера:', result);
-        return;
-      }
-      router.replace('/(tabs)/main')
-      console.log(result);
-
+      const { passwordConfirm, ...body } = data;
+      const result = await registerUser(body).unwrap();
+      console.log('Успех:', result);
+      router.replace('/(tabs)/main');
     } catch (error) {
-      console.error('Ошибка сети:', error);
+      console.log('Ошибка сервера:', error);
     }
   };
 
   const onError = (errors: any) => {
     console.log("Validation Errors:", errors);
   };
+
 
   return (
     <View style={styles.container}>

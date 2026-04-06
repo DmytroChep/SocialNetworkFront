@@ -5,22 +5,26 @@ import React from "react";
 import { View } from "react-native";
 import { styles } from "../shared/ui/Header/header.module";
 import { Stack } from "expo-router";
+import { ApiProvider } from "@reduxjs/toolkit/query/react";
+import { baseApi } from "../shared/api/baseApi";
 
 export default function RootLayout() {
 	return (
 		<SafeAreaProvider>
-			<Stack
-				screenOptions={{
-					headerShown: true,
-					contentStyle: {backgroundColor: "white"}
-				}}
-			> 
-				<Stack.Screen name="index"/>
-				
-				<Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-				<Stack.Screen name="registration" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
-				<Stack.Screen name="login" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
-			</Stack>
+			<ApiProvider api={baseApi}>
+				<Stack
+					screenOptions={{
+						headerShown: true,
+						contentStyle: {backgroundColor: "white"}
+					}}
+				> 
+					<Stack.Screen name="index"/>
+					
+					<Stack.Screen name="(tabs)" options={{headerShown: false}}/>
+					<Stack.Screen name="registration" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
+					<Stack.Screen name="login" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
+				</Stack>
+			</ApiProvider>
 		</SafeAreaProvider>
 	);
 }

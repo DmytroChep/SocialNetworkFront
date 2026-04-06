@@ -4,17 +4,18 @@ YupPassword(yup);
 
 export const registrationValidator = yup.object().shape({
     email: yup.string()
-      .email("Неверный формат email")
-      .required("Обязательное поле")
-      .min(10, "Минимум 10 символов")
+      .email("Неправильний формат email")
+      .required("Обов'язкове поле")
+      .min(10, "Мінімум 10 символів")
       .max(100),
     password: yup.string()
-      .password()
-      .required("Обязательное поле")
-      .min(5, "Минимум 5 символов")
+      .password() 
+      .required("Обов'язкове поле")
+      .min(5, "Мінімум 5 символів")
       .max(50),
     passwordConfirm: yup.string()
-      .required("Обязательное поле")
-      .min(5, "Минимум 5 символов")
-      .max(50).oneOf([yup.ref("password"), null], "Passwords must match")
+      .required("Обов'язкове поле")
+      .min(5, "Мінімум 5 символів")
+      .max(50)
+      .oneOf([yup.ref("password"), null], "Паролі повинні збігатися")
 });

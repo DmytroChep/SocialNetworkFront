@@ -6,6 +6,8 @@ import { loginValidator } from "../../../modules/auth/models/lib/login.validatio
 import { Input } from "../input";
 import { Button } from "../button";
 import { Link, useRouter } from "expo-router";
+import { useLoginMutation, useRegistrationMutation } from "../../api/baseApi";
+import { IAuthUser } from "../../context/types";
 
 interface LoginForm {
   email: string;
@@ -27,31 +29,15 @@ export function LoginForm() {
 
   const router = useRouter();
 
+  const [loginUser, { isLoading }] = useLoginMutation();
+
   const onSubmit = async (data: LoginForm) => {
     try {
-
-      console.log(data)
-      const response = await fetch('http://10.0.2.2:8000/user/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(data), 
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.log('Ошибка сервера:', result);
-        return;
-      }
-
-      console.log('Успех! Ответ от бэка:', result);
-      router.replace('/(tabs)/main')
-
+      const result = await loginUser(data).unwrap();
+      console.log('Успех:', result);
+      router.replace('/(tabs)/main');
     } catch (error) {
-      console.error('Ошибка сети:', error);
+      console.log('Ошибка сервера:', error);
     }
   };
 

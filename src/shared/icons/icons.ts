@@ -21,12 +21,13 @@ import { CheckboxOutlineIcon } from "./_icons/checkboxOutline";
 import { HeartIcon } from "./_icons/heart";
 import { HeartFillIcon } from "./_icons/heartFill";
 import { EyeClosed } from "./_icons/eye-closed";
-
+import {Cross} from "./_icons/cross"
 
 export const ICONS = {
     home: HomeIcon,
     people: PeopleIcon,
-    chat: ChatIcon, 
+    chat: ChatIcon,
+    cross: Cross, 
     eye: EyeIcon,
     checkbox: CheckboxIcon,
     image: ImageIcon,
