@@ -7,24 +7,27 @@ import { styles } from "../shared/ui/Header/header.module";
 import { Stack } from "expo-router";
 import { ApiProvider } from "@reduxjs/toolkit/query/react";
 import { baseApi } from "../shared/api/baseApi";
+import { UserContextProvider } from "../shared/context/user-context";
 
 export default function RootLayout() {
 	return (
 		<SafeAreaProvider>
-			<ApiProvider api={baseApi}>
-				<Stack
-					screenOptions={{
-						headerShown: true,
-						contentStyle: {backgroundColor: "white"}
-					}}
-				> 
-					<Stack.Screen name="index"/>
-					
-					<Stack.Screen name="(tabs)" options={{headerShown: false}}/>
-					<Stack.Screen name="registration" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
-					<Stack.Screen name="login" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
-				</Stack>
-			</ApiProvider>
-		</SafeAreaProvider>
+				<ApiProvider api={baseApi}>
+				<UserContextProvider>
+					<Stack
+						screenOptions={{
+							headerShown: true,
+							contentStyle: {backgroundColor: "white"}
+						}}
+					> 
+						<Stack.Screen name="index"/>
+						
+						<Stack.Screen name="(tabs)" options={{headerShown: false}}/>
+						<Stack.Screen name="registration" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
+						<Stack.Screen name="login" options={{header: () => {return <Header hiddenButtons={{settings: false, plus: false, exit: false}}/>}}}/>
+					</Stack>
+				</UserContextProvider>
+				</ApiProvider>
+			</SafeAreaProvider>
 	);
 }

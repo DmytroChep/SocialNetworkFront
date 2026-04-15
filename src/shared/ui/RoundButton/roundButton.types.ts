@@ -1,4 +1,9 @@
+import type { ReactNode } from "react";
+import type { TextStyle, ViewStyle, TouchableOpacityProps } from "react-native";
+
 export interface IRoundButtonProps {
-    icon: React.JSX.Element,
-    greyBG?: boolean
+    icon: ReactNode;
+    onPress?: () => void;
+    greyBG?: boolean;
+    style?: ViewStyle;
 }

@@ -1,4 +1,5 @@
-import { View, Text } from "react-native";
+import React from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { styles } from "./form.styles";
@@ -8,6 +9,9 @@ import { Button } from "../button";
 import { Link, useRouter } from "expo-router";
 import { IAuthUser } from "../../context/types";
 import { useRegistrationMutation } from "../../api/baseApi";
+import { useUserContext } from "../../context/user-context";
+import { COLORS } from "../../constants";
+import { useState } from "react";
 
 interface RegistrationForm {
   email: string;
@@ -19,7 +23,6 @@ export function RegistrationForm() {
   const { 
     handleSubmit, 
     control, 
-    formState: { errors } 
   } = useForm<RegistrationForm>({
     resolver: yupResolver(registrationValidator),
     defaultValues: {
@@ -28,23 +31,29 @@ export function RegistrationForm() {
     }
   });
 
-  const router = useRouter()
-
+  const router = useRouter();
   const [registerUser, { isLoading }] = useRegistrationMutation();
+  const [serverError, setServerError] = useState<string | null>(null);
+  const { setToken } = useUserContext();
 
   const onSubmit = async (data: RegistrationForm) => {
+    setServerError(null);
+    
     try {
       const { passwordConfirm, ...body } = data;
       const result = await registerUser(body).unwrap();
-      console.log('Успех:', result);
-      router.replace('/(tabs)/main');
-    } catch (error) {
-      console.log('Ошибка сервера:', error);
+      
+      if (result && typeof result === 'string' && result.split(".").length > 0) {
+        setToken(result);
+        console.log(result)
+        router.replace('/(tabs)/main');
+      } else {
+        setServerError("Невірна відповідь сервера");
+      }
+    } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || "Помилка при реєстрації";
+      setServerError(errorMessage);
     }
-  };
-
-  const onError = (errors: any) => {
-    console.log("Validation Errors:", errors);
   };
 
 
@@ -104,11 +113,20 @@ export function RegistrationForm() {
         />
       </View>
 
+      {serverError && (
+        <View>
+          <Text style={{ color: COLORS.lightRed, marginBottom: 10 }}>{serverError}</Text>
+        </View>
+      )}
+
       <Button 
-        onPress={handleSubmit(onSubmit, onError)} 
-        title="Створити акаунт" 
-        style={styles.button} 
+        onPress={handleSubmit(onSubmit)} 
+        title={isLoading ? "Реєстрація..." : "Створити акаунт"} 
+        disabled={isLoading}
+        style={[styles.button, isLoading && { opacity: 0.7 }]} 
       />
+      
+      {isLoading && <ActivityIndicator style={{ marginTop: 10 }} color="#000" />}
     </View>
   );
 }

@@ -1,12 +1,13 @@
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { styles } from "./roundButton.module";
 import type { IRoundButtonProps } from "./roundButton.types";
 
 export function RoundButton(props: IRoundButtonProps) {
-	const {icon, greyBG} = props
+	const {icon, greyBG, onPress} = props
 	return (
-		<View style={greyBG ? styles.greyButton : styles.button}>
+		<Pressable style={greyBG ? styles.greyButton : styles.button} onPress={onPress ? () => {onPress()} : () => {}}>
 			{icon}
-        </View>
+
+        </Pressable>
 	);
 }

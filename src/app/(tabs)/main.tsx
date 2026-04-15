@@ -3,16 +3,17 @@ import { View, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FirstEnterModal } from "../../shared/ui/first-enter-modal/firstEnterModal";
 import { useMeQuery } from "../../shared/api/baseApi";
+import { UserContext, useUserContext } from "../../shared/context/user-context";
 
 export default function Main() {
-  const { data, isLoading } = useMeQuery();
+ 	const {user, isLoading} = useUserContext()
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !data?.userName && !data?.authorName) {
-      setModalVisible(true);
+    if (!isLoading && user !== null && !user?.userName && !user?.authorName) {
+        setModalVisible(true);
     }
-  }, [isLoading, data]);
+}, [isLoading, user]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["left", "right"]}>

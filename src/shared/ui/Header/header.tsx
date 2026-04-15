@@ -7,11 +7,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IHeaderProps } from "./header.types";
 import { useRouter } from "expo-router";
 import { usePathname } from "expo-router";
+import { useUserContext } from "../../context/user-context";
 
 export function Header(props: IHeaderProps) {
 	const { hiddenButtons } = props;
 	const router = useRouter();
 	const pathname = usePathname();
+
+	const userCotnext = useUserContext()
+
 	return (
 		<SafeAreaView edges={["top"]} style={hiddenButtons ? Object.values(hiddenButtons).includes(true) ?  styles.justifyContentSpaceBetween : styles.header :  styles.justifyContentSpaceBetween}>
 			<Image style={styles.logo} source={IMAGES.worldItLogo} />
@@ -33,10 +37,15 @@ export function Header(props: IHeaderProps) {
 				) : (
 					false
 				)}
-				{hiddenButtons?.exit ? <RoundButton icon={<ICONS.exit />} /> : false}
-
-				{/* <RoundButton icon={<ICONS.settings />} />
-				<RoundButton icon={<ICONS.exit />} /> */}
+				{hiddenButtons?.exit ? (
+				<RoundButton 
+					icon={<ICONS.exit />} 
+					onPress={() => {
+						userCotnext.logout();
+						router.replace("/registration");
+					}} 
+				/>
+				) : false}
 			</View>
 		</SafeAreaView>
 	);

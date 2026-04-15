@@ -1,25 +1,32 @@
-import { View, Text } from "react-native";
+import React, { useState } from "react";
+import { View, Text, ActivityIndicator } from "react-native";
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
+import { Link, useRouter } from "expo-router";
+
 import { styles } from "./form.styles";
 import { loginValidator } from "../../../modules/auth/models/lib/login.validation";
 import { Input } from "../input";
 import { Button } from "../button";
-import { Link, useRouter } from "expo-router";
-import { useLoginMutation, useRegistrationMutation } from "../../api/baseApi";
-import { IAuthUser } from "../../context/types";
+import { useLoginMutation } from "../../api/baseApi";
+import { useUserContext } from "../../context/user-context";
+import { COLORS } from "../../constants";
 
-interface LoginForm {
+interface LoginFormInputs {
   email: string;
   password: string;
 }
 
 export function LoginForm() {
+  const router = useRouter();
+  const { setToken } = useUserContext();
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [loginUser, { isLoading }] = useLoginMutation();
+
   const { 
     handleSubmit, 
     control, 
-    formState: { errors } 
-  } = useForm<LoginForm>({
+  } = useForm<LoginFormInputs>({
     resolver: yupResolver(loginValidator),
     defaultValues: {
       email: '',
@@ -27,22 +34,23 @@ export function LoginForm() {
     }
   });
 
-  const router = useRouter();
-
-  const [loginUser, { isLoading }] = useLoginMutation();
-
-  const onSubmit = async (data: LoginForm) => {
+  const onSubmit = async (data: LoginFormInputs) => {
+    setServerError(null);
+    
     try {
       const result = await loginUser(data).unwrap();
-      console.log('Успех:', result);
-      router.replace('/(tabs)/main');
-    } catch (error) {
-      console.log('Ошибка сервера:', error);
+      
+      if (result && typeof result === 'string' && result.split(".").length > 2) {
+        setToken(result);
+        console.log(result)
+        router.replace('/(tabs)/main');
+      } else {
+        setServerError(result);
+      }
+    } catch (error: any) {
+      const errorMessage = error?.data?.message || error?.message || "Невірний логін або пароль";
+      setServerError(errorMessage);
     }
-  };
-
-  const onError = (errors: any) => {
-    console.log("Validation Errors:", errors);
   };
 
   return (
@@ -87,11 +95,20 @@ export function LoginForm() {
         />
       </View>
 
+      {serverError && (
+        <View>
+          <Text style={{ color: COLORS.lightRed, marginBottom: 10 }}>{serverError}</Text>
+        </View>
+      )}
+
       <Button 
-        onPress={handleSubmit(onSubmit, onError)} 
-        title="Увійти" 
-        style={styles.button} 
+        onPress={handleSubmit(onSubmit)} 
+        title={isLoading ? "Вхід..." : "Увійти"} 
+        disabled={isLoading}
+        style={[styles.button]} 
       />
+      
+      {isLoading && <ActivityIndicator style={{ marginTop: 10 }} color="#000" />}
     </View>
   );
 }
