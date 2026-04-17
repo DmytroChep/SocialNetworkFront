@@ -43,6 +43,16 @@ export const baseApi = createApi({
         body,
       }),
     }),
+    sendCodeVerify: builder.query<string, {gmail: string}>({
+      query: ({gmail}) => ({
+        url: `user/sendCode?gmail=${gmail}`,
+      }),
+    }),
+    checkIsCodeExists: builder.query<string, {code: number}>({
+      query: ({code}) => ({
+        url: `user/isCodeExists?code=${code}`,
+      }),
+    }),
   }),
 });
 
@@ -51,4 +61,6 @@ export const {
   useRegistrationMutation,
   useMeQuery,
   useUpdateMutation,
+  useLazySendCodeVerifyQuery,
+  useLazyCheckIsCodeExistsQuery
 } = baseApi;

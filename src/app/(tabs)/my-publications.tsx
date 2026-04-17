@@ -5,7 +5,7 @@ export default function MyPubliactions() {
 	return (
 		<SafeAreaView style={{ flex: 1 }} edges={["left", "right"]}>
 			<View style={{ flex: 1 }}>
-				<Text>My pblications</Text>
+				<Text>My publications</Text>
 			</View>
 		</SafeAreaView>
 	);

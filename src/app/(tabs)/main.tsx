@@ -10,7 +10,7 @@ export default function Main() {
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && user !== null && !user?.userName && !user?.authorName) {
+    if ( user !== null && !user?.userName && !user?.authorName) {
         setModalVisible(true);
     }
 }, [isLoading, user]);

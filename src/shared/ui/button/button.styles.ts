@@ -12,6 +12,10 @@ export const styles = StyleSheet.create({
 		justifyContent: "center",
 
 		borderRadius: 1234,
+		padding: 10,
+
+		flexDirection: "row",
+		gap: 10
 	},
 	text: {
 		fontSize: 16,
@@ -25,4 +29,11 @@ export const styles = StyleSheet.create({
 	disabledText: {
 		color: COLORS.plum,
 	},
+	buttonSave: {
+		backgroundColor: COLORS.plum50,
+		borderWidth: 1,
+		borderColor: COLORS.plum,
+		width: 108,
+		height: 40
+	}
 });

@@ -8,8 +8,8 @@ import { CodeConfirmationModal } from "../shared/ui/codeConfirmationModal";
 export default function Registration() {
     return (
         <View style={{flex: 1, backgroundColor: COLORS.plum50, paddingTop: 39, alignItems: "center", paddingHorizontal: 16,  justifyContent: "center"}}>
-            {/* <RegistrationForm /> */}
-            <CodeConfirmationModal title="Підтвердження пошти" />
+            <RegistrationForm />
+            {/* <CodeConfirmationModal title="Підтвердження пошти" /> */}
         </View>
     )
 }

@@ -8,10 +8,11 @@ import { Input } from "../input";
 import { Button } from "../button";
 import { Link, useRouter } from "expo-router";
 import { IAuthUser } from "../../context/types";
-import { useRegistrationMutation } from "../../api/baseApi";
+import { useLazySendCodeVerifyQuery, useRegistrationMutation } from "../../api/baseApi";
 import { useUserContext } from "../../context/user-context";
 import { COLORS } from "../../constants";
 import { useState } from "react";
+import { CodeConfirmationModal } from "../codeConfirmationModal";
 
 interface RegistrationForm {
   email: string;
@@ -31,22 +32,32 @@ export function RegistrationForm() {
     }
   });
 
+  const [step, setStep] = useState<number>(1)
+
   const router = useRouter();
   const [registerUser, { isLoading }] = useRegistrationMutation();
+  const [sendCode] = useLazySendCodeVerifyQuery();
   const [serverError, setServerError] = useState<string | null>(null);
   const { setToken } = useUserContext();
+  const [email, setEmail] = useState<string>("")
 
   const onSubmit = async (data: RegistrationForm) => {
     setServerError(null);
     
     try {
       const { passwordConfirm, ...body } = data;
+      
+      setEmail(data.email); 
+
       const result = await registerUser(body).unwrap();
       
       if (result && typeof result === 'string' && result.split(".").length > 0) {
         setToken(result);
-        console.log(result)
-        router.replace('/(tabs)/main');
+
+        console.log("Отправка кода на:", data.email);
+        await sendCode({ gmail: data.email }).unwrap(); 
+        
+        setStep(2);
       } else {
         setServerError("Невірна відповідь сервера");
       }
@@ -57,7 +68,9 @@ export function RegistrationForm() {
   };
 
 
+
   return (
+    step == 1 ? 
     <View style={styles.container}>
       <View style={styles.header}>
         <Link href="registration" style={styles.choosedTitle}>Реєстрація</Link>
@@ -128,5 +141,6 @@ export function RegistrationForm() {
       
       {isLoading && <ActivityIndicator style={{ marginTop: 10 }} color="#000" />}
     </View>
+    : <CodeConfirmationModal title="Підтвердження пошти" email={email} setStep={setStep}/>
   );
 }

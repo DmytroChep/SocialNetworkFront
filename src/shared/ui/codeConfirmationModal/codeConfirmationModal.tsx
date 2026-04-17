@@ -1,50 +1,97 @@
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Text, TextInput, View, ActivityIndicator } from "react-native";
 import { CodeConfirmationModalProps } from "./codeConfirmationModal.types";
 import { styles } from "./codeConfirmationModal.styles";
 import { useRef, useState } from "react";
 import { Button } from "../button";
+import { useLazyCheckIsCodeExistsQuery } from "../../api/baseApi";
+import { useRouter } from "expo-router";
 
 export function CodeConfirmationModal(props: CodeConfirmationModalProps) {
-	const { title } = props;
-	const [code, setCode] = useState<string>("")
-	
-	const inputsRef = useRef<(TextInput | null)[]>([])
+    const { title, email, setStep } = props;
+    const router = useRouter();
+    
+    const [codeValues, setCodeValues] = useState<string[]>(new Array(6).fill(""));
+    const [localError, setLocalError] = useState<string | null>(null);
+    const [checkIsCodeExists, { error: serverError, isLoading, isError }] = useLazyCheckIsCodeExistsQuery();
 
-	const InputsArray = [1, 2, 3, 4, 5, 6].map((item, index) => (
-	<TextInput
-		key={index}
-		ref={(element) => { inputsRef.current[index] = element; }}
-		keyboardType="number-pad"
-		placeholder="_"
-		style={styles.input}
-		maxLength={1}
-		onChangeText={(text) => {
-			if (text.length > 0 && index < 5) {
-				inputsRef.current[index + 1]?.focus();
-			} else if (text.length < 1 && index < 1) {
-				inputsRef.current[index - 1]?.focus();
-			}
-		}}
-	/>
-	));
+    const inputsRef = useRef<(TextInput | null)[]>([]);
 
-	return (
-		<View style={styles.modal}>
-			<Text style={styles.title}>{title}</Text>
-			<Text style={styles.description}>Ми надіслали 6-значний код на вашу пошту {"\n"} (you@example.com). Введіть його нижче, щоб підтвердити акаунт</Text>
-			<View style={styles.confirmCodeView}>
-				<Text style={styles.codeTitle}>Код підтвердження</Text>
-				<View style={styles.codeViewInputs}>
-					{InputsArray.map((element) => {
-						return element
-					})}
-				</View>
-			</View>
-			<View style={styles.buttonView}>
-				<Button title={"Підтвердити"} style={styles.button}/>
-				<Text>Назад</Text>
-			</View>
-		</View>
+    const handleInputChange = (text: string, index: number) => {
+        if (localError) setLocalError(null);
+        
+        const newCode = [...codeValues];
+        newCode[index] = text;
+        setCodeValues(newCode);
 
-	);
+        if (text.length > 0 && index < 5) {
+            inputsRef.current[index + 1]?.focus();
+        } else if (text.length === 0 && index > 0) {
+            inputsRef.current[index - 1]?.focus();
+        }
+    };
+
+    const handleConfirm = async () => {
+        const fullCode = codeValues.join("");
+        if (fullCode.length === 6) {
+            try {
+                const response = await checkIsCodeExists({ code: Number(fullCode) }).unwrap();
+                if (response) {
+                    router.replace("(tabs)/main");
+                } else {
+                    setLocalError("Невірний код");
+                }
+            } catch (err) {
+                setLocalError(null);
+            }
+        }
+    };
+
+    const getErrorMessage = () => {
+        if (localError) return localError;
+        if (!serverError) return null;
+        if ('data' in serverError) {
+            const errorData = serverError.data as any;
+            return errorData?.message || "Невірний код або помилка сервера";
+        }
+        return "Сталася помилка. Спробуйте ще раз";
+    };
+
+    return (
+        <View style={styles.modal}>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.description}>Ми надіслали 6-значний код на вашу пошту {"\n"} ({email}). Введіть його нижче, щоб підтвердити акаунт</Text>
+            <View style={styles.confirmCodeView}>
+                <Text style={styles.codeTitle}>Код підтвердження</Text>
+                <View style={styles.codeViewInputs}>
+                    {[0, 1, 2, 3, 4, 5].map((index) => (
+                        <TextInput
+                            key={index}
+                            ref={(el) => { inputsRef.current[index] = el; }}
+                            keyboardType="number-pad"
+                            placeholder="_"
+                            style={styles.input}
+                            maxLength={1}
+                            value={codeValues[index]}
+                            onChangeText={(text) => handleInputChange(text, index)}
+                        />
+                    ))}
+                </View>
+            </View>
+            <View style={styles.buttonView}>
+                {(isError || localError) && (
+                    <Text style={{ color: "red", marginBottom: 10, textAlign: 'center' }}>
+                        {getErrorMessage()}
+                    </Text>
+                )}
+                <Button 
+                    title={isLoading ? "Перевірка..." : "Підтвердити"} 
+                    onPress={handleConfirm} 
+                    disabled={isLoading || codeValues.join("").length < 6}
+                    style={[styles.button, (isLoading || codeValues.join("").length < 6) && { opacity: 0.6 }]}
+                />
+                {isLoading && <ActivityIndicator style={{ marginTop: 5 }} />}
+                <Text onPress={() => setStep(1)}>Назад</Text>
+            </View>
+        </View>
+    );
 }
