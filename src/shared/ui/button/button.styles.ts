@@ -3,7 +3,6 @@ import { COLORS } from "../../constants/colors";
 
 export const styles = StyleSheet.create({
 	button: {
-		width: 200,
 		height: 50,
 
 		backgroundColor: COLORS.plum,
@@ -33,7 +32,6 @@ export const styles = StyleSheet.create({
 		backgroundColor: COLORS.plum50,
 		borderWidth: 1,
 		borderColor: COLORS.plum,
-		width: 108,
 		height: 40
 	}
 });

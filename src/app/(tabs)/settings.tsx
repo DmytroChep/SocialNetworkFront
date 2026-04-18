@@ -15,7 +15,7 @@ import { settingsValidator, SettingsFormInputs } from "./settings.validation";
 import { useMeQuery, useUpdateMutation } from "../../shared/api/baseApi";
 
 export default function ProfileScreen() {
-  const { data: user, isLoading: isUserLoading } = useMeQuery();
+  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, {pollingInterval: 3000,});
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
 
   const [isEditingCard, setIsEditingCard] = useState(false);
@@ -31,6 +31,7 @@ export default function ProfileScreen() {
       birthDate: '',
       email: '',
       password: '',
+      confirmPassword: '',
       usePseudonym: false,
       useSignature: false,
     }
@@ -46,6 +47,7 @@ export default function ProfileScreen() {
         usePseudonym: !!user.authorName,
         useSignature: !!user.sign,
         password: '',
+        confirmPassword: '',
       });
     }
   }, [user, reset]);
@@ -77,6 +79,11 @@ export default function ProfileScreen() {
       setIsEditingInfo(false);
       setIsEditingPassword(false);
       setIsEditingSignature(false);
+      reset({
+        ...data,
+        password: '',
+        confirmPassword: '',
+      });
     } catch (e) {
       Alert.alert("Помилка", "Не вдалося зберегти зміни");
     }
@@ -85,7 +92,7 @@ export default function ProfileScreen() {
   const isLoading = isUserLoading || isUpdating;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8F9FE' }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.plum50 }}>
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         <RadioTabs 
@@ -93,7 +100,7 @@ export default function ProfileScreen() {
             { 
               title: "Особиста Інформація", 
               content: (
-                <View style={{ paddingHorizontal: 16 }}>
+                <View>
                   
                   <View style={[styles.card, { paddingVertical: isEditingCard ? 20 : 24 }]}>
                     <View style={styles.cardHeader}>
@@ -189,30 +196,62 @@ export default function ProfileScreen() {
                     ))}
                   </View>
 
-                  <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.cardTitle}>Пароль</Text>
-                      {isEditingPassword ? (
-                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
-                      ) : (
+                  {!isEditingPassword ? (
+                    <View style={styles.card}>
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>Пароль</Text>
                         <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />
-                      )}
+                      </View>
+                      <Controller
+                        name="password"
+                        control={control}
+                        render={({ field: { onChange, value }, fieldState: { error } }) => (
+                          <Input.Password 
+                            label="Новий пароль" 
+                            value={value || ''} 
+                            onChangeText={onChange} 
+                            error={error?.message} 
+                            editable={true}
+                          />
+                        )}
+                      />
                     </View>
-                    <Controller
-                      name="password"
-                      control={control}
-                      render={({ field: { onChange, value }, fieldState: { error } }) => (
-                        <Input.Password 
-                          label="Пароль" 
-                          value={value || ''} 
-                          onChangeText={onChange} 
-                          error={error?.message} 
-                          editable={isEditingPassword}
-                          inputContainerStyle={{ opacity: isEditingPassword ? 1 : 0.6 }}
+                  ) : (
+                    <View style={styles.card}>
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>Пароль</Text>
+                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Змінити пароль' />
+                      </View>
+                      <View style={{gap: 16}}>
+                        <Controller
+                          name="password"
+                          control={control}
+                          render={({ field: { onChange, value }, fieldState: { error } }) => (
+                            <Input.Password 
+                              label="Новий пароль" 
+                              value={value || ''} 
+                              onChangeText={onChange} 
+                              error={error?.message} 
+                              editable={true}
+                            />
+                          )}
                         />
-                      )}
-                    />
-                  </View>
+                        <Controller
+                          name="confirmPassword"
+                          control={control}
+                          render={({ field: { onChange, value }, fieldState: { error } }) => (
+                            <Input.Password 
+                              label="Підтвердьте новий пароль" 
+                              value={value || ''} 
+                              onChangeText={onChange} 
+                              error={error?.message} 
+                              editable={true}
+                            />
+                          )}
+                        />
+                      </View>
+                    </View>
+                  )}
 
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>

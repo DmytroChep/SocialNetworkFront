@@ -16,6 +16,11 @@ export const settingsValidator = yup.object({
     .ensure()
     .default("")
     .test("min-length", ERROR_MESSAGES.passwordMin, (val) => !val || val.length >= 6),
+  confirmPassword: yup
+    .string()
+    .ensure()
+    .default("")
+    .oneOf([yup.ref('password')], 'Паролі не збігаються'),
   usePseudonym: yup.boolean().required().default(false),
   useSignature: yup.boolean().required().default(false),
 }).required();

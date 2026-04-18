@@ -56,9 +56,6 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
       >
         <TouchableOpacity activeOpacity={1} onPress={() => {}}>
           <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeIconWrapper} onPress={onClose}>
-              <ICONS.cross width={24} height={24} fill="#000" />
-            </TouchableOpacity>
 
             <Text style={styles.title}>Додай деталі про себе</Text>
 

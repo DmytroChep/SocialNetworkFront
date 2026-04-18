@@ -4,11 +4,11 @@ import { COLORS } from "../../shared/constants";
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.plum50,
   },
   scrollContent: {
-    paddingHorizontal: 16,
     paddingBottom: 40,
+    gap: 24.5
   },
   card: {
     backgroundColor: "#fff",
