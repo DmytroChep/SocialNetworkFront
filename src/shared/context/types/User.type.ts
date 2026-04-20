@@ -6,5 +6,10 @@ export interface IUser {
     status: string,
     birthDate: Date,
     sign: string,
-    currentAvatarId: string   
+    currentAvatarId: string,
+    currentAvatar: {
+        id: number,
+        image: string,
+        userId: number
+    }
 }

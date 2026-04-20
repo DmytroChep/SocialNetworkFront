@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Controller, useForm, SubmitHandler } from "react-hook-form"; 
 import { yupResolver } from "@hookform/resolvers/yup";
 
@@ -12,11 +12,16 @@ import { COLORS } from "../../shared/constants";
 
 import { styles } from "./settings.styles";
 import { settingsValidator, SettingsFormInputs } from "./settings.validation";
-import { useMeQuery, useUpdateMutation } from "../../shared/api/baseApi";
+import { useMeQuery, useUpdateAvatarMutation, useUpdateMutation } from "../../shared/api/baseApi";
+import { AvatarField } from '../../modules/settings/ui/avatar-field';
+
+import * as FileSystem from 'expo-file-system/legacy';
+
 
 export default function ProfileScreen() {
-  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, {pollingInterval: 3000,});
+  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { pollingInterval: 3000 });
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
+  const [updateAvatar, { isLoading: isAvatarUpdating }] = useUpdateAvatarMutation();
 
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -34,6 +39,7 @@ export default function ProfileScreen() {
       confirmPassword: '',
       usePseudonym: false,
       useSignature: false,
+      avatar: '',
     }
   });
 
@@ -48,67 +54,81 @@ export default function ProfileScreen() {
         useSignature: !!user.sign,
         password: '',
         confirmPassword: '',
+        avatar: user.currentAvatar?.image || '',
       });
     }
   }, [user, reset]);
 
+
   const onSubmit: SubmitHandler<SettingsFormInputs> = async (data) => {
     if (!user?.id) return;
 
-    let finalDate = null;
-    if (data.birthDate) {
-      const dateObj = new Date(data.birthDate);
-      if (!isNaN(dateObj.getTime())) {
-        finalDate = dateObj.toISOString();
-      }
-    }
-
     try {
+      if (data.avatar && data.avatar.startsWith('file://')) {
+        const base64 = await FileSystem.readAsStringAsync(data.avatar, {
+            encoding: 'base64', 
+          });
+        
+        const base64Image = `data:image/jpeg;base64,${base64}`;
+
+        await updateAvatar({
+          userId: user.id,
+          image: base64Image
+        }).unwrap();
+      }
+
+      let finalDate = null;
+      if (data.birthDate) {
+        const dateObj = new Date(data.birthDate);
+        if (!isNaN(dateObj.getTime())) {
+          finalDate = dateObj.toISOString();
+        }
+      }
+
       await updateUser({
         userId: user.id,
         body: {
           authorName: data.authorName,
           userName: data.userName,
           email: data.email,
-          birthDate: finalDate as any, 
+          birthDate: finalDate as any,
           sign: data.useSignature ? data.authorName : '',
         }
       }).unwrap();
-      
+
       setIsEditingCard(false);
       setIsEditingInfo(false);
       setIsEditingPassword(false);
       setIsEditingSignature(false);
+
       reset({
         ...data,
         password: '',
         confirmPassword: '',
       });
     } catch (e) {
-      Alert.alert("Помилка", "Не вдалося зберегти зміни");
+      console.error(e);
     }
   };
 
-  const isLoading = isUserLoading || isUpdating;
+  const isLoading = isUserLoading || isUpdating || isAvatarUpdating;
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.plum50 }}>
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        <RadioTabs 
+        <RadioTabs
           radioTabsArray={[
-            { 
-              title: "Особиста Інформація", 
+            {
+              title: "Особиста Інформація",
               content: (
                 <View>
-                  
                   <View style={[styles.card, { paddingVertical: isEditingCard ? 20 : 24 }]}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Картка профілю</Text>
                       {isEditingCard ? (
                         <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
                       ) : (
-                        <RoundButton onPress={() => setIsEditingCard(true)} icon={<ICONS.edit />} /> 
+                        <RoundButton onPress={() => setIsEditingCard(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
 
@@ -117,8 +137,15 @@ export default function ProfileScreen() {
                         <Text style={{ color: '#1C1C1E', fontSize: 16, marginBottom: 15 }}>
                           Оберіть або завантажте фото профілю
                         </Text>
-                        
-                        <View style={{ width: 120, height: 120, borderRadius: 60, backgroundColor: '#E0E0E0', marginBottom: 20 }} />
+                        <View>
+                          <Controller
+                            name="avatar"
+                            control={control}
+                            render={({ field }) => (
+                              <AvatarField value={field.value} onChange={field.onChange} disabled={false} />
+                            )}
+                          />
+                        </View>
 
                         <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25 }}>
                           <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -132,7 +159,7 @@ export default function ProfileScreen() {
                         </View>
 
                         <Text style={{ fontSize: 24, fontWeight: '700', color: '#1C1C1E', marginBottom: 15 }}>
-                          {user?.authorName || 'Lina Li'}
+                          {user?.authorName}
                         </Text>
 
                         <View style={{ width: '100%' }}>
@@ -140,12 +167,12 @@ export default function ProfileScreen() {
                             name="userName"
                             control={control}
                             render={({ field: { onChange, value }, fieldState: { error } }) => (
-                              <Input 
+                              <Input
                                 label="Ім’я користувача"
-                                value={value ? `@${value.replace('@', '')}` : ''} 
-                                onChangeText={(text) => onChange(text.replace('@', ''))} 
+                                value={value ? `@${value.replace('@', '')}` : ''}
+                                onChangeText={(text) => onChange(text.replace('@', ''))}
                                 error={error?.message}
-                                editable={true} 
+                                editable={true}
                               />
                             )}
                           />
@@ -153,7 +180,7 @@ export default function ProfileScreen() {
                       </View>
                     ) : (
                       <View style={[styles.avatarSection, { alignItems: 'center' }]}>
-                        <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: '#E0E0E0', marginBottom: 12 }} />
+                        <AvatarField value={user?.currentAvatar?.image} onChange={() => {}} disabled />
                         <Text style={[styles.name, { fontSize: 20, fontWeight: '700' }]}>
                           {user?.authorName || ''}
                         </Text>
@@ -178,80 +205,64 @@ export default function ProfileScreen() {
                         name={fieldName}
                         control={control}
                         render={({ field: { onChange, value }, fieldState: { error } }) => (
-                          <Input 
+                          <Input
                             label={
                               fieldName === 'authorName' ? "Ім'я автора" :
                               fieldName === 'birthDate' ? "Дата народження" : "Електронна адреса"
                             }
                             placeholder={fieldName === 'birthDate' ? "YYYY-MM-DD" : ""}
-                            value={value?.toString() || ''} 
-                            onChangeText={onChange} 
+                            value={value?.toString() || ''}
+                            onChangeText={onChange}
                             error={error?.message}
-                            editable={isEditingInfo} 
+                            editable={isEditingInfo}
                             inputMode={fieldName === 'email' ? 'email' : 'text'}
-                            inputContainerStyle={{ opacity: isEditingInfo ? 1 : 0.6 }} 
+                            inputContainerStyle={{ opacity: isEditingInfo ? 1 : 0.6 }}
                           />
                         )}
                       />
                     ))}
                   </View>
 
-                  {!isEditingPassword ? (
-                    <View style={styles.card}>
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>Пароль</Text>
+                  <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                      <Text style={styles.cardTitle}>Пароль</Text>
+                      {isEditingPassword ? (
+                         <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Змінити пароль' />
+                      ) : (
                         <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />
-                      </View>
+                      )}
+                    </View>
+                    <View style={{ gap: 16 }}>
                       <Controller
                         name="password"
                         control={control}
                         render={({ field: { onChange, value }, fieldState: { error } }) => (
-                          <Input.Password 
-                            label="Новий пароль" 
-                            value={value || ''} 
-                            onChangeText={onChange} 
-                            error={error?.message} 
-                            editable={true}
+                          <Input.Password
+                            label="Новий пароль"
+                            value={value || ''}
+                            onChangeText={onChange}
+                            error={error?.message}
+                            editable={isEditingPassword}
                           />
                         )}
                       />
-                    </View>
-                  ) : (
-                    <View style={styles.card}>
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>Пароль</Text>
-                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Змінити пароль' />
-                      </View>
-                      <View style={{gap: 16}}>
-                        <Controller
-                          name="password"
-                          control={control}
-                          render={({ field: { onChange, value }, fieldState: { error } }) => (
-                            <Input.Password 
-                              label="Новий пароль" 
-                              value={value || ''} 
-                              onChangeText={onChange} 
-                              error={error?.message} 
-                              editable={true}
-                            />
-                          )}
-                        />
+                      {isEditingPassword && (
                         <Controller
                           name="confirmPassword"
                           control={control}
                           render={({ field: { onChange, value }, fieldState: { error } }) => (
-                            <Input.Password 
-                              label="Підтвердьте новий пароль" 
-                              value={value || ''} 
-                              onChangeText={onChange} 
-                              error={error?.message} 
+                            <Input.Password
+                              label="Підтвердьте новий пароль"
+                              value={value || ''}
+                              onChangeText={onChange}
+                              error={error?.message}
                               editable={true}
                             />
                           )}
                         />
-                      </View>
+                      )}
                     </View>
-                  )}
+                  </View>
 
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -262,13 +273,13 @@ export default function ProfileScreen() {
                         <RoundButton onPress={() => setIsEditingSignature(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-                    
+
                     <Controller
                       name="usePseudonym"
                       control={control}
                       render={({ field: { onChange, value } }) => (
-                        <TouchableOpacity 
-                          style={[styles.checkboxRow, { opacity: isEditingSignature ? 1 : 0.6 }]} 
+                        <TouchableOpacity
+                          style={[styles.checkboxRow, { opacity: isEditingSignature ? 1 : 0.6 }]}
                           onPress={() => isEditingSignature && onChange(!value)}
                           activeOpacity={isEditingSignature ? 0.7 : 1}
                         >
@@ -285,8 +296,8 @@ export default function ProfileScreen() {
                       name="useSignature"
                       control={control}
                       render={({ field: { onChange, value } }) => (
-                        <TouchableOpacity 
-                          style={[styles.checkboxRow, { opacity: isEditingSignature ? 1 : 0.6 }]} 
+                        <TouchableOpacity
+                          style={[styles.checkboxRow, { opacity: isEditingSignature ? 1 : 0.6 }]}
                           onPress={() => isEditingSignature && onChange(!value)}
                           activeOpacity={isEditingSignature ? 0.7 : 1}
                         >
@@ -296,18 +307,18 @@ export default function ProfileScreen() {
                       )}
                     />
                   </View>
-                  
+
                   {isLoading && <ActivityIndicator color={COLORS.darkBlue} style={{ marginVertical: 20 }} />}
                 </View>
-              ) 
+              )
             },
-            { 
-              title: "Альбоми", 
+            {
+              title: "Альбоми",
               content: (
                 <View style={styles.placeholder}>
                   <Text style={{ textAlign: 'center', marginTop: 50 }}>Тут будуть альбоми</Text>
                 </View>
-              ) 
+              )
             }
           ]}
         />
