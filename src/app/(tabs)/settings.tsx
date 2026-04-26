@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import { Controller, useForm, SubmitHandler } from "react-hook-form"; 
 import { yupResolver } from "@hookform/resolvers/yup";
+import { BlurView } from 'expo-blur';
 
 import { RadioTabs } from "../../shared/ui/RadioTab";
 import { Input } from "../../shared/ui/input";
@@ -12,23 +13,28 @@ import { COLORS } from "../../shared/constants";
 
 import { styles } from "./settings.styles";
 import { settingsValidator, SettingsFormInputs } from "./settings.validation";
-import { useMeQuery, useUpdateAvatarMutation, useUpdateMutation } from "../../shared/api/baseApi";
+import { useMeQuery, useUpdateAvatarMutation, useUpdateMutation, useLazySendCodeVerifyQuery } from "../../shared/api/baseApi";
 import { AvatarField } from '../../modules/settings/ui/avatar-field';
+import { CodeConfirmationModal } from '../../shared/ui/codeConfirmationModal';
 
 import * as FileSystem from 'expo-file-system/legacy';
-
+import { Avatars } from '../../modules/settings/ui/avatars/avatars';
+import { Albums } from '../../modules/settings/ui/album/album';
 
 export default function ProfileScreen() {
   const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { pollingInterval: 3000 });
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
   const [updateAvatar, { isLoading: isAvatarUpdating }] = useUpdateAvatarMutation();
+  const [sendCode, { isLoading: isSendingCode }] = useLazySendCodeVerifyQuery();
 
+  console.log(user?.currentAvatar)
+  const [step, setStep] = useState(1);
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [isEditingSignature, setIsEditingSignature] = useState(false);
 
-  const { handleSubmit, control, reset } = useForm<SettingsFormInputs>({
+  const { handleSubmit, control, reset, getValues } = useForm<SettingsFormInputs>({
     resolver: yupResolver(settingsValidator),
     defaultValues: {
       authorName: '',
@@ -59,22 +65,16 @@ export default function ProfileScreen() {
     }
   }, [user, reset]);
 
-
   const onSubmit: SubmitHandler<SettingsFormInputs> = async (data) => {
     if (!user?.id) return;
 
     try {
       if (data.avatar && data.avatar.startsWith('file://')) {
         const base64 = await FileSystem.readAsStringAsync(data.avatar, {
-            encoding: 'base64', 
-          });
-        
+          encoding: 'base64', 
+        });
         const base64Image = `data:image/jpeg;base64,${base64}`;
-
-        await updateAvatar({
-          userId: user.id,
-          image: base64Image
-        }).unwrap();
+        await updateAvatar({ userId: user.id, image: base64Image }).unwrap();
       }
 
       let finalDate = null;
@@ -96,22 +96,46 @@ export default function ProfileScreen() {
         }
       }).unwrap();
 
-      setIsEditingCard(false);
-      setIsEditingInfo(false);
-      setIsEditingPassword(false);
-      setIsEditingSignature(false);
+      if (isEditingPassword && data.password) {
+        await sendCode({ gmail: user.email }).unwrap();
+        setStep(2);
+      } else {
+        setIsEditingCard(false);
+        setIsEditingInfo(false);
+        setIsEditingPassword(false);
+        setIsEditingSignature(false);
+      }
 
-      reset({
-        ...data,
-        password: '',
-        confirmPassword: '',
-      });
     } catch (e) {
       console.error(e);
     }
   };
 
-  const isLoading = isUserLoading || isUpdating || isAvatarUpdating;
+  const handleConfirmCode = async () => {
+    const values = getValues();
+    
+    try {
+      await updateUser({
+        userId: user?.id!,
+        body: {
+          password: values.password
+        }
+      }).unwrap();
+
+      setStep(1);
+      setIsEditingPassword(false);
+      reset({
+        ...values,
+        password: '*******',
+        confirmPassword: '*******',
+      });
+    } catch (e) {
+      console.error("Помилка при зміні пароля:", e);
+    }
+  };
+
+  const isLoading = isUserLoading || isUpdating || isAvatarUpdating || isSendingCode;
+
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.plum50 }}>
@@ -142,11 +166,10 @@ export default function ProfileScreen() {
                             name="avatar"
                             control={control}
                             render={({ field }) => (
-                              <AvatarField value={field.value} onChange={field.onChange} disabled={false} />
-                            )}
+                              <AvatarField value={`${field.value}`} onChange={field.onChange} disabled={false} />
+                              )}
                           />
                         </View>
-
                         <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25 }}>
                           <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <ICONS.plus color={COLORS.blue10} />
@@ -157,11 +180,9 @@ export default function ProfileScreen() {
                             <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Оберіть фото</Text>
                           </TouchableOpacity>
                         </View>
-
                         <Text style={{ fontSize: 24, fontWeight: '700', color: '#1C1C1E', marginBottom: 15 }}>
                           {user?.authorName}
                         </Text>
-
                         <View style={{ width: '100%' }}>
                           <Controller
                             name="userName"
@@ -198,7 +219,6 @@ export default function ProfileScreen() {
                         <RoundButton onPress={() => setIsEditingInfo(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-
                     {(['authorName', 'birthDate', 'email'] as const).map((fieldName) => (
                       <Controller
                         key={fieldName}
@@ -239,6 +259,7 @@ export default function ProfileScreen() {
                         render={({ field: { onChange, value }, fieldState: { error } }) => (
                           <Input.Password
                             label="Новий пароль"
+                            placeholder="Введи пароль"
                             value={value || ''}
                             onChangeText={onChange}
                             error={error?.message}
@@ -253,6 +274,7 @@ export default function ProfileScreen() {
                           render={({ field: { onChange, value }, fieldState: { error } }) => (
                             <Input.Password
                               label="Підтвердьте новий пароль"
+                              placeholder="Введи пароль"
                               value={value || ''}
                               onChangeText={onChange}
                               error={error?.message}
@@ -273,7 +295,6 @@ export default function ProfileScreen() {
                         <RoundButton onPress={() => setIsEditingSignature(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-
                     <Controller
                       name="usePseudonym"
                       control={control}
@@ -291,7 +312,6 @@ export default function ProfileScreen() {
                     <Text style={[styles.signatureText, { marginLeft: 32, color: '#8E8E93', marginBottom: 15 }]}>
                       {user?.authorName}
                     </Text>
-
                     <Controller
                       name="useSignature"
                       control={control}
@@ -307,7 +327,6 @@ export default function ProfileScreen() {
                       )}
                     />
                   </View>
-
                   {isLoading && <ActivityIndicator color={COLORS.darkBlue} style={{ marginVertical: 20 }} />}
                 </View>
               )
@@ -316,13 +335,38 @@ export default function ProfileScreen() {
               title: "Альбоми",
               content: (
                 <View style={styles.placeholder}>
-                  <Text style={{ textAlign: 'center', marginTop: 50 }}>Тут будуть альбоми</Text>
+                  <Avatars />
+                  <Albums />
                 </View>
               )
             }
           ]}
         />
       </ScrollView>
+
+      {step === 2 && (
+        <View style={StyleSheet.absoluteFill}>
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={localStyles.modalOverlay}>
+            <CodeConfirmationModal 
+              title="Підтвердження"
+              email={user?.email || ''}
+              setStep={setStep}
+              onConfirm={handleConfirmCode}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 20,
+  }
+});

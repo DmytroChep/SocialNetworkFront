@@ -7,6 +7,11 @@ export const styles = StyleSheet.create({
 		borderColor: COLORS.darkBlue,
 		borderRadius: 1234,
 		borderWidth: 1,
+		backgroundColor: "white",
+		width: 44,
+		height: 44,
+		alignItems: "center",
+		justifyContent: "center"
 	},
 	greyButton: {
 		padding: 11,
@@ -14,5 +19,9 @@ export const styles = StyleSheet.create({
 		borderRadius: 1234,
 		borderWidth: 1,
 		backgroundColor: COLORS.plum50,
+		width: 44,
+		height: 44,
+		alignItems: "center",
+		justifyContent: "center"
 	},
 });

@@ -1,2 +1,2 @@
-export {IUser} from "./User.type"
+export {IUser, IContact} from "./User.type"
 export {IAuthUser} from "./auth-user.type"

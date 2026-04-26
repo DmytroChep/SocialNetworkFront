@@ -10,6 +10,7 @@ interface AvatarFieldProps {
 }
 
 export function AvatarField({ value, onChange, disabled }: AvatarFieldProps) {
+    console.log("Current Avatar URI:", value);
     async function pickImage() {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
@@ -28,7 +29,7 @@ export function AvatarField({ value, onChange, disabled }: AvatarFieldProps) {
             <View style={styles.AvatarView}>
                 {value ? (
                     <Image 
-                        source={{ uri: value }} 
+                        source={{ uri: `http://10.0.2.2:8000${value}` }} 
                         style={styles.SelectedAvatar} 
                         resizeMode="cover"
                     />

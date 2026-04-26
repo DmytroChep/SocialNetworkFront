@@ -76,5 +76,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 50,
+    gap: 10,
+    paddingBottom: 24
   },
 });

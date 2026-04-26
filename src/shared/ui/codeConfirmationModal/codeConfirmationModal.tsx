@@ -1,4 +1,4 @@
-import { Text, TextInput, View, ActivityIndicator } from "react-native";
+import { Text, TextInput, View, ActivityIndicator, TouchableOpacity } from "react-native";
 import { CodeConfirmationModalProps } from "./codeConfirmationModal.types";
 import { styles } from "./codeConfirmationModal.styles";
 import { useRef, useState } from "react";
@@ -7,7 +7,7 @@ import { useLazyCheckIsCodeExistsQuery } from "../../api/baseApi";
 import { useRouter } from "expo-router";
 
 export function CodeConfirmationModal(props: CodeConfirmationModalProps) {
-    const { title, email, setStep } = props;
+    const { title, email, setStep, onConfirm } = props;
     const router = useRouter();
     
     const [codeValues, setCodeValues] = useState<string[]>(new Array(6).fill(""));
@@ -35,13 +35,20 @@ export function CodeConfirmationModal(props: CodeConfirmationModalProps) {
         if (fullCode.length === 6) {
             try {
                 const response = await checkIsCodeExists({ code: Number(fullCode) }).unwrap();
+                
                 if (response) {
-                    router.replace("(tabs)/main");
+                    if (onConfirm) {
+                        // Якщо ми в налаштуваннях профілю, викликаємо функцію оновлення пароля
+                        await onConfirm();
+                    } else {
+                        // Якщо це реєстрація, просто переходимо на головну
+                        router.replace("(tabs)/main");
+                    }
                 } else {
                     setLocalError("Невірний код");
                 }
             } catch (err) {
-                setLocalError(null);
+                setLocalError("Помилка підтвердження коду");
             }
         }
     };
@@ -59,7 +66,11 @@ export function CodeConfirmationModal(props: CodeConfirmationModalProps) {
     return (
         <View style={styles.modal}>
             <Text style={styles.title}>{title}</Text>
-            <Text style={styles.description}>Ми надіслали 6-значний код на вашу пошту {"\n"} ({email}). Введіть його нижче, щоб підтвердити акаунт</Text>
+            <Text style={styles.description}>
+                Ми надіслали 6-значний код на вашу пошту {"\n"} ({email}). 
+                Введіть його нижче, щоб підтвердити дію
+            </Text>
+
             <View style={styles.confirmCodeView}>
                 <Text style={styles.codeTitle}>Код підтвердження</Text>
                 <View style={styles.codeViewInputs}>
@@ -77,20 +88,29 @@ export function CodeConfirmationModal(props: CodeConfirmationModalProps) {
                     ))}
                 </View>
             </View>
+
             <View style={styles.buttonView}>
                 {(isError || localError) && (
                     <Text style={{ color: "red", marginBottom: 10, textAlign: 'center' }}>
                         {getErrorMessage()}
                     </Text>
                 )}
+                
                 <Button 
                     title={isLoading ? "Перевірка..." : "Підтвердити"} 
                     onPress={handleConfirm} 
                     disabled={isLoading || codeValues.join("").length < 6}
-                    style={[styles.button, (isLoading || codeValues.join("").length < 6) && { opacity: 0.6 }]}
+                    style={[
+                        styles.button, 
+                        (isLoading || codeValues.join("").length < 6) && { opacity: 0.6 }
+                    ]}
                 />
-                {isLoading && <ActivityIndicator style={{ marginTop: 5 }} />}
-                <Text onPress={() => setStep(1)}>Назад</Text>
+                
+                {isLoading && <ActivityIndicator style={{ marginTop: 5 }} color="#000" />}
+                
+                <TouchableOpacity onPress={() => setStep(1)} style={{ marginTop: 15 }}>
+                    <Text style={{ color: '#8E8E93', textAlign: 'center' }}>Назад</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );

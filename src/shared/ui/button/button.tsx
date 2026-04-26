@@ -5,7 +5,7 @@ import { COLORS } from "../../constants";
 import { ICONS } from "../../icons";
 
 export function Button(props: ButtonProps) {
-	const { title, style, titleStyle, disabled, ...restProps } = props;
+	const { title, style, titleStyle, disabled, iconLeft, iconRight, ...restProps } = props;
 
 	return (
 		<TouchableOpacity
@@ -13,11 +13,13 @@ export function Button(props: ButtonProps) {
 			disabled={disabled}
 			{...restProps}
 		>
+			{iconLeft ?  iconLeft : false}
 			<Text
 				style={[styles.text, disabled && styles.disabledText, titleStyle]}
 			>
 				{title}
 			</Text>
+			{iconRight ? iconRight : false}
 		</TouchableOpacity>
 	);
 }
