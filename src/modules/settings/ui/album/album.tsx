@@ -5,13 +5,16 @@ import { styles } from "./album.styles";
 import { RoundButton } from "../../../../shared/ui/RoundButton";
 import { ICONS } from "../../../../shared/icons";
 import { CreateAlbumModal } from "../redact-album-modal/redactalbumModal";
-import { AlbumPopUp } from "../albumPopUp/albumPopUp"
+import { AlbumPopUp } from "../albumPopUp/albumPopUp";
+import { EditAlbumModal } from '../editAlbumModal/editAlbumModal';
 import { COLORS } from "../../../../shared/constants";
 
 export function Albums() {
     const { user } = useUserContext();
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isRedactPopupOpen, setIsRedactPopupOpen] = useState<boolean>(false)
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedAlbum, setSelectedAlbum] = useState(null);
 
     if (!user) {
         return null;
@@ -19,7 +22,7 @@ export function Albums() {
 
     return (
         <View style={styles.albumsParentView}>
-            {user.albums.length === 0 ? (
+            {user.albums?.length === 0 ? (
                 <View style={styles.albums}>
                     <Text style={styles.albumsText}>Немає ще жодного альбому</Text>
                     <RoundButton 
@@ -42,8 +45,13 @@ export function Albums() {
                             isVisible={isRedactPopupOpen}
                             onClose={() => setIsRedactPopupOpen(false)}
                         />
+                        <EditAlbumModal
+                            visible={isEditModalOpen}
+                            onClose={() => setIsEditModalOpen(false)}
+                            albumData={selectedAlbum}
+                        />
                     </View>
-                    {user.albums.map((element, index) => (
+                    {user.albums?.map((element, index) => (
                         <View key={index} style={styles.albumsExists}>
                             <View style={styles.header}>
                                 <Text style={styles.albumsText}>{element.name}</Text>

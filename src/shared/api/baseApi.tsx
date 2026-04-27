@@ -8,7 +8,8 @@ import { IAlbum, ITag } from "../context/types/User.type";
 export const baseApi = createApi({
   reducerPath: "api",
     baseQuery: fetchBaseQuery({
-        baseUrl: "http://10.0.2.2:8000/",
+        //baseUrl: "http://0.0.0.0:8000/", - для эмулятора Android
+        baseUrl: "http://192.168.1.74:8000/",
         prepareHeaders: async (headers) => {
             const token = await AsyncStorage.getItem("token");
             if (token) {

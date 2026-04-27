@@ -92,38 +92,43 @@ export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
               />
 
               <Controller
-                name="topic" 
+                name="topic"
                 control={control}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Оберіть тему</Text>
                     <Dropdown
-                        style={[styles.dropdown, error && { borderColor: COLORS.lightRed }]}
-                        placeholderStyle={styles.placeholder}
-                        selectedTextStyle={styles.dropdownText}
-                        containerStyle={styles.dropdownContainer}
-                        itemTextStyle={styles.dropdownItemText}
-                        activeColor={COLORS.blue20 || '#F3F4F6'}
-                        
-                        // 1. Створюємо масив об'єктів з ключами label та value
-                        data={(hashTags || []).map(hashtag => ({
-                          label: hashtag.title,
-                          value: hashtag.title // або hashtag.id, якщо сервер очікує ID
-                        }))}
-                        
-                        // 2. Тепер ці назви полів збігаються з об'єктами вище
-                        labelField="label"
-                        valueField="value"
-                        
-                        placeholder="Оберіть тему"
-                        value={value}
-                        onChange={item => {
-                          onChange(item.value); // item — це весь вибраний об'єкт
-                        }}
-                        renderRightIcon={() => (
-                          <Text style={styles.chevron}>⌄</Text>
-                        )}
-                      />
+                      style={[styles.dropdown, error && { borderColor: COLORS.lightRed }]}
+                      placeholderStyle={styles.placeholder}
+                      selectedTextStyle={styles.dropdownText}
+                      containerStyle={styles.dropdownContainer}
+                      itemTextStyle={styles.dropdownItemText}
+                      activeColor={COLORS.blue20 || '#F3F4F6'}
+                      
+                      // Якщо hashTags порожні, підставляємо тимчасовий список, щоб можна було клацнути
+                      data={hashTags && hashTags.length > 0 
+                        ? hashTags.map(h => ({ label: h.title, value: h.title }))
+                        : [
+                            { label: 'Природа', value: 'Природа' },
+                            { label: 'Подорожі', value: 'Подорожі' },
+                            { label: 'Сім\'я', value: 'Сім\'я' }
+                          ]
+                      }
+                      
+                      labelField="label"
+                      valueField="value"
+                      placeholder="Оберіть тему"
+                      value={value}
+                      onChange={item => {
+                        onChange(item.value);
+                      }}
+                      flatListProps={{
+                        nestedScrollEnabled: true,
+                      }}
+                      renderRightIcon={() => (
+                        <Text style={styles.chevron}>⌄</Text>
+                      )}
+                    />
                     {error && <Text style={styles.errorText}>{error.message}</Text>}
                   </View>
                 )}
