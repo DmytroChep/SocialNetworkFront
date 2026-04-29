@@ -6,15 +6,12 @@ import { RoundButton } from "../../../../shared/ui/RoundButton";
 import { ICONS } from "../../../../shared/icons";
 import { CreateAlbumModal } from "../redact-album-modal/redactalbumModal";
 import { AlbumPopUp } from "../albumPopUp/albumPopUp";
-import { EditAlbumModal } from '../editAlbumModal/editAlbumModal';
 import { COLORS } from "../../../../shared/constants";
 
 export function Albums() {
     const { user } = useUserContext();
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-    const [isRedactPopupOpen, setIsRedactPopupOpen] = useState<boolean>(false)
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedAlbum, setSelectedAlbum] = useState(null);
+    const [isRedactPopupOpen, setIsRedactPopupOpen] = useState<boolean>(false);
 
     if (!user) {
         return null;
@@ -44,11 +41,6 @@ export function Albums() {
                         <AlbumPopUp
                             isVisible={isRedactPopupOpen}
                             onClose={() => setIsRedactPopupOpen(false)}
-                        />
-                        <EditAlbumModal
-                            visible={isEditModalOpen}
-                            onClose={() => setIsEditModalOpen(false)}
-                            albumData={selectedAlbum}
                         />
                     </View>
                     {user.albums?.map((element, index) => (

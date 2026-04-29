@@ -22,6 +22,7 @@ import { HeartIcon } from "./_icons/heart";
 import { HeartFillIcon } from "./_icons/heartFill";
 import { EyeClosed } from "./_icons/eye-closed";
 import {Cross} from "./_icons/cross"
+import { Send } from "./_icons/send";
 
 export const ICONS = {
     home: HomeIcon,
@@ -47,5 +48,6 @@ export const ICONS = {
     checkboxOutline: CheckboxOutlineIcon,
     heart: HeartIcon,
     heartFill: HeartFillIcon,
-    eyeClosed: EyeClosed 
+    eyeClosed: EyeClosed ,
+    Send,
 }  
