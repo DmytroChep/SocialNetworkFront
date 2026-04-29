@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { styles } from "./avatar-field.styles";
+import { ip } from "../../../../config/ip";
 
 interface AvatarFieldProps {
     value?: string;
@@ -10,7 +11,10 @@ interface AvatarFieldProps {
 }
 
 export function AvatarField({ value, onChange, disabled }: AvatarFieldProps) {
-    console.log("Current Avatar URI:", value);
+
+    const finalValue = value?.includes("file:///") 
+    ? value 
+    : `http://${ip}:8000${value}`;
     async function pickImage() {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
@@ -29,7 +33,7 @@ export function AvatarField({ value, onChange, disabled }: AvatarFieldProps) {
             <View style={styles.AvatarView}>
                 {value ? (
                     <Image 
-                        source={{ uri: `http://10.0.2.2:8000${value}` }} 
+                        source={{ uri: finalValue }} 
                         style={styles.SelectedAvatar} 
                         resizeMode="cover"
                     />

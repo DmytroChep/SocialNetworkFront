@@ -5,13 +5,20 @@ export interface IContact {
     userName?: string,
     email?: string
 }
-export interface IAlbum{
+export interface IAlbumImage {
+    id: number;
+    image: string;
+    albumId: number;
+}
+
+export interface IAlbum {
     id?: number;
     name: string;
     topic?: string;
     year?: string;
     userId: number;
-    }
+    images?: IAlbumImage[];
+}
 
 export interface ITag {
     id: number;
@@ -26,8 +33,9 @@ export interface IUser {
     status: string,
     birthDate: Date,
     sign: string,
+    signatureImage?: string,
     currentAvatarId: string,
-    password?: string
+    password?: string,
     currentAvatar: {
         id: number,
         image: string,

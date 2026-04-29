@@ -2,13 +2,14 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { IAuthUser, IUser, IContact } from "../context/types";
 import { IPartialUser } from "../context/types/partial-user.type";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IAlbum, ITag } from "../context/types/User.type";
+import { IAlbum, IAlbumImage, ITag } from "../context/types/User.type";
+import { ip } from "../../config/ip";
 
 
 export const baseApi = createApi({
   reducerPath: "api",
     baseQuery: fetchBaseQuery({
-        baseUrl: "http://10.0.2.2:8000/",
+        baseUrl: `http://${ip}:8000/`,
         prepareHeaders: async (headers) => {
             const token = await AsyncStorage.getItem("token");
             if (token) {
@@ -101,6 +102,26 @@ export const baseApi = createApi({
         url: "hashtags",
       }),
     }),
+    addAlbumImages: builder.mutation<IAlbum, { albumId: number;name: string,userId: number, images: {image:string}[] }>({
+      query: ({ albumId, images, userId, name }) => ({
+        url: `album/${albumId}/images`,
+        method: "POST",
+        body: { images, name, userId },
+      }),
+    }),
+    deleteAlbumImage: builder.mutation<void, number>({
+      query: (imageId) => ({
+        url: `album/images/${imageId}`,
+        method: "DELETE",
+      }),
+    }),
+    replaceAlbumImages: builder.mutation<IAlbum, { albumId: number;name: string,userId: number, images: { image: string }[] }>({
+      query: ({ albumId, images }) => ({
+        url: `album/${albumId}/images`,
+        method: "PATCH",
+        body: { images},
+      }),
+    }),
   }),
 });
 
@@ -119,4 +140,7 @@ export const {
   useUpdateAlbumMutation,
   useDeleteAlbumMutation,
   useGetAllHashtagsQuery,
+  useAddAlbumImagesMutation,
+  useDeleteAlbumImageMutation,
+  useReplaceAlbumImagesMutation,
 } = baseApi;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -9,41 +9,65 @@ import { styles } from './redactAlbumModal.styles';
 import { Input } from '../../../../shared/ui/input';
 import { Button } from '../../../../shared/ui/button';
 import { COLORS } from '../../../../shared/constants';
-import { useCreateAlbumMutation, useGetAllHashtagsQuery } from '../../../../shared/api/baseApi';
-import { useUserContext } from '../../../../shared/context/user-context'; // Импортируй свой контекст
+import { useCreateAlbumMutation, useUpdateAlbumMutation, useGetAllHashtagsQuery } from '../../../../shared/api/baseApi';
+import { useUserContext } from '../../../../shared/context/user-context';
+import { IAlbum } from '../../../../shared/context/types';
 
-// Валидация под IAlbum (используем topic вместо theme)
 const albumSchema = yup.object().shape({
   name: yup.string().required("Обов'язкове поле"),
-  topic: yup.string().required("Оберіть тему"),
+  topic: yup.string().nullable().required("Оберіть тему"),
   year: yup.string().required("Обов'язкове поле"),
 });
 
-type AlbumFormData = Omit<IAlbum, 'id' | 'userId'>;
+type AlbumFormData = {
+  name: string;
+  topic: string;
+  year: string;
+};
 
 interface CreateAlbumModalProps {
   visible: boolean;
   onClose: () => void;
+  initialData?: IAlbum;
 }
 
 
 
-export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
+export function CreateAlbumModal({ visible, onClose, initialData }: CreateAlbumModalProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const { user } = useUserContext();
-  const [createAlbum, { isLoading }] = useCreateAlbumMutation(); 
-  const {data:hashTags} = useGetAllHashtagsQuery()
+  const [createAlbum, { isLoading: isCreateLoading }] = useCreateAlbumMutation();
+  const [updateAlbum, { isLoading: isUpdateLoading }] = useUpdateAlbumMutation();
+  const { data: hashTags } = useGetAllHashtagsQuery();
   const { control, handleSubmit, reset } = useForm<AlbumFormData>({
     resolver: yupResolver(albumSchema),
     defaultValues: {
-      name: '',
-      topic: '',
-      year: ''
+      name: initialData?.name || '',
+      topic: initialData?.topic || '',
+      year: initialData?.year || ''
     }
   });
-  console.log(hashTags)
 
-  const onSubmit = async (data: AlbumFormData) => {
+  useEffect(() => {
+    if (visible && initialData) {
+      reset({
+        name: initialData.name,
+        topic: initialData.topic,
+        year: initialData.year
+      });
+    } else if (visible) {
+      reset({
+        name: '',
+        topic: '',
+        year: ''
+      });
+    }
+  }, [visible, initialData, reset]);
+
+  const isLoading = isCreateLoading || isUpdateLoading;
+  const isEditMode = !!initialData;
+
+  const onSubmit = async (data: any) => {
     if (!user?.id) {
       setServerError("Користувач не авторизований");
       return;
@@ -51,15 +75,22 @@ export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
 
     setServerError(null);
     try {
-      await createAlbum({
-        ...data,
-        userId: user.id
-      }).unwrap();
+      if (isEditMode && initialData && initialData.id) {
+        await updateAlbum({
+          id: initialData.id,
+          body: data
+        }).unwrap();
+      } else {
+        await createAlbum({
+          ...data,
+          userId: user.id
+        }).unwrap();
+      }
       
       reset();
       onClose();
     } catch (error: any) {
-      setServerError(error?.data?.message || "Помилка при створенні альбому");
+      setServerError(error?.data?.message || `Помилка при ${isEditMode ? 'редагуванні' : 'створенні'} альбому`);
     }
   };
 
@@ -69,7 +100,7 @@ export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
         <View style={styles.modalContainer}>
           
           <View style={styles.header}>
-            <Text style={styles.title}>Створити альбом</Text>
+            <Text style={styles.title}>{isEditMode ? 'Редагувати альбом' : 'Створити альбом'}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={10}>
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
@@ -105,20 +136,18 @@ export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
                         itemTextStyle={styles.dropdownItemText}
                         activeColor={COLORS.blue20 || '#F3F4F6'}
                         
-                        // 1. Створюємо масив об'єктів з ключами label та value
                         data={(hashTags || []).map(hashtag => ({
                           label: hashtag.title,
-                          value: hashtag.title // або hashtag.id, якщо сервер очікує ID
+                          value: hashtag.title
                         }))}
                         
-                        // 2. Тепер ці назви полів збігаються з об'єктами вище
                         labelField="label"
                         valueField="value"
                         
                         placeholder="Оберіть тему"
                         value={value}
                         onChange={item => {
-                          onChange(item.value); // item — це весь вибраний об'єкт
+                          onChange(item.value);
                         }}
                         renderRightIcon={() => (
                           <Text style={styles.chevron}>⌄</Text>
@@ -158,7 +187,7 @@ export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
             </TouchableOpacity>
             
             <Button
-              title={isLoading ? "Збереження..." : "Зберегти"}
+              title={isLoading ? "Збереження..." : isEditMode ? "Оновити" : "Зберегти"}
               onPress={handleSubmit(onSubmit)}
               disabled={isLoading}
               style={[styles.saveButton, isLoading && { opacity: 0.7 }]}
@@ -168,12 +197,4 @@ export function CreateAlbumModal({ visible, onClose }: CreateAlbumModalProps) {
       </View>
     </Modal>
   );
-}
-
-export interface IAlbum {
-  id: number;
-  name: string;
-  topic: string;
-  year: string;
-  userId: number;
 }
