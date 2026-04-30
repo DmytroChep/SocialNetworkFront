@@ -6,7 +6,7 @@ import { styles } from "./album.styles";
 import { RoundButton } from "../../../../shared/ui/RoundButton";
 import { ICONS } from "../../../../shared/icons";
 import { CreateAlbumModal } from "../redact-album-modal/redactalbumModal";
-import { AlbumPopUp } from "../albumPopUp/albumPopUp"
+import { AlbumPopUp } from "../albumPopUp/albumPopUp";
 import { COLORS } from "../../../../shared/constants";
 import { useDeleteAlbumMutation, useAddAlbumImagesMutation, useDeleteAlbumImageMutation } from "../../../../shared/api/baseApi";
 import { IAlbum } from "../../../../shared/context/types";
@@ -106,7 +106,7 @@ export function Albums() {
 
     return (
         <View style={styles.albumsParentView}>
-            {user.albums.length === 0 ? (
+            {user.albums?.length === 0 ? (
                 <View style={styles.albums}>
                     <Text style={styles.albumsText}>Немає ще жодного альбому</Text>
                     <RoundButton 

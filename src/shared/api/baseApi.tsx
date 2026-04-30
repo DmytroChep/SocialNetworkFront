@@ -4,6 +4,7 @@ import { IPartialUser } from "../context/types/partial-user.type";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IAlbum, IAlbumImage, ITag } from "../context/types/User.type";
 import { ip } from "../../config/ip";
+import { ICreatePost, IPost } from "../../modules/my-publications/types/Post.type";
 
 
 export const baseApi = createApi({
@@ -122,6 +123,23 @@ export const baseApi = createApi({
         body: { images},
       }),
     }),
+    createPost: builder.mutation<string, ICreatePost>({
+      query: (post: ICreatePost) => ({
+        url: `post`,
+        method: "POST",
+        body: {post},
+      })
+    }),
+    getAllPosts: builder.query<IPost[], void>({
+      query: () => ({
+        url: "posts",
+      }),
+    }),
+    getUserPosts: builder.query<IPost[], {userId: number}>({
+      query: ({userId}: {userId: number}) => ({
+        url: `user/${userId}/posts`,
+      }),
+    }),
   }),
 });
 
@@ -143,4 +161,7 @@ export const {
   useAddAlbumImagesMutation,
   useDeleteAlbumImageMutation,
   useReplaceAlbumImagesMutation,
+  useCreatePostMutation,
+  useGetAllPostsQuery,
+  useGetUserPostsQuery
 } = baseApi;

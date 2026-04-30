@@ -1,95 +1,106 @@
 import { StyleSheet, Dimensions } from 'react-native';
-import { COLORS } from '../../../../shared/constants'; // Убедись, что путь к константам верный
+import { COLORS } from '../../../../shared/constants';
 
 const { width } = Dimensions.get('window');
+const CARD_MARGIN = 16;
 const CARD_PADDING = 16;
-const CONTAINER_MARGIN = 16;
-const GRID_GAP = 8;
-
-// Чистая ширина контента внутри карточки
-const CONTENT_WIDTH = width - (CONTAINER_MARGIN * 2) - (CARD_PADDING * 2);
+const GRID_GAP = 10;
+const CONTENT_WIDTH = width - (CARD_MARGIN * 2) - (CARD_PADDING * 2);
 
 export const styles = StyleSheet.create({
   postCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginHorizontal: CONTAINER_MARGIN,
-    marginBottom: 16,
-    padding: CARD_PADDING,
-    // Тени для объема
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    borderRadius: 12, // В Figma углы чуть менее скругленные, чем были
+    marginHorizontal: CARD_MARGIN,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E8E8E8', // Легкая рамка как в дизайне
   },
-  headerRow: {
+  authorSection: {
+    padding: CARD_PADDING,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F0F0F0',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  onlineStatus: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50', // Зеленый индикатор
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
   userName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#000',
   },
-  content: {
-    marginBottom: 12,
+  signature: {
+    width: 100,
+    height: 30,
+    marginLeft: CARD_PADDING,
+    marginBottom: 10,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginHorizontal: 0,
+  },
+  contentSection: {
+    padding: CARD_PADDING,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#000',
-    marginBottom: 6,
-  },
-  text: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
+    color: '#1A1A1A',
     marginBottom: 8,
+  },
+  description: {
+    fontSize: 14,
+    color: '#4A4A4A',
+    lineHeight: 20,
+    marginBottom: 12,
   },
   hashtags: {
     fontSize: 13,
-    color: '#666', // Цвет как на макете
-    fontWeight: '400',
+    color: '#7A7A7A',
+    marginBottom: 16,
   },
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: GRID_GAP,
-    marginBottom: 16,
   },
-  // Верхние 2 картинки
   largeImg: {
     width: (CONTENT_WIDTH - GRID_GAP) / 2,
     height: 160,
-    borderRadius: 16,
-    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
   },
-  // Нижние 3 картинки
   smallImg: {
     width: (CONTENT_WIDTH - (GRID_GAP * 2)) / 3,
-    height: 100,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
+    height: 140, // Вертикальная ориентация как в Figma
+    borderRadius: 8,
   },
   footer: {
+    padding: CARD_PADDING,
     flexDirection: 'row',
-    justifyContent: 'flex-start', // Или flex-end, если кнопка должна быть справа
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-    paddingTop: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   }
 });

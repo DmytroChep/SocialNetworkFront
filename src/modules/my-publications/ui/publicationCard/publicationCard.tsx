@@ -4,48 +4,54 @@ import { styles } from './publicationCard.styles';
 import { ICONS } from '../../../../shared/icons';
 import { RoundButton } from '../../../../shared/ui/RoundButton';
 
-interface PublicationCardProps {
-  post: any; 
-}
-
-export const PublicationCard = ({ post }: PublicationCardProps) => {
+export const PublicationCard = ({ post }: { post: any }) => {
   return (
     <View style={styles.postCard}>
-      {/* Верхняя часть: Автор и Меню */}
-      <View style={styles.headerRow}>
+      {/* Секция автора */}
+      <View style={styles.authorSection}>
         <View style={styles.userInfo}>
-          <Image source={{ uri: post.authorAvatar }} style={styles.avatar} />
-          <View>
-            <Text style={styles.userName}>{post.authorName}</Text>
-            {/* Если есть иконка подписи, вставляем её сюда */}
+          <View style={styles.avatarWrapper}>
+            <Image source={{ uri: post.authorAvatar }} style={styles.avatar} />
+            <View style={styles.onlineStatus} />
           </View>
+          <Text style={styles.userName}>{post.authorName}</Text>
         </View>
-        <TouchableOpacity onPress={() => console.log('Open Menu')}>
+        <TouchableOpacity>
           <ICONS.dots />
         </TouchableOpacity>
       </View>
 
+      {/* Подпись автора под аватаром */}
+      {/* <Image 
+        source={require('../../../../assets/signature.png')} 
+        style={styles.signature} 
+        resizeMode="contain" 
+      /> */}
+
+      <View style={styles.separator} />
+
       {/* Контентная часть */}
-      <View style={styles.content}>
+      <View style={styles.contentSection}>
         <Text style={styles.title}>{post.title}</Text>
-        <Text style={styles.text}>{post.description}</Text>
+        <Text style={styles.description}>{post.description}</Text>
         <Text style={styles.hashtags}>{post.tags}</Text>
+
+        {/* Сетка фото */}
+        <View style={styles.imageGrid}>
+          {post.images.map((img: string, index: number) => (
+            <Image 
+              key={index} 
+              source={{ uri: img }} 
+              style={index < 2 ? styles.largeImg : styles.smallImg} 
+            />
+          ))}
+        </View>
       </View>
 
-      {/* Сетка изображений */}
-      <View style={styles.imageGrid}>
-        {post.images.map((img: string, index: number) => (
-          <Image 
-            key={index} 
-            source={{ uri: img }} 
-            style={index < 2 ? styles.largeImg : styles.smallImg} 
-          />
-        ))}
-      </View>
-
-      {/* Нижняя панель: просмотры/взаимодействия */}
+      {/* Кнопки действий (если нужны по функционалу) */}
       <View style={styles.footer}>
-        <RoundButton icon={<ICONS.eye />} onPress={() => {}} />
+        <RoundButton icon={<ICONS.eye />} />
+        <RoundButton icon={<ICONS.settings />} />
       </View>
     </View>
   );

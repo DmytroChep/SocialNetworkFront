@@ -4,6 +4,7 @@ import Modal from 'react-native-modal';
 import { ICONS } from '../../../../shared/icons';
 import { styles } from './albumPopUp.styles';
 
+
 interface albumPopUpProps {
   isVisible: boolean;
   onClose: () => void;
@@ -49,16 +50,21 @@ export function AlbumPopUp({
           <Text style={styles.text}>Цей альбом бачите тільки ви</Text>
         </View>
 
-        <TouchableOpacity style={styles.item} onPress={onEdit}>
+        {/* Кнопка: Редактировать */}
+        <TouchableOpacity 
+          style={styles.item} 
+          onPress={() => {
+            onEdit?.();
+          }}
+        >
           <View style={styles.iconContainer}>
             <ICONS.edit />
           </View>
           <Text style={styles.text}>Редагувати альбом</Text>
         </TouchableOpacity>
 
-        <View style={styles.separator} />
-
-        <TouchableOpacity style={styles.item} onPress={onDelete}>
+        {/* Кнопка: Удалить */}
+        <TouchableOpacity style={styles.item} onPress={() => onDelete?.()}>
           <View style={styles.iconContainer}>
             <ICONS.trash />
           </View>
