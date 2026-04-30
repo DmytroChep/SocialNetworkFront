@@ -11,12 +11,16 @@ export const settingsValidator = yup.object({
   userName: yup.string().required(ERROR_MESSAGES.required), 
   birthDate: yup.string().nullable().defined(), 
   avatar: yup
-  .string()
-  .required('Будь ласка, оберіть зображення')
-  .test('is-valid-path', 'Некоректний формат файлу', (value) => {
-    if (!value) return false;
-    return value.startsWith('data:image') || value.startsWith('file://') || value.startsWith('http');
-  }),
+    .string()
+    .nullable()
+    .notRequired()
+    .transform((value) => (value === "" ? null : value))
+    .test('is-valid-path', 'Некоректний формат файлу', (value) => {
+      // Якщо значення немає — це валідно (пропускаємо)
+      if (!value || value === 'ignore_this_field') return true; 
+      // Якщо є — перевіряємо формат
+      return value.startsWith('data:image') || value.startsWith('file://') || value.startsWith('http');
+    }),
   email: yup.string().email(ERROR_MESSAGES.email).required(ERROR_MESSAGES.required),
   password: yup
     .string()

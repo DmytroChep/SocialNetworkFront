@@ -43,7 +43,7 @@ export function RegistrationForm() {
 
   const onSubmit = async (data: RegistrationForm) => {
     setServerError(null);
-    
+    console.log(data)
     try {
       const { passwordConfirm, ...body } = data;
       
