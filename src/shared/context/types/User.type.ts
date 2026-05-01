@@ -25,22 +25,24 @@ export interface ITag {
     title: "string"
 }
 
+export interface IAvatar {
+    id: number;
+    image: string;
+    userId: number;
+}
+
 export interface IUser {
-    id: number,
-    email: string,
-    authorName: string,
-    userName: string,
+    id: number;
+    email: string;
+    authorName: string;
+    userName: string;
+    currentAvatar: IAvatar;
     status: string,
     birthDate: Date,
     sign: string,
     signatureImage?: string,
     currentAvatarId: string,
     password?: string,
-    currentAvatar: {
-        id: number,
-        image: string,
-        userId: number
-    },
     avatars: {
         id: number,
         image: string,

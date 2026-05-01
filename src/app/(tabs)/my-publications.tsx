@@ -1,56 +1,49 @@
-import React from 'react';
-import { ScrollView, View } from 'react-native';
-import { screenStyles } from './my-publications.styles';
-import { Header } from '../../shared/ui/Header';
+import React, { useCallback, useRef } from 'react';
+import { View, FlatList } from 'react-native';
 import { PublicationCard } from '../../modules/my-publications/ui/publicationCard/publicationCard';
-import { useGetUserPostsQuery } from '../../shared/api/baseApi';
+import { useGetUserPostsQuery, useViewsIncreaseMutation } from '../../shared/api/baseApi';
 import { useUserContext } from '../../shared/context/user-context';
-import { useRouter } from 'expo-router';
 
 export default function MyPublicationsScreen() {
-  const {user} = useUserContext()
-  const router = useRouter()
+  const { user, token } = useUserContext();
 
   if (!user){
-      router.replace("/reagistration")
-      return
+    return
   }
+  const { data: publications } = useGetUserPostsQuery({ userId: user.id }, { pollingInterval: 1000 });
+  const [increaseView] = useViewsIncreaseMutation();
 
-  const {data:publications} = useGetUserPostsQuery({userId: user.id})
+  
+  const viewedIds = useRef(new Set<number>());
 
-  const finalPublications = publications || []
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+    viewableItems.forEach(({ item }: any) => {
+      if (item && !viewedIds.current.has(item.id)) {
+        viewedIds.current.add(item.id);
+        increaseView(item.id).unwrap().catch(() => {});
+      }
+    });
+  }, [increaseView]);
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+
+  const finalPublications = publications || [];
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      {/* Если Header уже есть в _layout.tsx, здесь его дублировать не нужно */}
-      {/* <Header /> */} 
-
-      <ScrollView 
-        contentContainerStyle={{ paddingVertical: 20 }}
+      <FlatList
+        data={finalPublications}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <PublicationCard post={item} userId={user.id} />
+        )}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
-      >
-        {finalPublications.map(item => (
-          <PublicationCard key={item.id} post={item} />
-        ))}
-      </ScrollView>
+      />
     </View>
   );
 }
-
-// export const MOCK_DATA = [
-//   {
-//     id: '1',
-//     authorName: 'Lina Li',
-//     authorAvatar: 'https://via.placeholder.com/100',
-//     title: 'Природа, книга і спокій 🌿',
-//     description: 'Інколи найкращі ідеї народжуються в тиші — усе, що потрібно, аби перезавантажитись.',
-//     tags: '#відпочинок #натхнення #життя #природа #читання #спокій #гармонія',
-//     images: [
-//       'https://picsum.photos/400/400',
-//       'https://picsum.photos/400/401',
-//       'https://picsum.photos/400/402',
-//       'https://picsum.photos/400/403',
-//       'https://picsum.photos/400/404',
-//     ]
-//   }
-// ];

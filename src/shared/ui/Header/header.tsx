@@ -20,7 +20,7 @@ export function Header(props: IHeaderProps) {
 		<SafeAreaView edges={["top"]} style={hiddenButtons ? Object.values(hiddenButtons).includes(true) ?  styles.justifyContentSpaceBetween : styles.header :  styles.justifyContentSpaceBetween}>
 			<Image style={styles.logo} source={IMAGES.worldItLogo} />
 			<View style={hiddenButtons ? Object.values(hiddenButtons).includes(true) ? styles.buttonsView : styles.hidden : styles.buttonsView}>
-				{!hiddenButtons?.plus && (
+				{hiddenButtons?.plus && (
                     <RoundButton 
                         icon={<ICONS.plus />} 
                         onPress={onPlusPress} 

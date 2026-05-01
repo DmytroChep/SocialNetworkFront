@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { 
     Modal, View, Text, TextInput, TouchableOpacity, 
-    ScrollView, Image, Alert 
+    ScrollView, Image 
 } from "react-native";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,8 @@ import { RoundButton } from "../../../../shared/ui/RoundButton";
 import { ICONS } from "../../../../shared/icons";
 import { Input } from "../../../../shared/ui/input";
 import { COLORS } from "../../../../shared/constants";
+import { useCreatePostMutation } from "../../../../shared/api/baseApi";
+import { useUserContext } from "../../../../shared/context/user-context";
 
 interface IPostForm {
     title: string;
@@ -24,6 +26,9 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
     const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
+
+    const [createPost] = useCreatePostMutation();
+    const { user } = useUserContext();
 
     const { control, handleSubmit, reset, setValue, watch } = useForm<IPostForm>({
         defaultValues: {
@@ -65,16 +70,32 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
             quality: 1,
+            base64: true,
         });
 
         if (!result.canceled) {
-            const uris = result.assets.map(asset => asset.uri);
-            setValue("images", [...selectedImages, ...uris]);
+            const base64Images = result.assets.map(asset => 
+                `data:${asset.mimeType || 'image/png'};base64,${asset.base64}`
+            );
+            setValue("images", [...selectedImages, ...base64Images]);
         }
     };
 
-    const onSubmit = (data: any) => {
-        console.log("Submit Data:", data);
+    const onSubmit = (data: IPostForm) => {
+        const linkString = data.links.map(l => l.value).filter(Boolean).join(", ");
+
+        const payload = {
+            title: data.title,
+            authorId: user?.id ? Number(user.id) : 2,
+            description: data.content || null,
+            topic: data.topic || null,
+            link: linkString || null,
+            images: data.images.map(base64Url => ({ url: base64Url }))
+        };
+
+        console.log(payload)
+
+        createPost(payload).unwrap();
         reset();
         onClose();
     };
@@ -89,7 +110,7 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false}>
-                        <View style = {{gap: 15, marginBottom: 20}}>
+                        <View style={{ gap: 15, marginBottom: 20 }}>
                             <Controller control={control} name="title" render={({ field }) => (
                                 <Input label="Назва публікації" placeholder="Назва..." value={field.value} onChangeText={field.onChange} />
                             )} />
@@ -98,7 +119,6 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                 <Input label="Тема публікації" placeholder="Тема..." value={field.value} onChangeText={field.onChange} />
                             )} />
                         </View>
-
 
                         <View style={styles.tagContainer}>
                             <View style={styles.tagList}>
@@ -120,7 +140,7 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                         onChangeText={setNewTag} 
                                     />
                                     <TouchableOpacity onPress={addNewCustomTag} style={{ marginLeft: 10, width: 30, height: 30, borderRadius: 15, borderColor: "#000", borderWidth: 1, justifyContent: "center", alignItems: "center" }}>
-                                        <Text style = {{fontSize: 20,}}>✓</Text>
+                                        <Text style={{ fontSize: 20 }}>✓</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -208,7 +228,7 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                         <View style={[styles.footer, { justifyContent: 'flex-end', gap: 10 }]}>
                             <RoundButton icon={<ICONS.image />} onPress={pickImage} />
                             <RoundButton icon={<ICONS.smile />} />
-                            <TouchableOpacity style={[styles.publishBtn, { flex: 0, paddingHorizontal: 25 }]} onPress={handleSubmit(onSubmit)}>
+                            <TouchableOpacity style={[styles.publishBtn, { flex: 0, paddingHorizontal: 25 }]} onPress={handleSubmit(onSubmit, (errors) => console.log("Помилки валідації:", errors))}>
                                 <Text style={styles.publishBtnText}>Публікація</Text>
                                 <ICONS.Send />
                             </TouchableOpacity>

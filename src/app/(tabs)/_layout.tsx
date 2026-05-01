@@ -72,7 +72,7 @@ export default function TabsLayout() {
 						title: "Головна",
 						header: () => (
 							<Header
-								hiddenButtons={{ settings: true, exit: true }}
+								hiddenButtons={{plus: true, settings: true, exit: true }}
 								onPlusPress={() => setIsPostModalVisible(true)}
 							/>
 						),
@@ -86,8 +86,9 @@ export default function TabsLayout() {
                         title: "Мої публікації",
                         header: () => (
                             <Header
-                                hiddenButtons={{ plus: true, settings: true, exit: true }}
-                            />
+								hiddenButtons={{plus: true, settings: true, exit: true }}
+								onPlusPress={() => setIsPostModalVisible(true)}
+							/>
                         ),
                         tabBarIcon: () => <ICONS.image />,
                         tabBarButton: (props) => (
@@ -97,8 +98,14 @@ export default function TabsLayout() {
                 />
                 <Tabs.Screen
                     name="friends"
+                    
                     options={{
                         title: "Друзі",
+                        header: () => (
+                            <Header
+                                hiddenButtons={{ plus: false, settings: true, exit: true }}
+                            />
+                        ),
                         tabBarIcon: () => <ICONS.people />,
                         tabBarButton: (props) => <TabButton {...props} route="friends" />,
                     }}
