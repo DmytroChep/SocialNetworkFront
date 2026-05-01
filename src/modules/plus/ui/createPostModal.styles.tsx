@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         padding: 25,
-        height: "97%",
+        height: 709,
     },
     header: {
         flexDirection: "row",
@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
     tag: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        backgroundColor: "#F0F0F0",
+        backgroundColor: COLORS.plum50,
         borderRadius: 10,
     },
     tagText: {
@@ -97,7 +97,7 @@ export const styles = StyleSheet.create({
         gap: 12,
     },
     publishBtn: {
-        backgroundColor: "#62466B",
+        backgroundColor: COLORS.plum,
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 25,

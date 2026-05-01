@@ -27,6 +27,8 @@ export const CreatePostModal = ({ isVisible, onClose }: CreatePostModalProps) =>
 
     const dummyTags = ["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія"];
 
+
+    
     return (
         <Modal visible={isVisible} animationType="slide" transparent>
             <View style={styles.overlay}>
@@ -42,7 +44,6 @@ export const CreatePostModal = ({ isVisible, onClose }: CreatePostModalProps) =>
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
                         
-                        {/* Назва через твій Input */}
                         <Input 
                             label="Назва публікації"
                             placeholder="Природа, книга і спокій 🌿"
@@ -50,7 +51,6 @@ export const CreatePostModal = ({ isVisible, onClose }: CreatePostModalProps) =>
                             onChangeText={setTitle}
                         />
 
-                        {/* Тема через твій Input */}
                         <Input 
                             label="Тема публікації"
                             placeholder="Напишіть тему публікації"
@@ -58,7 +58,6 @@ export const CreatePostModal = ({ isVisible, onClose }: CreatePostModalProps) =>
                             onChangeText={setTopic}
                         />
 
-                        {/* Блок тегів */}
                         <View style={styles.tagContainer}>
                             <View style={styles.tagList}>
                                 {dummyTags.map((tag, index) => (
