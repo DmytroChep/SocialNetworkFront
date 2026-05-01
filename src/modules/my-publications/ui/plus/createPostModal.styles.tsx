@@ -1,0 +1,162 @@
+import { StyleSheet } from "react-native";
+import { COLORS } from "../../../../shared/constants";
+
+export const styles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.6)",
+        justifyContent: "center", 
+        alignItems: "center",
+        paddingHorizontal: 16,
+    },
+    container: {
+        backgroundColor: "white",
+        borderRadius: 30,
+        padding: 25,
+        width: 375,
+        maxHeight: 709, 
+    },
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 20,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: "700",
+        color: "#000",
+        
+    },
+    closeIcon: {
+        fontSize: 14,
+        color: "#000",
+        padding: 5,
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginBottom: 8,
+        color: "#333",
+    },
+    tagContainer: {
+        marginVertical: 10,
+    },
+    tagList: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+        marginBottom: 10,
+    },
+    tag: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        backgroundColor: COLORS.plum50 || "#F3E5F5",
+        borderRadius: 12,
+    },
+    tagText: {
+        color: "#51455D",
+        fontSize: 14,
+        fontWeight: "500",
+    },
+    addCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: "#000",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    contentInputContainer: {
+        borderWidth: 1,
+        borderColor: "#E5E5E5",
+        borderRadius: 20,
+        padding: 15,
+        minHeight: 180,
+        marginVertical: 15,
+        // backgroundColor: "#FAFAFA",
+    },
+    contentInput: {
+        fontSize: 16,
+        lineHeight: 24,
+        color: "#333",
+    },
+    linkRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 10,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: "#E5E5E5",
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        fontSize: 16,
+        backgroundColor: "#fff",
+    },
+    addCircleInline: {
+        width: 30,
+        height: 30,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#000",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 10,
+    },
+    plus: {
+        fontSize: 22,
+        fontWeight: "300",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    imageWrapper: {
+        width: "100%",
+        aspectRatio: 4 / 3, // Використовуємо співвідношення сторін замість фіксованої висоти
+        borderRadius: 20,
+        overflow: "hidden",
+        marginBottom: 15,
+        position: "relative",
+    },
+    previewImageLarge: {
+        width: "100%",
+        height: "100%",
+    },
+    deletePhotoBtn: {
+        position: "absolute",
+        top: 10,
+        right: 10,
+        backgroundColor: "rgba(255,255,255,0.8)",
+        borderRadius: 20,
+        padding: 8,
+    },
+    footer: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        alignItems: "center",
+        marginTop: 20,
+        paddingBottom: 10,
+        gap: 12,
+    },
+    mediaButtons: {
+        flexDirection: "row",
+        gap: 10,
+    },
+    publishBtn: {
+        backgroundColor: COLORS.plum || "#51455D",
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        borderRadius: 30,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+    },
+    publishBtnText: {
+        color: "white",
+        fontWeight: "600",
+        fontSize: 18,
+    },
+});

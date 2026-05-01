@@ -6,6 +6,7 @@ import { COLORS } from "../../../../shared/constants";
 import { useUserContext } from "../../../../shared/context/user-context";
 import { useRouter } from "expo-router";
 import { RoundButton } from "../../../../shared/ui/RoundButton";
+import { ip } from "../../../../config/ip";
 
 export function Avatars() {
     const { user } = useUserContext();
@@ -56,7 +57,7 @@ export function Avatars() {
                             <View key={avatar.id} style={styles.avatarCard}>
                                 <Image
                                     source={{
-                                        uri: `http://10.0.2.2:8000${avatar.image}`,
+                                        uri: `http://${ip}:8000${avatar.image}`,
                                     }}
                                     style={styles.avatarImage}
                                     width={200}

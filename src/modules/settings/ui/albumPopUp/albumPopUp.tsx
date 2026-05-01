@@ -8,28 +8,41 @@ import { styles } from './albumPopUp.styles';
 interface albumPopUpProps {
   isVisible: boolean;
   onClose: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  position?: { top: number; right: number };
 }
 
-export function AlbumPopUp ({ isVisible, onClose, onEdit, onDelete }: albumPopUpProps) {
+export function AlbumPopUp({ 
+  isVisible, 
+  onClose, 
+  onEdit, 
+  onDelete, 
+  position 
+}: albumPopUpProps) {
   return (
     <Modal
       isVisible={isVisible}
       onBackdropPress={onClose}
       onBackButtonPress={onClose}
       backdropOpacity={0}
-      animationIn="zoomIn"
-      animationOut="zoomOut"
-      style={styles.modalCustom}
+      animationInTiming={1}
+      animationOutTiming={1}
+      backdropTransitionInTiming={1}
+      backdropTransitionOutTiming={1}
+      style={styles.modalWrapper}
+      useNativeDriver={true}
     >
-      <View style={styles.container}>
-        {/* Верхние точки */}
+      <View 
+        style={[
+          styles.container, 
+          position ? { top: position.top, right: position.right } : { alignSelf: 'center', top: '30%' }
+        ]}
+      >
         <View style={styles.header}>
           <ICONS.dots />
         </View>
 
-        {/* Инфо: Только вы видите */}
         <View style={styles.item}>
           <View style={styles.iconContainer}>
             <ICONS.eyeClosed />
@@ -60,5 +73,4 @@ export function AlbumPopUp ({ isVisible, onClose, onEdit, onDelete }: albumPopUp
       </View>
     </Modal>
   );
-};
-
+}

@@ -49,16 +49,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: "#7C7C7C",
   },
-  checkboxRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  checkboxLabel: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#4F4F4F",
-  },
   signatureText: {
     marginLeft: 32,
     marginTop: 4,
@@ -78,5 +68,160 @@ export const styles = StyleSheet.create({
     marginTop: 50,
     gap: 10,
     paddingBottom: 24
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 20,
+  },
+  signatureModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 20
+  },
+  signatureWrapper: {
+    width: '100%',
+    height: 400,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden'
+  },
+  closeBtn: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: COLORS.plum50,
+    borderRadius: 8
+  },
+  drawButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.blue10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 100,
+    alignItems: 'center'
+  },
+  signaturePreview: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  checkboxRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  checkboxLabel: { 
+    marginLeft: 10, 
+    fontSize: 15, 
+    color: '#4A3749', 
+    fontWeight: '500' 
+  },
+  signaturePreviewContainer: { 
+    marginTop: 4 
+  },
+  dashedBox: {
+    width: '100%',
+    height: 100,
+    borderWidth: 1,
+    borderColor: '#C7C7CC',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    overflow: 'hidden'
+  },
+  previewImage: { 
+    width: '90%', 
+    height: '85%', 
+    resizeMode: 'contain' 
+  },
+  emptyText: { 
+    color: '#8E8E93', 
+    fontSize: 14 
+  },
+  editSignButton: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#4A3749',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start'
+  },
+  editSignText: { 
+    color: '#4A3749', 
+    fontWeight: '500',
+    fontSize: 14
+  },
+  drawingContainer: { 
+    marginTop: 4 
+  },
+  penIconOverlay: { 
+    position: 'absolute', 
+    top: 12, 
+    left: 12, 
+    zIndex: 10 
+  },
+  controlsRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginTop: 20 
+  },
+  colorPicker: { 
+    flexDirection: 'row', 
+    gap: 12 
+  },
+  colorCircle: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  actionButtons: { 
+    flexDirection: 'row', 
+    gap: 10 
+  },
+  clearBtn: { 
+    paddingVertical: 12, 
+    paddingHorizontal: 16, 
+    borderRadius: 24, 
+    borderWidth: 1, 
+    borderColor: '#4A3749',
+    minWidth: 100,
+    alignItems: 'center'
+  },
+  saveBtn: { 
+    paddingVertical: 12, 
+    paddingHorizontal: 20, 
+    borderRadius: 24, 
+    backgroundColor: '#E2DDE6', // Світлий пастельний колір з скриншота
+    minWidth: 110,
+    alignItems: 'center'
+  },
+  clearBtnText: { 
+    color: '#4A3749', 
+    fontWeight: '600',
+    fontSize: 14
+  },
+  saveBtnText: { 
+    color: '#4A3749', 
+    fontWeight: '600',
+    fontSize: 14
   },
 });

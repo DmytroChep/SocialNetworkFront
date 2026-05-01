@@ -4,8 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ICONS } from "../../shared/icons";
 import { Header } from "../../shared/ui/Header";
 import { COLORS } from "../../shared/constants";
-import { CreatePostModal } from "../../modules/plus/ui/createPostModal";
 import React, { useState } from "react";
+import { CreatePostModal } from "../../modules/my-publications/ui/plus/createPostModal";
 
 export const styles = StyleSheet.create({
     activeInner: {

@@ -23,6 +23,7 @@ import { HeartFillIcon } from "./_icons/heartFill";
 import { EyeClosed } from "./_icons/eye-closed";
 import {Cross} from "./_icons/cross"
 import { Send } from "./_icons/send";
+import { Tick } from "./_icons/tick";
 
 export const ICONS = {
     home: HomeIcon,
@@ -50,4 +51,5 @@ export const ICONS = {
     heartFill: HeartFillIcon,
     eyeClosed: EyeClosed ,
     Send,
+    Tick,
 }  

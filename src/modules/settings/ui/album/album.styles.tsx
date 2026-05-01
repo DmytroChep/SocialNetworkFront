@@ -59,7 +59,9 @@ export const styles = StyleSheet.create({
         gap: 16
     },
     avatarsView: {
-        flexWrap: "wrap"
+        flexWrap: "wrap",
+        flexDirection: "row",
+        gap: 19
     },
     addPhoto: {
         width: 162,
@@ -69,5 +71,20 @@ export const styles = StyleSheet.create({
         borderStyle: "dashed",
         borderRadius: 10,
         borderWidth: 1,
-    }
+    },
+    cardActions: {
+        position: "absolute",
+        bottom: 8,
+        right: 8,
+        flexDirection: "row",
+        gap: 8,
+    },
+    actionButton: {
+        backgroundColor: "white",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
 });
