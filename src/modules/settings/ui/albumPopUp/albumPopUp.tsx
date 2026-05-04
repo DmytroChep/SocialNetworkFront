@@ -36,7 +36,7 @@ export function AlbumPopUp({
       <View 
         style={[
           styles.container, 
-          position ? { top: position.top, right: position.right } : { alignSelf: 'center', top: '30%' }
+          position ? { top: position.top + 43, right: position.right - 12 } : { alignSelf: 'center', top: '30%' }
         ]}
       >
         <View style={styles.header}>
