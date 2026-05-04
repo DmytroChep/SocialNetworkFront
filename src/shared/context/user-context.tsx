@@ -59,6 +59,7 @@ export function UserContextProvider(props: IUserContextProviderProps) {
 
     const { data: me, error } = useMeQuery(undefined, {
         skip: !token || isLoading,
+        pollingInterval: 2500
     });
 
     useEffect(() => {
