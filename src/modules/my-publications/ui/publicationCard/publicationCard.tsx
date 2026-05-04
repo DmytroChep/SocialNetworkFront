@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react'; // Додали useState
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { IPost } from '../../types/Post.type';
 import { styles } from './publicationCard.styles';
 import { ICONS } from '../../../../shared/icons';
 import { ip } from '../../../../config/ip';
 import { useHeartDecreaseMutation, useHeartIncreaseMutation, useThumbUpDecreaseMutation, useThumbUpIncreaseMutation } from '../../../../shared/api/baseApi';
+import { ThreeDotsModal } from '../threeDotsModal/threeDotsModal';
 
 interface PostProps {
     post: IPost;
@@ -12,12 +13,23 @@ interface PostProps {
 }
 
 export function PublicationCard({ post, userId }: PostProps) {
+    const [isMenuVisible, setIsMenuVisible] = useState(false);
+
     const topImages = post.images.slice(0, 2);
     const bottomImages = post.images.slice(2, 5);
 
-    const [increaseThumbUp] = useThumbUpIncreaseMutation()
-    const [increaseHeart] = useHeartIncreaseMutation()
+    const [increaseThumbUp] = useThumbUpIncreaseMutation();
+    const [increaseHeart] = useHeartIncreaseMutation();
 
+    const handleEdit = () => {
+        setIsMenuVisible(false);
+        console.log("Редагуємо пост:", post.id);
+    };
+
+    const handleDelete = () => {
+        setIsMenuVisible(false);
+        console.log("Видаляємо пост:", post.id);
+    };
 
     return (
         <View style={styles.card}>
@@ -41,9 +53,15 @@ export function PublicationCard({ post, userId }: PostProps) {
                         )}
                     </View>
                 </View>
-                <TouchableOpacity style={styles.menuButton}>
-                    {userId === post.author.id ? <ICONS.dots /> : null}
-                </TouchableOpacity>
+
+                {userId === post.author.id && (
+                    <TouchableOpacity 
+                        style={styles.menuButton} 
+                        onPress={() => setIsMenuVisible(true)}
+                    >
+                        <ICONS.dots />
+                    </TouchableOpacity>
+                )}
             </View>
 
             <View style={styles.contentContainer}>
@@ -97,6 +115,13 @@ export function PublicationCard({ post, userId }: PostProps) {
                     <Text style={styles.statText}>{post.views} Переглядів</Text>
                 </View>
             </View>
+
+            <ThreeDotsModal 
+                isVisible={isMenuVisible} 
+                onClose={() => setIsMenuVisible(false)} 
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+            />
         </View>
     );
 }
