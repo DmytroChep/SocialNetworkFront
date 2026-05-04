@@ -83,11 +83,11 @@ export function PublicationCard({ post, userId }: PostProps) {
 
             <View style={styles.footer}>
                 <View style={styles.statsRow}>
-                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseThumbUp({postId: post.id})}}>
+                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseHeart({postId: post.id})}}>
                         <ICONS.heart />
                         <Text style={styles.statText} >{post.heartCount} Вподобань</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseHeart({postId: post.id})}}>
+                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseThumbUp({postId: post.id})}}>
                         <ICONS.like />
                         <Text style={styles.statText} >{post.thumbsUpCount} Вподобань</Text>
                     </TouchableOpacity>

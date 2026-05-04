@@ -22,20 +22,29 @@ import { Avatars } from '../../modules/settings/ui/avatars/avatars';
 import { Albums } from '../../modules/settings/ui/album/album';
 
 export default function ProfileScreen() {
-  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { pollingInterval: 3000 });
+  const [isEditingCard, setIsEditingCard] = useState<boolean>(false);
+  const [isEditingInfo, setIsEditingInfo] = useState<boolean>(false);
+  const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
+  const [isEditingSignature, setIsEditingSignature] = useState<boolean>(false);
+  const [localAvatar, setLocalAvatar] = useState<string | null>(null);
+
+  const isAnyEditing = isEditingCard || isEditingInfo || isEditingPassword || isEditingSignature;
+
+  // Отримуємо дані користувача
+  const { data: user,   isLoading: isUserLoading } = useMeQuery(undefined, { 
+    pollingInterval: isAnyEditing ? 0 : 3000 
+  });
+  
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
   const [updateAvatar, { isLoading: isAvatarUpdating }] = useUpdateAvatarMutation();
   const [sendCode, { isLoading: isSendingCode }] = useLazySendCodeVerifyQuery();
 
   console.log(user?.currentAvatar)
   const [step, setStep] = useState(1);
-  const [isEditingCard, setIsEditingCard] = useState(false);
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [isEditingPassword, setIsEditingPassword] = useState(false);
-  const [isEditingSignature, setIsEditingSignature] = useState(false);
 
-  const { handleSubmit, control, reset, getValues } = useForm<SettingsFormInputs>({
-    resolver: yupResolver(settingsValidator),
+  const { handleSubmit, control, reset, getValues, watch } = useForm<SettingsFormInputs>({
+    // Використовуємо as any, щоб уникнути конфліктів типів Yup та Hook Form
+    resolver: yupResolver(settingsValidator) as any,
     defaultValues: {
       authorName: '',
       userName: '',
@@ -49,13 +58,27 @@ export default function ProfileScreen() {
     }
   });
 
+  const watchedAuthorName = watch('authorName');
+
+  // Синхронізація даних БД з формою
   useEffect(() => {
-    if (user) {
+    if (user && !isAnyEditing && !isUpdating && !isAvatarUpdating) {
+      const formatBirthDate = (dateVal: any) => {
+        if (!dateVal) return '';
+        try {
+          // Обробка і ISO рядка, і Timestamp числа
+          const d = new Date(isNaN(Number(dateVal)) ? dateVal : Number(dateVal));
+          return d.toISOString().split('T')[0];
+        } catch (e) {
+          return '';
+        }
+      };
+
       reset({
         authorName: user.authorName || '',
         userName: user.userName || '',
         email: user.email || '',
-        birthDate: user.birthDate ? new Date(user.birthDate).toISOString().split('T')[0] : '',
+        birthDate: formatBirthDate(user.birthDate),
         usePseudonym: !!user.authorName,
         useSignature: !!user.sign,
         password: '',
@@ -69,33 +92,36 @@ export default function ProfileScreen() {
     if (!user?.id) return;
 
     try {
-      if (data.avatar && data.avatar.startsWith('file://')) {
-        const base64 = await FileSystem.readAsStringAsync(data.avatar, {
+      // 1. Оновлення аватара
+      if (localAvatar && localAvatar.startsWith('file://')) {
+        const base64 = await FileSystem.readAsStringAsync(localAvatar, {
           encoding: 'base64', 
         });
-        const base64Image = `data:image/jpeg;base64,${base64}`;
-        await updateAvatar({ userId: user.id, image: base64Image }).unwrap();
+        await updateAvatar({ userId: user.id, image: `data:image/jpeg;base64,${base64}` }).unwrap();
       }
 
-      let finalDate = null;
-      if (data.birthDate) {
-        const dateObj = new Date(data.birthDate);
+      // 2. Підготовка дати
+      let finalDate: string | null = null;
+      if (data.birthDate && data.birthDate.trim().length >= 10) {
+        const dateObj = new Date(`${data.birthDate}T00:00:00Z`);
         if (!isNaN(dateObj.getTime())) {
           finalDate = dateObj.toISOString();
         }
       }
 
+      // 3. Оновлення профілю (as any для ігнорування несумісності Prisma типів)
       await updateUser({
         userId: user.id,
         body: {
           authorName: data.authorName,
           userName: data.userName,
           email: data.email,
-          birthDate: finalDate as any,
+          birthDate: finalDate,
           sign: data.useSignature ? data.authorName : '',
-        }
+        } as any
       }).unwrap();
 
+      // 4. Логіка зміни пароля
       if (isEditingPassword && data.password) {
         await sendCode({ gmail: user.email }).unwrap();
         setStep(2);
@@ -105,32 +131,8 @@ export default function ProfileScreen() {
         setIsEditingPassword(false);
         setIsEditingSignature(false);
       }
-
     } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleConfirmCode = async () => {
-    const values = getValues();
-    
-    try {
-      await updateUser({
-        userId: user?.id!,
-        body: {
-          password: values.password
-        }
-      }).unwrap();
-
-      setStep(1);
-      setIsEditingPassword(false);
-      reset({
-        ...values,
-        password: '*******',
-        confirmPassword: '*******',
-      });
-    } catch (e) {
-      console.error("Помилка при зміні пароля:", e);
+      console.error("Submission error:", e);
     }
   };
 
@@ -146,6 +148,7 @@ export default function ProfileScreen() {
               title: "Особиста Інформація",
               content: (
                 <View>
+                  {/* Блок 1: Картка профілю */}
                   <View style={[styles.card, { paddingVertical: isEditingCard ? 20 : 24 }]}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Картка профілю</Text>
@@ -161,16 +164,12 @@ export default function ProfileScreen() {
                         <Text style={{ color: '#1C1C1E', fontSize: 16, marginBottom: 15 }}>
                           Оберіть або завантажте фото профілю
                         </Text>
-                        <View>
-                          <Controller
-                            name="avatar"
-                            control={control}
-                            render={({ field }) => (
-                              <AvatarField value={`${field.value}`} onChange={field.onChange} disabled={false} />
-                              )}
-                          />
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25 }}>
+                        <AvatarField 
+                          value={localAvatar || user?.currentAvatar?.image} 
+                          onChange={(val) => setLocalAvatar(val)} 
+                          disabled={false} 
+                        />
+                        <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25, marginTop: 10 }}>
                           <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <ICONS.plus color={COLORS.blue10} />
                             <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Додайте фото</Text>
@@ -180,9 +179,6 @@ export default function ProfileScreen() {
                             <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Оберіть фото</Text>
                           </TouchableOpacity>
                         </View>
-                        <Text style={{ fontSize: 24, fontWeight: '700', color: '#1C1C1E', marginBottom: 15 }}>
-                          {user?.authorName}
-                        </Text>
                         <View style={{ width: '100%' }}>
                           <Controller
                             name="userName"
@@ -193,7 +189,6 @@ export default function ProfileScreen() {
                                 value={value ? `@${value.replace('@', '')}` : ''}
                                 onChangeText={(text) => onChange(text.replace('@', ''))}
                                 error={error?.message}
-                                editable={true}
                               />
                             )}
                           />
@@ -202,14 +197,13 @@ export default function ProfileScreen() {
                     ) : (
                       <View style={[styles.avatarSection, { alignItems: 'center' }]}>
                         <AvatarField value={user?.currentAvatar?.image} onChange={() => {}} disabled />
-                        <Text style={[styles.name, { fontSize: 20, fontWeight: '700' }]}>
-                          {user?.authorName || ''}
-                        </Text>
+                        <Text style={[styles.name, { fontSize: 20, fontWeight: '700' }]}>{user?.authorName || ''}</Text>
                         <Text style={[styles.handle, { color: '#8E8E93' }]}>@{user?.userName}</Text>
                       </View>
                     )}
                   </View>
 
+                  {/* Блок 2: Особиста інформація */}
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Особиста інформація</Text>
@@ -219,73 +213,63 @@ export default function ProfileScreen() {
                         <RoundButton onPress={() => setIsEditingInfo(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-                    {(['authorName', 'birthDate', 'email'] as const).map((fieldName) => (
-                      <Controller
-                        key={fieldName}
-                        name={fieldName}
-                        control={control}
-                        render={({ field: { onChange, value }, fieldState: { error } }) => (
-                          <Input
-                            label={
-                              fieldName === 'authorName' ? "Ім'я автора" :
-                              fieldName === 'birthDate' ? "Дата народження" : "Електронна адреса"
-                            }
-                            placeholder={fieldName === 'birthDate' ? "YYYY-MM-DD" : ""}
-                            value={value?.toString() || ''}
-                            onChangeText={onChange}
-                            error={error?.message}
-                            editable={isEditingInfo}
-                            inputMode={fieldName === 'email' ? 'email' : 'text'}
-                            inputContainerStyle={{ opacity: isEditingInfo ? 1 : 0.6 }}
-                          />
-                        )}
-                      />
-                    ))}
+                    
+                    <Controller
+                      name="authorName"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input label="Ім'я автора" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />
+                      )}
+                    />
+
+                    <Controller
+                      name="birthDate"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input label="Дата народження" placeholder="YYYY-MM-DD" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />
+                      )}
+                    />
+
+                    <Controller
+                      name="email"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input label="Електронна адреса" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />
+                      )}
+                    />
                   </View>
 
+                  {/* Блок 3: Пароль */}
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Пароль</Text>
                       {isEditingPassword ? (
-                         <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Змінити пароль' />
+                         <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
                       ) : (
                         <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-                    <View style={{ gap: 16 }}>
-                      <Controller
-                        name="password"
-                        control={control}
-                        render={({ field: { onChange, value }, fieldState: { error } }) => (
-                          <Input.Password
-                            label="Новий пароль"
-                            placeholder="Введи пароль"
-                            value={value || ''}
-                            onChangeText={onChange}
-                            error={error?.message}
-                            editable={isEditingPassword}
-                          />
-                        )}
-                      />
-                      {isEditingPassword && (
+                    <Controller
+                      name="password"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input.Password label="Новий пароль" placeholder="Введи пароль" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingPassword} />
+                      )}
+                    />
+                    {isEditingPassword && (
+                      <View style={{ marginTop: 16 }}>
                         <Controller
                           name="confirmPassword"
                           control={control}
                           render={({ field: { onChange, value }, fieldState: { error } }) => (
-                            <Input.Password
-                              label="Підтвердьте новий пароль"
-                              placeholder="Введи пароль"
-                              value={value || ''}
-                              onChangeText={onChange}
-                              error={error?.message}
-                              editable={true}
-                            />
+                            <Input.Password label="Підтвердьте новий пароль" placeholder="Введи пароль" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={true} />
                           )}
                         />
-                      )}
-                    </View>
+                      </View>
+                    )}
                   </View>
 
+                  {/* Блок 4: Варіанти підпису */}
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Варіанти подпису</Text>
@@ -295,6 +279,7 @@ export default function ProfileScreen() {
                         <RoundButton onPress={() => setIsEditingSignature(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
+                    
                     <Controller
                       name="usePseudonym"
                       control={control}
@@ -302,7 +287,6 @@ export default function ProfileScreen() {
                         <TouchableOpacity
                           style={[styles.checkboxRow, { opacity: isEditingSignature ? 1 : 0.6 }]}
                           onPress={() => isEditingSignature && onChange(!value)}
-                          activeOpacity={isEditingSignature ? 0.7 : 1}
                         >
                           {value ? <ICONS.checkbox /> : <ICONS.checkboxOutline />}
                           <Text style={styles.checkboxLabel}>Псевдонім автора</Text>
@@ -312,6 +296,7 @@ export default function ProfileScreen() {
                     <Text style={[styles.signatureText, { marginLeft: 32, color: '#8E8E93', marginBottom: 15 }]}>
                       {user?.authorName}
                     </Text>
+
                     <Controller
                       name="useSignature"
                       control={control}
@@ -319,7 +304,6 @@ export default function ProfileScreen() {
                         <TouchableOpacity
                           style={[styles.checkboxRow, { opacity: isEditingSignature ? 1 : 0.6 }]}
                           onPress={() => isEditingSignature && onChange(!value)}
-                          activeOpacity={isEditingSignature ? 0.7 : 1}
                         >
                           {value ? <ICONS.checkbox /> : <ICONS.checkboxOutline />}
                           <Text style={styles.checkboxLabel}>Мій електронний підпис</Text>
@@ -327,14 +311,15 @@ export default function ProfileScreen() {
                       )}
                     />
                   </View>
-                  {isLoading && <ActivityIndicator color={COLORS.darkBlue} style={{ marginVertical: 20 }} />}
+
+                  {isLoading && <ActivityIndicator color={COLORS.blue10} style={{ marginVertical: 20 }} />}
                 </View>
               )
             },
             {
               title: "Альбоми",
               content: (
-                <View style={styles.placeholder}>
+                <View>
                   <Avatars />
                   <Albums />
                 </View>
@@ -344,6 +329,7 @@ export default function ProfileScreen() {
         />
       </ScrollView>
 
+      {/* Модалка підтвердження */}
       {step === 2 && (
         <View style={StyleSheet.absoluteFill}>
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
@@ -352,7 +338,12 @@ export default function ProfileScreen() {
               title="Підтвердження"
               email={user?.email || ''}
               setStep={setStep}
-              onConfirm={handleConfirmCode}
+              onConfirm={async () => {
+                const values = getValues();
+                await updateUser({ userId: user?.id!, body: { password: values.password } as any }).unwrap();
+                setStep(1);
+                setIsEditingPassword(false);
+              }}
             />
           </View>
         </View>

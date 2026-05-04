@@ -9,7 +9,11 @@ const ERROR_MESSAGES = {
 export const settingsValidator = yup.object({
   authorName: yup.string().required(ERROR_MESSAGES.required),
   userName: yup.string().required(ERROR_MESSAGES.required), 
-  birthDate: yup.string().nullable().defined(), 
+  birthDate: yup
+    .string()
+    .nullable()
+    .matches(/^\d{4}-\d{2}-\d{2}$/, "Формат має бути РРРР-ММ-ДД")
+    .transform((value) => (value === "" ? null : value)), 
   avatar: yup
     .string()
     .nullable()
