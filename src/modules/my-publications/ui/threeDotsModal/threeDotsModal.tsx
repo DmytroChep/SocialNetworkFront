@@ -1,5 +1,6 @@
 import React from "react";
-import { Modal, View, Text, TouchableOpacity, TouchableWithoutFeedback } from "react-native";
+import { View, Text, TouchableOpacity, TouchableWithoutFeedback } from "react-native";
+import Modal from 'react-native-modal';
 import { styles } from "./threeDotsModal.styles";
 import { ICONS } from "../../../../shared/icons";
 
@@ -8,14 +9,15 @@ interface ThreeDotsModalProps {
     onClose: () => void;
     onEdit: () => void;
     onDelete: () => void;
+    position?: { top: number; right: number };
 }
 
-export function ThreeDotsModal({ isVisible, onClose, onEdit, onDelete }: ThreeDotsModalProps) {
+export function ThreeDotsModal({ isVisible, onClose, onEdit, onDelete, position }: ThreeDotsModalProps) {
     return (
-        <Modal visible={isVisible} transparent animationType="fade">
+        <Modal isVisible={isVisible} backdropOpacity={0} animationInTiming={1} animationOutTiming={1} onBackdropPress={onClose} onBackButtonPress={onClose}>
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
-                    <View style={styles.container}>
+                    <View style={[styles.container, position ? { top: position.top, right: position.right } : { alignSelf: 'center', top: '30%' }]}>
                         <View style={styles.header}>
                             <ICONS.dots color="#666" />
                         </View>
@@ -27,7 +29,7 @@ export function ThreeDotsModal({ isVisible, onClose, onEdit, onDelete }: ThreeDo
 
                         <View style={styles.divider} />
 
-                        <TouchableOpacity style={styles.option} onPress={onDelete}>
+                        <TouchableOpacity style={styles.option} onPress={() => onDelete?.()}>
                             <ICONS.trash width={20} height={20} color="#000" />
                             <Text style={styles.optionText}>Видалити публікацію</Text>
                         </TouchableOpacity>
