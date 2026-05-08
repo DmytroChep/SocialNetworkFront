@@ -81,20 +81,24 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         }
     };
 
-    const onSubmit = (data: IPostForm) => {
+    const onSubmit = async (data: IPostForm) => {
         const payload = {
-            title: data.title,
+            title: data.title.trim(),
             author_id: user?.id ? Number(user.id) : 2,
             content: data.content || "",
             topic: data.topic || null,
             tags: data.tags,
-            links: data.links.map((link) => link.value).filter(Boolean),
-            images: data.images.map((base64Url) => ({ original_image: base64Url })),
+            links: data.links?.map((link) => link.value).filter(Boolean) || [],
+            images: data.images?.map((url) => ({ original_image: url })) || [],
         };
 
-        createPost(payload).unwrap();
-        reset();
-        onClose();
+        try {
+            await createPost(payload).unwrap();
+            reset();
+            onClose();
+        } catch (err) {
+            console.error("Помилка при створенні допису:", err);
+        }
     };
 
     return (

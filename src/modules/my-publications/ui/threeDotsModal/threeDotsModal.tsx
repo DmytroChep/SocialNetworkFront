@@ -26,13 +26,14 @@ export function ThreeDotsModal({ isVisible, onClose, onDelete, onUpdatePost, pos
 
     return (
         <>
-            <Modal 
-                isVisible={isVisible} 
-                backdropOpacity={0} 
-                animationInTiming={1} 
-                animationOutTiming={1} 
-                onBackdropPress={onClose} 
-                onBackButtonPress={onClose}
+            <Modal
+                isVisible={isVisible}
+                onBackdropPress={onClose}
+                backdropOpacity={0}
+                animationInTiming={1}
+                animationOutTiming={1}
+                style={{ margin: 0 }}
+                useNativeDriver={true}
             >
                 <TouchableWithoutFeedback onPress={onClose}>
                     <View style={styles.overlay}>
@@ -48,7 +49,7 @@ export function ThreeDotsModal({ isVisible, onClose, onDelete, onUpdatePost, pos
 
                             <View style={styles.divider} />
 
-                            <TouchableOpacity style={styles.option} onPress={() => { onClose(); onDelete?.(); }}>
+                            <TouchableOpacity style={styles.option} onPress={() => { onClose(); onDelete(); }}>
                                 <ICONS.trash width={20} height={20} color="#000" />
                                 <Text style={styles.optionText}>Видалити публікацію</Text>
                             </TouchableOpacity>

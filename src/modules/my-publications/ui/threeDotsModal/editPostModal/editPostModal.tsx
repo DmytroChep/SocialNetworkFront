@@ -28,8 +28,8 @@ interface EditPostModalProps {
 export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: EditPostModalProps) {
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
-    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
-    
+    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа"]);
+
     const { control, handleSubmit, reset, setValue, watch } = useForm({
         defaultValues: {
             title: "",
@@ -66,11 +66,14 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
             quality: 1,
+            base64: true,
         });
 
         if (!result.canceled) {
-            const uris = result.assets.map(asset => asset.uri);
-            setValue("images", [...selectedImages, ...uris]);
+            const base64Images = result.assets.map(asset => 
+                `data:${asset.mimeType || 'image/png'};base64,${asset.base64}`
+            );
+            setValue("images", [...selectedImages, ...base64Images]);
         }
     };
 
@@ -88,8 +91,8 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
         }
     };
 
-    const onSubmit = (data: any) => {
-        onSubmitAction(data);
+    const onSubmit = async (data: any) => {
+        await onSubmitAction(data);
         onClose();
     };
 

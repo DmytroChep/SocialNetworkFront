@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { Alert, View, Text, Image, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { IPost } from '../../types/Post.type';
 import { styles } from './publicationCard.styles';
 import { ICONS } from '../../../../shared/icons';
 import { 
     useHeartIncreaseMutation, 
-    useThumbUpIncreaseMutation,
+    useThumbUpIncreaseMutation, 
     useUpdatePostMutation,
     useDeletePostMutation
 } from '../../../../shared/api/baseApi';
@@ -26,9 +26,10 @@ import {
 interface PostProps {
     post: IPost;
     userId?: number;
+    onDelete?: (postId: number) => void;
 }
 
-export function PublicationCard({ post, userId }: PostProps) {
+export function PublicationCard({ post, userId, onDelete }: PostProps) {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     
     const images = getPostImages(post);
@@ -41,31 +42,76 @@ export function PublicationCard({ post, userId }: PostProps) {
     const [increaseThumbUp] = useThumbUpIncreaseMutation();
     const [increaseHeart] = useHeartIncreaseMutation();
     const [updatePost] = useUpdatePostMutation();
-    const [deletePost] = useDeletePostMutation();
-    
+    const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
+
+    const [popupPosition, setPopupPosition] = useState({ top: 0, right: 20 });
+
+    const dotsRefs = useRef<{ [key: string]: View | null }>({});
+
     const handleUpdatePost = async (formData: any) => {
+        const payload = {
+            title: formData.title,
+            content: formData.content,
+            topic: formData.topic,
+            author_id: userId || getPostAuthorId(post),
+            links: formData.links?.map((link: { value: string }) => link.value).filter(Boolean) || [],
+            images: formData.images?.map((url: string) => ({ original_image: url })) || [],
+        };
+
         try {
-            const payload = {
-                postId: post.id,
-                post: {
-                    title: formData.title,
-                    topic: formData.topic,
-                    content: formData.content,
-                    author_id: userId || getPostAuthorId(post),
-                    links: formData.links?.map((link: { value: string }) => link.value).filter(Boolean) || [],
-                    images: formData.images.map((url: string) => ({ original_image: url }))
-                }
-            };
-            const response = await updatePost(payload).unwrap();
-            console.log(`Допис оновлено успішно: ${response}`);
-        } catch (error) {
-            console.error("Помилка при оновленні допису:", error);
+            await updatePost({ postId: post.id, post: payload }).unwrap();
+            console.log("Обновлено");
+        } catch (err) {
+            console.error("Ошибка при обновлении:", err);
         }
+    };
+
+    const handleOpenPopup = (element: IPost) => {
+        dotsRefs.current[element.id]?.measureInWindow((x, y, width, height) => {
+
+            const statusBarHeight =
+                Platform.OS === 'android'
+                    ? StatusBar.currentHeight || 0
+                    : 0;
+
+            setPopupPosition({
+                top: y - statusBarHeight - 10,
+                right: -90
+            });
+
+            setIsMenuVisible(true);
+        });
+    };
+
+    const handleDeletePress = () => {
+        Alert.alert(
+            "Видалення",
+            "Ви впевнені, що хочете видалити цю публікацію?",
+            [
+                { text: "Скасувати", style: "cancel" },
+                { 
+                    text: "Видалити", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        try {
+                            await deletePost(post.id).unwrap();
+                            onDelete?.(post.id);
+                            console.log("Пост видалено успішно");
+                        } catch (err) {
+                            console.error("Помилка при видаленні:", err);
+                            Alert.alert("Помилка", "не вдалося видалити пост");
+                        }
+                    } 
+                }
+            ]
+        );
     };
 
     return (
         <View style={styles.card}>
+
             <View style={styles.header}>
+
                 <View style={styles.headerLeft}>
                     <View style={styles.avatarWrapper}>
                         {authorAvatar ? (
@@ -75,11 +121,15 @@ export function PublicationCard({ post, userId }: PostProps) {
                         )}
                         <View style={styles.statusDot} />
                     </View>
+
                     <View>
-                        <Text style={styles.userName}>{getUserDisplayName(post.author)}</Text>
+                        <Text style={styles.userName}>
+                            {getUserDisplayName(post.author)}
+                        </Text>
+
                         {authorSignature && (
-                            <Image 
-                                source={{ uri: authorSignature }} 
+                            <Image
+                                source={{ uri: authorSignature }}
                                 style={styles.signature}
                                 resizeMode="contain"
                             />
@@ -88,21 +138,37 @@ export function PublicationCard({ post, userId }: PostProps) {
                 </View>
 
                 {userId === getPostAuthorId(post) && (
-                    <TouchableOpacity 
-                        style={styles.menuButton} 
-                        onPress={() => setIsMenuVisible(true)}
+                    <View
+                        ref={(el) => {
+                            dotsRefs.current[post.id] = el;
+                        }}
+                        collapsable={false}
                     >
-                        <ICONS.dots />
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.menuButton}
+                            onPress={() => handleOpenPopup(post)}
+                        >
+                            <ICONS.dots />
+                        </TouchableOpacity>
+                    </View>
                 )}
             </View>
 
             <View style={styles.contentContainer}>
-                <Text style={styles.description}>{post.title}</Text>
-                <Text style={styles.description}>{getPostContent(post)}</Text>
+                <Text style={styles.description}>
+                    {post.title}
+                </Text>
+
+                <Text style={styles.description}>
+                    {getPostContent(post)}
+                </Text>
+
                 <View style={styles.hashtagContainer}>
                     {tags.map((tag) => (
-                        <Text key={tag} style={styles.hashtag}>
+                        <Text
+                            key={tag}
+                            style={styles.hashtag}
+                        >
                             #{tag}
                         </Text>
                     ))}
@@ -110,22 +176,24 @@ export function PublicationCard({ post, userId }: PostProps) {
             </View>
 
             <View style={styles.gridContainer}>
+
                 <View style={styles.topRow}>
                     {topImages.map((img, index) => (
-                        <Image 
-                            key={`top-${img.id}-${index}`} 
-                            source={{ uri: img.url }} 
-                            style={styles.largeImage} 
+                        <Image
+                            key={`top-${img.id}-${index}`}
+                            source={{ uri: img.url }}
+                            style={styles.largeImage}
                         />
                     ))}
                 </View>
+
                 {bottomImages.length > 0 && (
                     <View style={styles.bottomRow}>
                         {bottomImages.map((img, index) => (
-                            <Image 
-                                key={`bottom-${img.id}-${index}`} 
-                                source={{ uri: img.url }} 
-                                style={styles.smallImage} 
+                            <Image
+                                key={`bottom-${img.id}-${index}`}
+                                source={{ uri: img.url }}
+                                style={styles.smallImage}
                             />
                         ))}
                     </View>
@@ -133,31 +201,56 @@ export function PublicationCard({ post, userId }: PostProps) {
             </View>
 
             <View style={styles.footer}>
+
                 <View style={styles.statsRow}>
-                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseHeart({postId: post.id})}}>
+
+                    <TouchableOpacity
+                        style={styles.statItem}
+                        onPress={() => {
+                            increaseHeart({ postId: post.id });
+                        }}
+                    >
                         <ICONS.heart />
-                        <Text style={styles.statText} >{getPostHeartsCount(post)} Вподобань</Text>
+
+                        <Text style={styles.statText}>
+                            {getPostHeartsCount(post)} Вподобань
+                        </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseThumbUp({postId: post.id})}}>
+
+                    <TouchableOpacity
+                        style={styles.statItem}
+                        onPress={() => {
+                            increaseThumbUp({ postId: post.id });
+                        }}
+                    >
                         <ICONS.like />
-                        <Text style={styles.statText} >{getPostLikesCount(post)} Вподобань</Text>
+
+                        <Text style={styles.statText}>
+                            {getPostLikesCount(post)} Вподобань
+                        </Text>
                     </TouchableOpacity>
+
                 </View>
+
                 <View style={styles.statItem}>
                     <ICONS.eye />
-                    <Text style={styles.statText}>{getPostViewsCount(post)} Переглядів</Text>
+
+                    <Text style={styles.statText}>
+                        {getPostViewsCount(post)} Переглядів
+                    </Text>
                 </View>
+
             </View>
 
-            <ThreeDotsModal 
+            <ThreeDotsModal
                 isVisible={isMenuVisible}
                 onClose={() => setIsMenuVisible(false)}
                 post={post}
+                position={popupPosition}
                 onUpdatePost={handleUpdatePost}
-                onDelete={async () => {
-                    await deletePost(post.id).unwrap();
-                }}
+                onDelete={handleDeletePress}
             />
+
         </View>
     );
 }
