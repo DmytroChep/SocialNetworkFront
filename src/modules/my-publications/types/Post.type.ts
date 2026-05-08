@@ -13,25 +13,25 @@ export interface IPostHashtag {
 
 
 export interface IPost {
-  id: number;
-  title: string;
-  topic: string | null;
-  description: string | null;
-  link: string | null;
+    id: number;
+    title: string;
+    topic: string | null;
+    description: string | null;
+    link: string | null;
 
-  views: number;
+    views: number;
 
-  authorId: number;
-  author: IUser;
+    authorId: number;
+    author: IUser;
 
-  hashtags: IPostHashtag[];
-  images: { url: string }[];
+    hashtags: IPostHashtag[];
+    images: { url: string }[];
 
-  heartCount: number;
-  thumbsUpCount: number;
+    heartCount: number;
+    thumbsUpCount: number;
 
-  isHeartLiked: boolean;
-  isThumbsUpLiked: boolean;
+    isHeartLiked: boolean;
+    isThumbsUpLiked: boolean;
 }
 
 

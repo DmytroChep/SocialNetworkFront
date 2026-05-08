@@ -19,6 +19,7 @@ export const baseApi = createApi({
             return headers;
         },
     }),
+  tagTypes: ['Posts'],
   endpoints: (builder) => ({
     login: builder.mutation<string, IAuthUser>({
       query: (body) => ({
@@ -123,22 +124,24 @@ export const baseApi = createApi({
         body: { images},
       }),
     }),
-    createPost: builder.mutation<string, IPostCreation>({
-      query: (post: IPostCreation) => ({
+    createPost: builder.mutation<IPost, IPostCreation>({
+      query: (newPost) => ({
         url: `post`,
         method: "POST",
-        body: {post},
-      })
+        body: newPost,
+      }),
     }),
     getAllPosts: builder.query<IPost[], void>({
       query: () => ({
         url: "posts",
       }),
+      providesTags: ['Posts'],
     }),
     getUserPosts: builder.query<IPost[], {userId: number}>({
       query: ({userId}: {userId: number}) => ({
         url: `user/${userId}/posts`,
       }),
+      providesTags: ['Posts'],
     }),
     thumbUpIncrease: builder.mutation<string, {postId: number}>({
       query: ({postId}: {postId: number}) => ({
@@ -170,6 +173,23 @@ export const baseApi = createApi({
         method: "PATCH",
       })
     }),
+
+    updatePost: builder.mutation<IPost, { postId: number; post: Partial<IPostCreation> }>({
+      query: ({ postId, post }) => ({
+          url: `post/${postId}`,
+          method: 'PATCH',
+          body: post
+      }),
+      invalidatesTags: ['Posts']
+    }),
+
+    deletePost: builder.mutation<void, number>({
+        query: (id) => ({
+            url: `post/${id}`,
+            method: 'DELETE'
+        }),
+        invalidatesTags: ['Posts']
+    }),
   }),
 });
 
@@ -198,5 +218,7 @@ export const {
   useThumbUpDecreaseMutation,
   useHeartIncreaseMutation,
   useHeartDecreaseMutation,
-  useViewsIncreaseMutation
+  useViewsIncreaseMutation,
+  useUpdatePostMutation,
+  useDeletePostMutation
 } = baseApi;

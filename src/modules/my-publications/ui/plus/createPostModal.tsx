@@ -81,23 +81,25 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         }
     };
 
-    const onSubmit = (data: IPostForm) => {
-        const linkString = data.links.map(l => l.value).filter(Boolean).join(", ");
-
+    const onSubmit = async (data: IPostForm) => {
         const payload = {
-            title: data.title,
-            authorId: user?.id ? Number(user.id) : 2,
-            description: data.content || null,
-            topic: data.topic || null,
-            link: linkString || null,
-            images: data.images.map(base64Url => ({ url: base64Url }))
+            title: data.title.trim(),
+            authorId: user?.id ? Number(user.id) : 2, 
+            description: data.content || "",
+            topic: data.topic || "",
+            link: data.links?.map(l => l.value).filter(Boolean).join(", ") || "",
+            images: data.images ? data.images.map(url => ({ url })) : []
         };
 
-        console.log(payload)
+        console.log("ШЛЕМО ЦЕ:", payload);
 
-        createPost(payload).unwrap();
-        reset();
-        onClose();
+        try {
+            await createPost(payload).unwrap();
+            reset();
+            onClose();
+        } catch (err) {
+            console.error("БЕК ВСЕ ОДНО СУЧИТЬСЯ:", err);
+        }
     };
 
     return (

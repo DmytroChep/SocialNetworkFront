@@ -24,7 +24,7 @@ interface EditPostModalProps {
     onSubmitAction: (data: any) => void;
 }
 
-export const EditPostModal = ({ isVisible, onClose, post, onSubmitAction }: EditPostModalProps) => {
+export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: EditPostModalProps) {
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
     const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа"]);
@@ -65,11 +65,14 @@ export const EditPostModal = ({ isVisible, onClose, post, onSubmitAction }: Edit
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
             quality: 1,
+            base64: true,
         });
 
         if (!result.canceled) {
-            const uris = result.assets.map(asset => asset.uri);
-            setValue("images", [...selectedImages, ...uris]);
+            const base64Images = result.assets.map(asset => 
+                `data:${asset.mimeType || 'image/png'};base64,${asset.base64}`
+            );
+            setValue("images", [...selectedImages, ...base64Images]);
         }
     };
 
@@ -87,8 +90,8 @@ export const EditPostModal = ({ isVisible, onClose, post, onSubmitAction }: Edit
         }
     };
 
-    const onSubmit = (data: any) => {
-        onSubmitAction(data);
+    const onSubmit = async (data: any) => {
+        await onSubmitAction(data);
         onClose();
     };
 
@@ -96,7 +99,6 @@ export const EditPostModal = ({ isVisible, onClose, post, onSubmitAction }: Edit
         <Modal visible={isVisible} animationType="fade" transparent>
             <View style={styles.overlay}>
                 <View style={styles.container}>
-                    {/* Header */}
                     <View style={styles.header}>
                         <Text style={styles.headerTitle}>
                             {post ? "Редагування публікації" : "Створення публікації"}
