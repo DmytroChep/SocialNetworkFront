@@ -82,18 +82,15 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
     };
 
     const onSubmit = (data: IPostForm) => {
-        const linkString = data.links.map(l => l.value).filter(Boolean).join(", ");
-
         const payload = {
             title: data.title,
-            authorId: user?.id ? Number(user.id) : 2,
-            description: data.content || null,
+            author_id: user?.id ? Number(user.id) : 2,
+            content: data.content || "",
             topic: data.topic || null,
-            link: linkString || null,
-            images: data.images.map(base64Url => ({ url: base64Url }))
+            tags: data.tags,
+            links: data.links.map((link) => link.value).filter(Boolean),
+            images: data.images.map((base64Url) => ({ original_image: base64Url })),
         };
-
-        console.log(payload)
 
         createPost(payload).unwrap();
         reset();

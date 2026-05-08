@@ -15,13 +15,13 @@ import { IAlbum } from '../../../../shared/context/types';
 
 const albumSchema = yup.object().shape({
   name: yup.string().required("Обов'язкове поле"),
-  topic: yup.string().nullable().required("Оберіть тему"),
+  theme: yup.string().nullable().required("Оберіть тему"),
   year: yup.string().required("Обов'язкове поле"),
 });
 
 type AlbumFormData = {
   name: string;
-  topic: string;
+  theme: string;
   year: string;
 };
 
@@ -43,8 +43,8 @@ export function CreateAlbumModal({ visible, onClose, initialData }: CreateAlbumM
     resolver: yupResolver(albumSchema),
     defaultValues: {
       name: initialData?.name || '',
-      topic: initialData?.topic || '',
-      year: initialData?.year || ''
+      theme: initialData?.theme || '',
+      year: initialData?.year?.toString() || ''
     }
   });
 
@@ -52,13 +52,13 @@ export function CreateAlbumModal({ visible, onClose, initialData }: CreateAlbumM
     if (visible && initialData) {
       reset({
         name: initialData.name,
-        topic: initialData.topic,
-        year: initialData.year
+        theme: initialData.theme || '',
+        year: initialData.year?.toString() || ''
       });
     } else if (visible) {
       reset({
         name: '',
-        topic: '',
+        theme: '',
         year: ''
       });
     }
@@ -78,12 +78,18 @@ export function CreateAlbumModal({ visible, onClose, initialData }: CreateAlbumM
       if (isEditMode && initialData && initialData.id) {
         await updateAlbum({
           id: initialData.id,
-          body: data
+          body: {
+            name: data.name,
+            theme: data.theme,
+            year: Number(data.year),
+          }
         }).unwrap();
       } else {
         await createAlbum({
-          ...data,
-          userId: user.id
+          name: data.name,
+          theme: data.theme,
+          year: Number(data.year),
+          profile_id: user.profile?.id,
         }).unwrap();
       }
       
@@ -123,7 +129,7 @@ export function CreateAlbumModal({ visible, onClose, initialData }: CreateAlbumM
               />
 
               <Controller
-                name="topic" 
+                name="theme" 
                 control={control}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
                   <View style={styles.inputGroup}>
@@ -137,8 +143,8 @@ export function CreateAlbumModal({ visible, onClose, initialData }: CreateAlbumM
                         activeColor={COLORS.blue20 || '#F3F4F6'}
                         
                         data={(hashTags || []).map(hashtag => ({
-                          label: hashtag.title,
-                          value: hashtag.title
+                          label: hashtag.name,
+                          value: hashtag.name
                         }))}
                         
                         labelField="label"

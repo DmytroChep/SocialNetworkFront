@@ -56,11 +56,11 @@ export const baseApi = createApi({
         url: `user/isCodeExists?code=${code}`,
       }),
     }),
-    updateAvatar: builder.mutation<{userId: number, image: string, id: number}, {userId: number, image: string}>({
+    updateAvatar: builder.mutation<{user_id: number, image: string, id: number}, {userId: number, image: string}>({
       query: ({ userId, image }) => ({
         url: `update-avatar`,
         method: "POST",
-        body: {userId, image},
+        body: { user_id: userId, image },
       }),
     }),
     getContacts: builder.query<IContact[], void>({
@@ -68,7 +68,7 @@ export const baseApi = createApi({
         url: "user/contacts",
       }),
     }),
-    createAlbum: builder.mutation<IAlbum, IAlbum>({
+    createAlbum: builder.mutation<IAlbum, Partial<IAlbum> & { name: string }>({
       query: (body) => ({
         url: "album",
         method: "POST",
@@ -103,11 +103,11 @@ export const baseApi = createApi({
         url: "hashtags",
       }),
     }),
-    addAlbumImages: builder.mutation<IAlbum, { albumId: number;name: string,userId: number, images: {image:string}[] }>({
+    addAlbumImages: builder.mutation<IAlbum, { albumId: number; name: string; userId: number; images: { image: string }[] }>({
       query: ({ albumId, images, userId, name }) => ({
         url: `album/${albumId}/images`,
         method: "POST",
-        body: { images, name, userId },
+        body: { images, name, user_id: userId },
       }),
     }),
     deleteAlbumImage: builder.mutation<void, number>({
@@ -116,7 +116,7 @@ export const baseApi = createApi({
         method: "DELETE",
       }),
     }),
-    replaceAlbumImages: builder.mutation<IAlbum, { albumId: number;name: string,userId: number, images: { image: string }[] }>({
+    replaceAlbumImages: builder.mutation<IAlbum, { albumId: number; name: string; userId: number; images: { image: string }[] }>({
       query: ({ albumId, images }) => ({
         url: `album/${albumId}/images`,
         method: "PATCH",
@@ -127,7 +127,7 @@ export const baseApi = createApi({
       query: (post: IPostCreation) => ({
         url: `post`,
         method: "POST",
-        body: {post},
+        body: { post },
       })
     }),
     getAllPosts: builder.query<IPost[], void>({
@@ -170,6 +170,21 @@ export const baseApi = createApi({
         method: "PATCH",
       })
     }),
+
+    updatePost: builder.mutation<string, { postId: number; post: Partial<IPostCreation> }>({
+      query: ({ postId, post }) => ({
+        url: `post/${postId}`,
+        method: "PATCH",
+        body: { post },
+      }),
+    }),
+
+    deletePost: builder.mutation<void, number>({
+      query: (postId) => ({
+        url: `post/${postId}`,
+        method: "DELETE",
+      }),
+    }),
   }),
 });
 
@@ -198,5 +213,7 @@ export const {
   useThumbUpDecreaseMutation,
   useHeartIncreaseMutation,
   useHeartDecreaseMutation,
-  useViewsIncreaseMutation
+  useViewsIncreaseMutation,
+  useUpdatePostMutation,
+  useDeletePostMutation
 } = baseApi;

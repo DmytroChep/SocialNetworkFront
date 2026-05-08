@@ -43,13 +43,13 @@ export function RegistrationForm() {
 
   const onSubmit = async (data: RegistrationForm) => {
     setServerError(null);
-    console.log(data)
     try {
       const { passwordConfirm, ...body } = data;
+      const username = body.email.split("@")[0].replace(/[^\w.-]/g, "");
       
       setEmail(data.email); 
 
-      const result = await registerUser(body).unwrap();
+      const result = await registerUser({ ...body, username }).unwrap();
       
       if (result && typeof result === 'string' && result.split(".").length > 0) {
         setToken(result);

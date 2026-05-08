@@ -37,8 +37,18 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
   const { data: meData } = useMeQuery();
 
   const onSubmit = (formData: FirstEnterForm) => {
-    console.log("Дані зібрані:", formData);
-    updateUser({ userId: meData?.id ?? 1, body: formData as IPartialUser });
+    const body: IPartialUser = {
+      first_name: formData.authorName,
+      username: formData.userName,
+      pseudonym: formData.authorName,
+      is_text_signature: true,
+      profile: {
+        pseudonym: formData.authorName,
+        is_text_signature: true,
+      },
+    };
+
+    updateUser({ userId: meData?.id ?? 1, body });
     onClose();
   };
 

@@ -1,57 +1,105 @@
-import React, { useEffect } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, ScrollView, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { 
+    Modal, 
+    View, 
+    Text, 
+    TextInput, 
+    TouchableOpacity, 
+    ScrollView, 
+    Image 
+} from 'react-native';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import * as ImagePicker from 'expo-image-picker';
 import { styles } from './editPostModal.styles';
-import { ICONS } from '../../../../shared/icons';
-import { IPost } from '../../types/Post.type';
+import { ICONS } from '../../../../../shared/icons';
+import { COLORS } from '../../../../../shared/constants';
+import { IPost } from '../../../types/Post.type';
+import { Input } from '../../../../../shared/ui/input';
+import { RoundButton } from '../../../../../shared/ui/RoundButton';
+import { getPostContent, getPostImages, getPostLinks } from '../../../../../shared/lib/model-helpers';
 
 interface EditPostModalProps {
     isVisible: boolean;
     onClose: () => void;
-    post: IPost | null;
+    post?: IPost | null;
+    onSubmitAction: (data: any) => void;
 }
 
-export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProps) => {
-    const { control, handleSubmit, reset } = useForm({
+export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: EditPostModalProps) {
+    const [isAddingTag, setIsAddingTag] = useState(false);
+    const [newTag, setNewTag] = useState("");
+    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
+    
+    const { control, handleSubmit, reset, setValue, watch } = useForm({
         defaultValues: {
             title: "",
-            description: "",
+            topic: "",
             content: "",
             links: [{ value: "" }],
+            images: [] as string[],
         }
     });
 
     const { fields, append, remove } = useFieldArray({ control, name: "links" });
+    const selectedImages = watch("images");
 
     useEffect(() => {
-        if (post && isVisible) {
-            reset({
-                title: post.title,
-                description: post.description,
-                content: post.description,
-                links: post.links?.length 
-                    ? post.links.map(l => ({ value: l.url })) 
-                    : [{ value: "" }],
-            });
+        if (isVisible) {
+            if (post) {
+                reset({
+                    title: post.title,
+                    topic: post.topic || "",
+                    content: getPostContent(post),
+                    links: getPostLinks(post).length
+                        ? getPostLinks(post).map((link) => ({ value: link }))
+                        : [{ value: "" }],
+                    images: getPostImages(post).map((image) => image.url)
+                });
+            } else {
+                reset({ title: "", topic: "", content: "", links: [{ value: "" }], images: [] });
+            }
         }
-    }, [post, isVisible]);
+    }, [post, isVisible, reset]);
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            const uris = result.assets.map(asset => asset.uri);
+            setValue("images", [...selectedImages, ...uris]);
+        }
+    };
+
+    const handleTagPress = (tag: string) => {
+        const currentContent = watch("content");
+        setValue("content", `${currentContent} #${tag} `);
+    };
+
+    const addNewCustomTag = () => {
+        if (newTag.trim()) {
+            setBaseTags([...baseTags, newTag.trim()]);
+            handleTagPress(newTag.trim());
+            setNewTag("");
+            setIsAddingTag(false);
+        }
+    };
 
     const onSubmit = (data: any) => {
-        console.log("Оновлені дані:", data);
+        onSubmitAction(data);
         onClose();
     };
 
-    if (!post) {
-        return null;
-    }
-
-    return(
-       <Modal visible={isVisible} animationType="fade" transparent>
+    return (
+        <Modal visible={isVisible} animationType="fade" transparent>
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.header}>
                         <Text style={styles.headerTitle}>
-                            Редактувати 
+                            {post ? "Редагування публікації" : "Створення публікації"}
                         </Text>
                         <TouchableOpacity onPress={onClose}>
                             <Text style={styles.closeIcon}>✕</Text>
@@ -89,7 +137,7 @@ export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProp
                                         onChangeText={setNewTag} 
                                     />
                                     <TouchableOpacity onPress={addNewCustomTag} style={{ marginLeft: 10 }}>
-                                        <ICONS.round color="#51455D" />
+                                        <ICONS.round color={COLORS.plum || "#51455D"} />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -107,17 +155,11 @@ export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProp
                                         placeholder="Інколи найкращі ідеї народжуються в тиші..."
                                         textAlignVertical="top"
                                     >
-                                        {/* Фіолетові теги */}
-                                        {value?.split(/(\s+)/).map((part: string, index: number) => {
-                                            if (part.startsWith('#')) {
-                                                return (
-                                                    <Text key={index} style={{ color: COLORS.plum, fontWeight: '600' }}>
-                                                        {part}
-                                                    </Text>
-                                                );
-                                            }
-                                            return <Text key={index} style={{ color: '#333' }}>{part}</Text>;
-                                        })}
+                                        {value.split(/(\s+)/).map((part, index) => (
+                                            <Text key={index} style={part.startsWith('#') ? { color: COLORS.plum, fontWeight: '600' } : { color: '#333' }}>
+                                                {part}
+                                            </Text>
+                                        ))}
                                     </TextInput>
                                 </View>
                             )}
@@ -138,23 +180,18 @@ export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProp
                                         />
                                     )}
                                 />
-                                
                                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 5 }}>
                                     {index === fields.length - 1 && (
-                                        <TouchableOpacity 
-                                            style={styles.addCircleInline} 
-                                            onPress={() => append({ value: "" })}
-                                        >
+                                        <TouchableOpacity style={styles.addCircleInline} onPress={() => append({ value: "" })}>
                                             <Text style={styles.plus}>+</Text>
                                         </TouchableOpacity>
                                     )}
-
                                     {fields.length > 1 && (
                                         <TouchableOpacity 
-                                            style={[styles.addCircleInline, { borderColor: COLORS.plum || '#51455D' }]} 
+                                            style={[styles.addCircleInline, { borderColor: COLORS.plum }]} 
                                             onPress={() => remove(index)}
                                         >
-                                            <ICONS.cross width={14} height={14} color={COLORS.plum || '#51455D'} />
+                                            <ICONS.cross width={14} height={14} color={COLORS.plum} />
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -169,7 +206,7 @@ export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProp
                                         style={styles.deletePhotoBtn} 
                                         onPress={() => setValue("images", selectedImages.filter((_, i) => i !== index))}
                                     >
-                                        <ICONS.trash color="black" />
+                                        <ICONS.trash color="black" width={18} height={18} />
                                     </TouchableOpacity>
                                 </View>
                             ))}
@@ -182,11 +219,10 @@ export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProp
                                 style={[styles.publishBtn, { flex: 0, paddingHorizontal: 25 }]} 
                                 onPress={handleSubmit(onSubmit)}
                             >
-                                {/* Змінюємо текст кнопки */}
                                 <Text style={styles.publishBtnText}>
                                     {post ? "Зберегти" : "Публікація"}
                                 </Text>
-                                <ICONS.Send />
+                                <ICONS.Send color="white" />
                             </TouchableOpacity>
                         </View>
                     </ScrollView>
@@ -194,4 +230,4 @@ export function EditPostModal = ({ isVisible, onClose, post }: EditPostModalProp
             </View>
         </Modal>
     );
-}
+};
