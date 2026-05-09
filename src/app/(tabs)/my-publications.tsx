@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { View, FlatList, ActivityIndicator } from 'react-native';
 import { PublicationCard } from '../../modules/my-publications/ui/publicationCard/publicationCard';
+import { IPost } from '../../modules/my-publications/types/Post.type';
 import { useGetUserPostsQuery, useViewsIncreaseMutation } from '../../shared/api/baseApi';
 import { useUserContext } from '../../shared/context/user-context';
 
@@ -38,6 +39,12 @@ export default function MyPublicationsScreen() {
     setLocalPublications(prev => prev.filter(p => p.id !== postId));
   }, []);
 
+  const handleUpdatePost = useCallback((updatedPost: IPost) => {
+    setLocalPublications(prev =>
+      prev.map(post => (post.id === updatedPost.id ? updatedPost : post))
+    );
+  }, []);
+
   if (!user) {
     return <ActivityIndicator style={{ flex: 1 }} />;
   }
@@ -48,7 +55,7 @@ export default function MyPublicationsScreen() {
         data={localPublications}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <PublicationCard post={item} userId={user.id} onDelete={handleDeletePost} />
+          <PublicationCard post={item} userId={user.id} onDelete={handleDeletePost} onUpdate={handleUpdatePost} />
         )}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}

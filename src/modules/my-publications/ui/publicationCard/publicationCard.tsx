@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Alert, View, Text, Image, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { IPost } from '../../types/Post.type';
 import { styles } from './publicationCard.styles';
@@ -7,6 +7,7 @@ import {
     useHeartIncreaseMutation, 
     useThumbUpIncreaseMutation, 
     useUpdatePostMutation,
+    useReplacePostImagesMutation,
     useDeletePostMutation
 } from '../../../../shared/api/baseApi';
 import { ThreeDotsModal } from '../threeDotsModal/threeDotsModal';
@@ -21,27 +22,67 @@ import {
     getUserAvatar,
     getUserDisplayName,
     getUserSignature,
+    toMediaUrl,
 } from '../../../../shared/lib/model-helpers';
 
 interface PostProps {
     post: IPost;
     userId?: number;
     onDelete?: (postId: number) => void;
+    onUpdate?: (post: IPost) => void;
 }
 
-export function PublicationCard({ post, userId, onDelete }: PostProps) {
+const areSameImages = (currentImages: string[], nextImages: string[]) =>
+    currentImages.length === nextImages.length &&
+    currentImages.every((image, index) => image === nextImages[index]);
+
+const getOriginalImageValue = (post: IPost, imageUrl: string) => {
+    const existingImage = post.images?.find(
+        (image) => toMediaUrl(image.compressed_image || image.original_image || image.url) === imageUrl
+    );
+
+    return existingImage?.original_image || existingImage?.url || imageUrl;
+};
+
+const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
+    ...post,
+    title: formData.title,
+    content: formData.content,
+    topic: formData.topic,
+    links: formData.links
+        ?.map((link: { value: string }, index: number) => ({
+            id: post.links?.[index]?.id ?? -index - 1,
+            post_id: post.id,
+            url: link.value,
+        }))
+        .filter((link: { url: string }) => Boolean(link.url)) || [],
+    images: formData.images?.map((url: string, index: number) => ({
+        id: post.images?.[index]?.id ?? -index - 1,
+        post_id: post.id,
+        original_image: getOriginalImageValue(post, url),
+        compressed_image: null,
+    })) || [],
+});
+
+export function PublicationCard({ post, userId, onDelete, onUpdate }: PostProps) {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
+    const [currentPost, setCurrentPost] = useState(post);
     
-    const images = getPostImages(post);
+    useEffect(() => {
+        setCurrentPost(post);
+    }, [post]);
+
+    const images = getPostImages(currentPost);
     const topImages = images.slice(0, 2);
     const bottomImages = images.slice(2, 5);
-    const tags = getPostTags(post);
-    const authorAvatar = getUserAvatar(post.author);
-    const authorSignature = getUserSignature(post.author);
+    const tags = getPostTags(currentPost);
+    const authorAvatar = getUserAvatar(currentPost.author);
+    const authorSignature = getUserSignature(currentPost.author);
 
     const [increaseThumbUp] = useThumbUpIncreaseMutation();
     const [increaseHeart] = useHeartIncreaseMutation();
     const [updatePost] = useUpdatePostMutation();
+    const [replacePostImages] = useReplacePostImagesMutation();
     const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
 
     const [popupPosition, setPopupPosition] = useState({ top: 0, right: 20 });
@@ -53,16 +94,33 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
             title: formData.title,
             content: formData.content,
             topic: formData.topic,
-            author_id: userId || getPostAuthorId(post),
+            author_id: userId || getPostAuthorId(currentPost),
             links: formData.links?.map((link: { value: string }) => link.value).filter(Boolean) || [],
-            images: formData.images?.map((url: string) => ({ original_image: url })) || [],
         };
 
+        const localUpdatedPost = buildLocalUpdatedPost(currentPost, formData);
+
         try {
-            await updatePost({ postId: post.id, post: payload }).unwrap();
+            let updatedPost = await updatePost({ postId: currentPost.id, post: payload }).unwrap();
+            const nextImages = formData.images || [];
+            const currentImages = getPostImages(currentPost).map((image) => image.url);
+
+            if (!areSameImages(currentImages, nextImages)) {
+                updatedPost = await replacePostImages({
+                    postId: currentPost.id,
+                    images: nextImages.map((url: string) => ({
+                        original_image: getOriginalImageValue(currentPost, url),
+                    })),
+                }).unwrap();
+            }
+
+            setCurrentPost(updatedPost);
+            onUpdate?.(updatedPost);
             console.log("Обновлено");
         } catch (err) {
-            console.error("Ошибка при обновлении:", err);
+            setCurrentPost(localUpdatedPost);
+            onUpdate?.(localUpdatedPost);
+            console.log("Пост обновлён локально после ответа сервера:", String(err));
         }
     };
 
@@ -94,8 +152,8 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
                     style: "destructive", 
                     onPress: async () => {
                         try {
-                            await deletePost(post.id).unwrap();
-                            onDelete?.(post.id);
+                            await deletePost(currentPost.id).unwrap();
+                            onDelete?.(currentPost.id);
                             console.log("Пост видалено успішно");
                         } catch (err) {
                             console.error("Помилка при видаленні:", err);
@@ -124,7 +182,7 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
 
                     <View>
                         <Text style={styles.userName}>
-                            {getUserDisplayName(post.author)}
+                            {getUserDisplayName(currentPost.author)}
                         </Text>
 
                         {authorSignature && (
@@ -137,16 +195,16 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
                     </View>
                 </View>
 
-                {userId === getPostAuthorId(post) && (
+                {userId === getPostAuthorId(currentPost) && (
                     <View
                         ref={(el) => {
-                            dotsRefs.current[post.id] = el;
+                            dotsRefs.current[currentPost.id] = el;
                         }}
                         collapsable={false}
                     >
                         <TouchableOpacity
                             style={styles.menuButton}
-                            onPress={() => handleOpenPopup(post)}
+                            onPress={() => handleOpenPopup(currentPost)}
                         >
                             <ICONS.dots />
                         </TouchableOpacity>
@@ -156,11 +214,11 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
 
             <View style={styles.contentContainer}>
                 <Text style={styles.description}>
-                    {post.title}
+                    {currentPost.title}
                 </Text>
 
                 <Text style={styles.description}>
-                    {getPostContent(post)}
+                    {getPostContent(currentPost)}
                 </Text>
 
                 <View style={styles.hashtagContainer}>
@@ -207,26 +265,26 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
                     <TouchableOpacity
                         style={styles.statItem}
                         onPress={() => {
-                            increaseHeart({ postId: post.id });
+                            increaseHeart({ postId: currentPost.id });
                         }}
                     >
                         <ICONS.heart />
 
                         <Text style={styles.statText}>
-                            {getPostHeartsCount(post)} Вподобань
+                            {getPostHeartsCount(currentPost)} Вподобань
                         </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={styles.statItem}
                         onPress={() => {
-                            increaseThumbUp({ postId: post.id });
+                            increaseThumbUp({ postId: currentPost.id });
                         }}
                     >
                         <ICONS.like />
 
                         <Text style={styles.statText}>
-                            {getPostLikesCount(post)} Вподобань
+                            {getPostLikesCount(currentPost)} Вподобань
                         </Text>
                     </TouchableOpacity>
 
@@ -236,7 +294,7 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
                     <ICONS.eye />
 
                     <Text style={styles.statText}>
-                        {getPostViewsCount(post)} Переглядів
+                        {getPostViewsCount(currentPost)} Переглядів
                     </Text>
                 </View>
 
@@ -245,7 +303,7 @@ export function PublicationCard({ post, userId, onDelete }: PostProps) {
             <ThreeDotsModal
                 isVisible={isMenuVisible}
                 onClose={() => setIsMenuVisible(false)}
-                post={post}
+                post={currentPost}
                 position={popupPosition}
                 onUpdatePost={handleUpdatePost}
                 onDelete={handleDeletePress}

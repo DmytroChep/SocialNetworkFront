@@ -1,112 +1,117 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Image } from "react-native";
-import { Controller, useForm, SubmitHandler } from "react-hook-form"; 
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { BlurView } from "expo-blur";
+import * as FileSystem from "expo-file-system/legacy";
+import { Controller, SubmitHandler, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { BlurView } from 'expo-blur';
-import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
-import * as FileSystem from 'expo-file-system/legacy';
+import SignatureScreen, { SignatureViewRef } from "react-native-signature-canvas";
 
-import { RadioTabs } from "../../shared/ui/RadioTab";
-import { Input } from "../../shared/ui/input";
-import { RoundButton } from "../../shared/ui/RoundButton";
-import { Button } from "../../shared/ui/button"; 
-import { ICONS } from "../../shared/icons";
+import { Albums } from "../../modules/settings/ui/album/album";
+import { AvatarField } from "../../modules/settings/ui/avatar-field";
+import { Avatars } from "../../modules/settings/ui/avatars/avatars";
+import { useLazySendCodeVerifyQuery, useMeQuery, useUpdateAvatarMutation, useUpdateMutation } from "../../shared/api/baseApi";
 import { COLORS } from "../../shared/constants";
-
-import { styles } from "./settings.styles";
-import { settingsValidator, SettingsFormInputs } from "./settings.validation";
-import { useMeQuery, useUpdateAvatarMutation, useUpdateMutation, useLazySendCodeVerifyQuery } from "../../shared/api/baseApi";
-import { AvatarField } from '../../modules/settings/ui/avatar-field';
-import { CodeConfirmationModal } from '../../shared/ui/codeConfirmationModal';
-import { Avatars } from '../../modules/settings/ui/avatars/avatars';
-import { Albums } from '../../modules/settings/ui/album/album';
+import { ICONS } from "../../shared/icons";
 import {
   getUserAvatar,
   getUserBirthDate,
   getUserDisplayName,
   getUserHandle,
   getUserSignature,
-} from '../../shared/lib/model-helpers';
+} from "../../shared/lib/model-helpers";
+import { Button } from "../../shared/ui/button";
+import { CodeConfirmationModal } from "../../shared/ui/codeConfirmationModal";
+import { Input } from "../../shared/ui/input";
+import { RadioTabs } from "../../shared/ui/RadioTab";
+import { RoundButton } from "../../shared/ui/RoundButton";
+import { styles } from "./settings.styles";
+import { settingsValidator, SettingsFormInputs } from "./settings.validation";
+
+function formatBirthDate(dateValue: unknown): string {
+  if (!dateValue) return "";
+
+  const date = new Date(Number.isNaN(Number(dateValue)) ? String(dateValue) : Number(dateValue));
+
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
+}
 
 export default function ProfileScreen() {
-  const [isEditingCard, setIsEditingCard] = useState<boolean>(false);
-  const [isEditingInfo, setIsEditingInfo] = useState<boolean>(false);
-  const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
-  const [isEditingSignature, setIsEditingSignature] = useState<boolean>(false);
-  
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [isEditingSignature, setIsEditingSignature] = useState(false);
   const [localAvatar, setLocalAvatar] = useState<string | null>(null);
-  const signatureRef = useRef<SignatureViewRef>(null);
+  const [step, setStep] = useState(1);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
+  const signatureRef = useRef<SignatureViewRef>(null);
   const isAnyEditing = isEditingCard || isEditingInfo || isEditingPassword || isEditingSignature;
 
-  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { 
-    pollingInterval: isAnyEditing ? 0 : 3000 
+  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, {
+    pollingInterval: isAnyEditing ? 0 : 3000,
   });
-  
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
   const [updateAvatar, { isLoading: isAvatarUpdating }] = useUpdateAvatarMutation();
   const [sendCode, { isLoading: isSendingCode }] = useLazySendCodeVerifyQuery();
 
-  const [step, setStep] = useState(1);
-
-  const { handleSubmit, control, reset, getValues, watch, setValue } = useForm<SettingsFormInputs>({
+  const { control, getValues, handleSubmit, reset, setValue, watch } = useForm<SettingsFormInputs>({
     resolver: yupResolver(settingsValidator) as any,
     defaultValues: {
-      authorName: '',
-      userName: '',
-      birthDate: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
+      authorName: "",
+      userName: "",
+      birthDate: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
       usePseudonym: false,
       useSignature: false,
-      avatar: '',
-      signature: '',
-    }
+      avatar: "",
+      signature: "",
+    },
   });
 
-  const watchedUseSignature = watch('useSignature');
-  const watchedSignature = watch('signature');
+  const watchedUseSignature = watch("useSignature");
+  const watchedSignature = watch("signature");
+  const watchedAuthorName = watch("authorName");
 
   useEffect(() => {
-    if (user && !isAnyEditing && !isUpdating && !isAvatarUpdating) {
-      const formatBirthDate = (dateVal: any) => {
-        if (!dateVal) return '';
-        try {
-          const d = new Date(isNaN(Number(dateVal)) ? dateVal : Number(dateVal));
-          return d.toISOString().split('T')[0];
-        } catch (e) { return ''; }
-      };
+    if (!user || isAnyEditing || isUpdating || isAvatarUpdating) return;
 
-      reset({
-        authorName: getUserDisplayName(user),
-        userName: getUserHandle(user),
-        email: user.email || '',
-        birthDate: formatBirthDate(getUserBirthDate(user)),
-        usePseudonym: !!user.profile?.pseudonym || !!user.authorName,
-        useSignature: !!getUserSignature(user),
-        password: '',
-        confirmPassword: '',
-        avatar: getUserAvatar(user) || '',
-        signature: getUserSignature(user) || '',
-      });
-    }
-  }, [user, reset, isAnyEditing]);
+    reset({
+      authorName: getUserDisplayName(user),
+      userName: getUserHandle(user),
+      email: user.email || "",
+      birthDate: formatBirthDate(getUserBirthDate(user)),
+      usePseudonym: !!user.profile?.pseudonym || !!user.authorName,
+      useSignature: !!getUserSignature(user),
+      password: "",
+      confirmPassword: "",
+      avatar: getUserAvatar(user) || "",
+      signature: getUserSignature(user) || "",
+    });
+    setLocalAvatar(null);
+  }, [isAnyEditing, isAvatarUpdating, isUpdating, reset, user]);
+
+  const closeEditing = () => {
+    setIsEditingCard(false);
+    setIsEditingInfo(false);
+    setIsEditingPassword(false);
+    setIsEditingSignature(false);
+  };
 
   const handleSignature = (signature: string) => {
-    setValue('signature', signature);
+    setValue("signature", signature);
   };
 
   const handleEmpty = () => {
-    setValue('signature', '');
+    setValue("signature", "");
   };
 
   const handleSaveSignature = () => {
-    // Якщо увімкнено підпис, зчитуємо його з канвасу
     if (watchedUseSignature && signatureRef.current) {
       signatureRef.current.readSignature();
     }
-    // Даємо затримку для оновлення значення у формі перед сабмітом
+
     setTimeout(() => {
       handleSubmit(onSubmit)();
     }, 200);
@@ -116,16 +121,15 @@ export default function ProfileScreen() {
     if (!user?.id) return;
 
     try {
-      if (localAvatar && localAvatar.startsWith('file://')) {
-        const base64 = await FileSystem.readAsStringAsync(localAvatar, { encoding: 'base64' });
+      if (localAvatar?.startsWith("file://")) {
+        const base64 = await FileSystem.readAsStringAsync(localAvatar, { encoding: "base64" });
         await updateAvatar({ userId: user.id, image: `data:image/jpeg;base64,${base64}` }).unwrap();
       }
 
-      let finalDate: string | null = null;
-      if (data.birthDate && data.birthDate.trim().length >= 10) {
-        const dateObj = new Date(`${data.birthDate}T00:00:00Z`);
-        if (!isNaN(dateObj.getTime())) finalDate = dateObj.toISOString();
-      }
+      const date = data.birthDate ? new Date(`${data.birthDate}T00:00:00Z`) : null;
+      const birthDate = date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+      const pseudonym = data.usePseudonym ? data.authorName : null;
+      const signature = data.useSignature ? data.signature || null : null;
 
       await updateUser({
         userId: user.id,
@@ -133,33 +137,30 @@ export default function ProfileScreen() {
           username: data.userName,
           first_name: data.authorName,
           email: data.email,
-          birth_date: finalDate,
-          pseudonym: data.usePseudonym ? data.authorName : null,
-          signature: data.useSignature ? data.signature : null,
+          birth_date: birthDate,
+          pseudonym,
+          signature,
           is_text_signature: data.usePseudonym,
           is_image_signature: data.useSignature,
           profile: {
-            birth_date: finalDate,
-            pseudonym: data.usePseudonym ? data.authorName : null,
-            signature: data.useSignature ? data.signature : null,
+            birth_date: birthDate,
+            pseudonym,
+            signature,
             is_text_signature: data.usePseudonym,
             is_image_signature: data.useSignature,
           },
-        }
+        },
       }).unwrap();
 
       if (isEditingPassword && data.password) {
-        await sendCode({ gmail: user.email }).unwrap();
+        await sendCode({ gmail: data.email || user.email }).unwrap();
         setStep(2);
-      } else {
-        setIsEditingCard(false);
-        setIsEditingInfo(false);
-        setIsEditingPassword(false);
-        setIsEditingSignature(false);
+        return;
       }
-    } catch (e) {
-      console.error("Submission error:", e);
-      // Закриваємо режим редагування навіть при помилці, щоб "розблокувати" UI
+
+      closeEditing();
+    } catch (error) {
+      console.error("Settings submit error:", error);
       setIsEditingSignature(false);
     }
   };
@@ -168,85 +169,123 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.plum50 }}>
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
         <RadioTabs
           radioTabsArray={[
             {
               title: "Особиста Інформація",
               content: (
                 <View>
-                  {/* КАРТКА ПРОФІЛЮ */}
                   <View style={[styles.card, { paddingVertical: isEditingCard ? 20 : 24 }]}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Картка профілю</Text>
                       {isEditingCard ? (
-                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
+                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title="Зберегти" />
                       ) : (
                         <RoundButton onPress={() => setIsEditingCard(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
+
                     {isEditingCard ? (
-                      <View style={{ alignItems: 'center', marginTop: 10 }}>
-                        <AvatarField value={localAvatar || getUserAvatar(user)} onChange={(val) => setLocalAvatar(val)} disabled={false} />
-                        <View style={{ width: '100%', marginTop: 20 }}>
+                      <View style={{ alignItems: "center", marginTop: 10 }}>
+                        <AvatarField value={localAvatar || getUserAvatar(user)} onChange={setLocalAvatar} disabled={false} />
+                        <View style={{ width: "100%", marginTop: 20 }}>
                           <Controller
                             name="userName"
                             control={control}
                             render={({ field: { onChange, value }, fieldState: { error } }) => (
-                              <Input label="Ім’я користувача" value={value ? `@${value.replace('@', '')}` : ''} onChangeText={(text) => onChange(text.replace('@', ''))} error={error?.message} />
+                              <Input
+                                label="Ім'я користувача"
+                                value={value ? `@${value.replace(/^@/, "")}` : ""}
+                                onChangeText={(text) => onChange(text.replace(/^@/, ""))}
+                                error={error?.message}
+                              />
                             )}
                           />
                         </View>
                       </View>
                     ) : (
-                      <View style={[styles.avatarSection, { alignItems: 'center' }]}>
+                      <View style={styles.avatarSection}>
                         <AvatarField value={getUserAvatar(user)} onChange={() => {}} disabled />
-                        <Text style={[styles.name, { fontSize: 20, fontWeight: '700' }]}>{getUserDisplayName(user)}</Text>
-                        <Text style={[styles.handle, { color: '#8E8E93' }]}>@{getUserHandle(user)}</Text>
+                        <Text style={[styles.name, { fontSize: 20, fontWeight: "700" }]}>{getUserDisplayName(user)}</Text>
+                        <Text style={[styles.handle, { color: "#8E8E93" }]}>@{getUserHandle(user)}</Text>
                       </View>
                     )}
                   </View>
 
-                  {/* ОСОБИСТА ІНФОРМАЦІЯ */}
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Особиста інформація</Text>
                       {isEditingInfo ? (
-                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
+                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title="Зберегти" />
                       ) : (
                         <RoundButton onPress={() => setIsEditingInfo(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-                    <Controller name="authorName" control={control} render={({ field: { onChange, value }, fieldState: { error } }) => <Input label="Ім'я автора" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />} />
-                    <Controller name="birthDate" control={control} render={({ field: { onChange, value }, fieldState: { error } }) => <Input label="Дата народження" placeholder="YYYY-MM-DD" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />} />
-                    <Controller name="email" control={control} render={({ field: { onChange, value }, fieldState: { error } }) => <Input label="Електронна адреса" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />} />
+
+                    <Controller
+                      name="authorName"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input label="Ім'я автора" value={value ?? ""} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />
+                      )}
+                    />
+                    <Controller
+                      name="birthDate"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input label="Дата народження" placeholder="YYYY-MM-DD" value={value ?? ""} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />
+                      )}
+                    />
+                    <Controller
+                      name="email"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input label="Електронна адреса" value={value ?? ""} onChangeText={onChange} error={error?.message} editable={isEditingInfo} />
+                      )}
+                    />
                   </View>
 
-                  {/* ПАРОЛЬ */}
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Пароль</Text>
-                      {isEditingPassword ? <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' /> : <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />}
+                      {isEditingPassword ? (
+                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title="Зберегти" />
+                      ) : (
+                        <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />
+                      )}
                     </View>
-                    <Controller name="password" control={control} render={({ field: { onChange, value }, fieldState: { error } }) => <Input.Password label="Новий пароль" placeholder="Введи пароль" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={isEditingPassword} />} />
+
+                    <Controller
+                      name="password"
+                      control={control}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <Input.Password label="Новий пароль" placeholder="Введи пароль" value={value ?? ""} onChangeText={onChange} error={error?.message} editable={isEditingPassword} />
+                      )}
+                    />
                     {isEditingPassword && (
                       <View style={{ marginTop: 16 }}>
-                        <Controller name="confirmPassword" control={control} render={({ field: { onChange, value }, fieldState: { error } }) => <Input.Password label="Підтвердьте новий пароль" placeholder="Введи пароль" value={value ?? ''} onChangeText={onChange} error={error?.message} editable={true} />} />
+                        <Controller
+                          name="confirmPassword"
+                          control={control}
+                          render={({ field: { onChange, value }, fieldState: { error } }) => (
+                            <Input.Password label="Підтвердьте новий пароль" placeholder="Введи пароль" value={value ?? ""} onChangeText={onChange} error={error?.message} editable />
+                          )}
+                        />
                       </View>
                     )}
                   </View>
 
-                  {/* ВАРІАНТИ ПІДПИСУ */}
                   <View style={styles.card}>
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Варіанти підпису</Text>
                       {isEditingSignature ? (
-                        <Button.SaveButton onPress={handleSaveSignature} title='Зберегти' />
+                        <Button.SaveButton onPress={handleSaveSignature} title="Зберегти" />
                       ) : (
                         <RoundButton onPress={() => setIsEditingSignature(true)} icon={<ICONS.edit />} />
                       )}
                     </View>
-                    
+
                     <Controller
                       name="usePseudonym"
                       control={control}
@@ -257,7 +296,9 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                       )}
                     />
-                    <Text style={[styles.signatureText, { marginLeft: 32, color: '#8E8E93', marginBottom: 15 }]}>{getUserDisplayName(user)}</Text>
+                    <Text style={[styles.signatureText, { color: "#8E8E93", marginBottom: 15 }]}>
+                      {watchedAuthorName || getUserDisplayName(user)}
+                    </Text>
 
                     <Controller
                       name="useSignature"
@@ -273,12 +314,16 @@ export default function ProfileScreen() {
                     {watchedUseSignature && (
                       <View style={{ marginTop: 10 }}>
                         {isEditingSignature ? (
-                          <View style={{ height: 220, width: '100%' }}>
-                            <Text style={{ fontSize: 12, color: '#8E8E93', marginBottom: 5, paddingLeft: 32 }}>Намалюйте підпис:</Text>
+                          <View style={{ height: 220, width: "100%" }}>
+                            <Text style={{ fontSize: 12, color: "#8E8E93", marginBottom: 5, paddingLeft: 32 }}>Намалюйте підпис:</Text>
                             <View style={localStyles.canvasBorder}>
                               <SignatureScreen
                                 ref={signatureRef}
-                                onEnd={() => signatureRef.current?.readSignature()}
+                                onBegin={() => setScrollEnabled(false)} 
+                                onEnd={() => {
+                                  setScrollEnabled(true);
+                                  signatureRef.current?.readSignature();
+                                }}
                                 onOK={handleSignature}
                                 onEmpty={handleEmpty}
                                 autoClear={false}
@@ -286,16 +331,16 @@ export default function ProfileScreen() {
                                 webStyle={signatureCanvasStyle}
                               />
                             </View>
-                            <TouchableOpacity onPress={() => signatureRef.current?.clearSignature()} style={{ alignSelf: 'center', marginTop: 10 }}>
-                                <Text style={{ color: COLORS.blue10, fontWeight: '600' }}>Очистити поле</Text>
+                            <TouchableOpacity onPress={() => signatureRef.current?.clearSignature()} style={{ alignSelf: "center", marginTop: 10 }}>
+                              <Text style={{ color: COLORS.blue10, fontWeight: "600" }}>Очистити поле</Text>
                             </TouchableOpacity>
                           </View>
                         ) : (
-                          <View style={{ paddingLeft: 32, height: 80, justifyContent: 'center' }}>
+                          <View style={{ height: 80, justifyContent: "center", paddingLeft: 32 }}>
                             {watchedSignature ? (
-                              <Image source={{ uri: watchedSignature }} style={{ width: 200, height: 60, resizeMode: 'contain' }} />
+                              <Image source={{ uri: watchedSignature }} style={{ width: 200, height: 60, resizeMode: "contain" }} />
                             ) : (
-                              <Text style={{ color: '#8E8E93', fontStyle: 'italic' }}>Підпис відсутній</Text>
+                              <Text style={{ color: "#8E8E93", fontStyle: "italic" }}>Підпис відсутній</Text>
                             )}
                           </View>
                         )}
@@ -305,17 +350,17 @@ export default function ProfileScreen() {
 
                   {isLoading && <ActivityIndicator color={COLORS.blue10} style={{ marginVertical: 20 }} />}
                 </View>
-              )
+              ),
             },
             {
               title: "Альбоми",
               content: (
-                <View style={{paddingVertical: 16}}>
+                <View style={{ paddingVertical: 16 }}>
                   <Avatars />
                   <Albums />
                 </View>
-              )
-            }
+              ),
+            },
           ]}
         />
       </ScrollView>
@@ -324,15 +369,15 @@ export default function ProfileScreen() {
         <View style={StyleSheet.absoluteFill}>
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={localStyles.modalOverlay}>
-            <CodeConfirmationModal 
+            <CodeConfirmationModal
               title="Підтвердження"
-              email={user?.email || ''}
+              email={user?.email || ""}
               setStep={setStep}
               onConfirm={async () => {
                 const values = getValues();
                 await updateUser({ userId: user?.id!, body: { password: values.password } }).unwrap();
                 setStep(1);
-                setIsEditingPassword(false);
+                closeEditing();
               }}
             />
           </View>
@@ -350,18 +395,18 @@ const signatureCanvasStyle = `
 const localStyles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.3)",
     padding: 20,
   },
   canvasBorder: {
     flex: 1,
     marginLeft: 32,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
+    borderColor: "#E5E5EA",
     borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#fff'
-  }
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
 });

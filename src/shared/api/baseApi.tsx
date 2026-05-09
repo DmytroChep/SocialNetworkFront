@@ -4,7 +4,12 @@ import { IPartialUser } from "../context/types/partial-user.type";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IAlbum, IAlbumImage, ITag } from "../context/types/User.type";
 import { ip } from "../../config/ip";
-import { IPostCreation, IPost } from "../../modules/my-publications/types/Post.type";
+import {
+  IPostCreation,
+  IPost,
+  IPaginatedPostsResponse,
+  IPostsPaginationParams,
+} from "../../modules/my-publications/types/Post.type";
 
 
 export const baseApi = createApi({
@@ -131,9 +136,13 @@ export const baseApi = createApi({
         body: newPost,
       }),
     }),
-    getAllPosts: builder.query<IPost[], void>({
-      query: () => ({
+    getAllPosts: builder.query<IPaginatedPostsResponse, IPostsPaginationParams | void>({
+      query: (params) => ({
         url: "posts",
+        params: {
+          limit: params?.limit ?? 5,
+          ...(params?.cursor ? { cursor: params.cursor } : {}),
+        },
       }),
       providesTags: ['Posts'],
     }),
@@ -174,13 +183,20 @@ export const baseApi = createApi({
       })
     }),
 
-    updatePost: builder.mutation<string, { postId: number; post: Partial<IPostCreation> }>({
+    updatePost: builder.mutation<IPost, { postId: number; post: Partial<IPostCreation> }>({
       query: ({ postId, post }) => ({
         url: `post/${postId}`,
         method: "PATCH",
         body: post,
       }),
-      invalidatesTags: ['Posts'],
+    }),
+
+    replacePostImages: builder.mutation<IPost, { postId: number; images: Array<{ original_image: string }> }>({
+      query: ({ postId, images }) => ({
+        url: `post/${postId}/images`,
+        method: "PATCH",
+        body: { images },
+      }),
     }),
 
     deletePost: builder.mutation<void, number>({
@@ -188,7 +204,6 @@ export const baseApi = createApi({
         url: `post/${postId}`,
         method: "DELETE",
       }),
-      invalidatesTags: ['Posts'],
     }),
   }),
 });
@@ -213,6 +228,7 @@ export const {
   useReplaceAlbumImagesMutation,
   useCreatePostMutation,
   useGetAllPostsQuery,
+  useLazyGetAllPostsQuery,
   useGetUserPostsQuery,
   useThumbUpIncreaseMutation,
   useThumbUpDecreaseMutation,
@@ -220,5 +236,6 @@ export const {
   useHeartDecreaseMutation,
   useViewsIncreaseMutation,
   useUpdatePostMutation,
+  useReplacePostImagesMutation,
   useDeletePostMutation
 } = baseApi;

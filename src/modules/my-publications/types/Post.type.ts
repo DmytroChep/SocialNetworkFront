@@ -68,6 +68,17 @@ export interface IPost {
     isThumbsUpLiked?: boolean;
 }
 
+export interface IPostsPaginationParams {
+    limit?: number;
+    cursor?: number;
+}
+
+export interface IPaginatedPostsResponse {
+    items: IPost[];
+    nextCursor: number | null;
+    hasMore: boolean;
+}
+
 export interface IPostCreation {
     title: string;
     content: string;

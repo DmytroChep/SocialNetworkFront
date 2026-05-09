@@ -1,24 +1,91 @@
-import { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, FlatList, ViewToken } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, RefreshControl, ViewToken } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FirstEnterModal } from "../../shared/ui/first-enter-modal/firstEnterModal";
-import { useGetAllPostsQuery, useMeQuery, useViewsIncreaseMutation } from "../../shared/api/baseApi";
-import { UserContext, useUserContext } from "../../shared/context/user-context";
+import { useLazyGetAllPostsQuery, useViewsIncreaseMutation } from "../../shared/api/baseApi";
+import { useUserContext } from "../../shared/context/user-context";
 import { PublicationCard } from "../../modules/my-publications/ui/publicationCard/publicationCard";
-import { useRouter } from "expo-router";
 import { IPost } from "../../modules/my-publications/types/Post.type";
+
+const POSTS_LIMIT = 5;
 
 export default function Main() {
   const { user } = useUserContext();
   const [modalVisible, setModalVisible] = useState(false);
-
-  const { data: posts } = useGetAllPostsQuery(undefined, {
-    pollingInterval: 1000,
-  });
+  const [posts, setPosts] = useState<IPost[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [getAllPosts, { isFetching }] = useLazyGetAllPostsQuery();
 
   const [increaseView] = useViewsIncreaseMutation();
 
   const viewedPosts = useRef(new Set<number>());
+  const paginationRef = useRef({
+    nextCursor: null as number | null,
+    hasMore: true,
+    isLoading: false,
+  });
+
+  const loadPosts = useCallback(async (reset = false) => {
+    const pagination = paginationRef.current;
+
+    if (pagination.isLoading || (!reset && !pagination.hasMore)) return;
+
+    pagination.isLoading = true;
+
+    try {
+      const response = await getAllPosts({
+        limit: POSTS_LIMIT,
+        cursor: reset ? undefined : pagination.nextCursor ?? undefined,
+      }).unwrap();
+
+      setPosts((currentPosts) => {
+        if (reset) return response.items;
+
+        const existingIds = new Set(currentPosts.map((post) => post.id));
+        const newPosts = response.items.filter((post) => !existingIds.has(post.id));
+
+        return [...currentPosts, ...newPosts];
+      });
+
+      pagination.nextCursor = response.nextCursor;
+      pagination.hasMore = response.hasMore;
+
+      setHasMore(response.hasMore);
+    } catch {
+      if (reset) {
+        pagination.nextCursor = null;
+        pagination.hasMore = true;
+      }
+    } finally {
+      pagination.isLoading = false;
+    }
+  }, [getAllPosts]);
+
+  const refreshPosts = useCallback(async () => {
+    setIsRefreshing(true);
+    paginationRef.current.nextCursor = null;
+    paginationRef.current.hasMore = true;
+    viewedPosts.current.clear();
+
+    await loadPosts(true);
+
+    setIsRefreshing(false);
+  }, [loadPosts]);
+
+  const handleUpdatePost = useCallback((updatedPost: IPost) => {
+    setPosts((currentPosts) =>
+      currentPosts.map((post) => (post.id === updatedPost.id ? updatedPost : post))
+    );
+  }, []);
+
+  const handleDeletePost = useCallback((postId: number) => {
+    setPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
+  }, []);
+
+  useEffect(() => {
+    loadPosts(true);
+  }, [loadPosts]);
 
   
   const onViewableItemsChanged = useRef(
@@ -26,15 +93,13 @@ export default function Main() {
       viewableItems.forEach((viewToken) => {
         const post = viewToken.item as IPost;
 
-        if (!viewedPosts.current.has(post.id)) {
+        if (post?.id && !viewedPosts.current.has(post.id)) {
           viewedPosts.current.add(post.id);
           increaseView({ postId: post.id });
         }
       });
     }
   ).current;
-
-  const finalPosts = posts || [];
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["left", "right"]}>
@@ -44,15 +109,33 @@ export default function Main() {
       />
 
       <FlatList
-        data={finalPosts}
+        data={posts}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <PublicationCard post={item} userId={user?.id} />
+          <PublicationCard
+            post={item}
+            userId={user?.id}
+            onDelete={handleDeletePost}
+            onUpdate={handleUpdatePost}
+          />
         )}
+        onEndReached={() => loadPosts()}
+        onEndReachedThreshold={0.5}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{
           itemVisiblePercentThreshold: 70,
         }}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={refreshPosts} />
+        }
+        ListFooterComponent={
+          isFetching && posts.length > 0 && hasMore
+            ? <ActivityIndicator style={{ paddingVertical: 16 }} />
+            : null
+        }
+        ListEmptyComponent={
+          isFetching ? <ActivityIndicator style={{ paddingVertical: 24 }} /> : null
+        }
       />
     </SafeAreaView>
   );
