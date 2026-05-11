@@ -200,7 +200,7 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
                             </View>
                         ))}
 
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+                        <View style={{ flexDirection: 'column', flexWrap: 'wrap', gap: 10, marginBottom: 5, paddingTop: 20, }}>
                             {selectedImages.map((uri, index) => (
                                 <View key={index} style={styles.imageWrapper}>
                                     <Image source={{ uri }} style={styles.previewImageLarge} />

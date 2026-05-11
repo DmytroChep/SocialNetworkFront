@@ -111,12 +111,12 @@ export const styles = StyleSheet.create({
         fontWeight: "300",
         textAlign: "center",
     },
-    // Сітка для фото
     imageWrapper: {
-        width: 110,
-        height: 150,
-        borderRadius: 15,
+        width: "100%",
+        aspectRatio: 4 / 3, 
+        borderRadius: 20,
         overflow: "hidden",
+        marginBottom: 15,
         position: "relative",
     },
     previewImageLarge: {
