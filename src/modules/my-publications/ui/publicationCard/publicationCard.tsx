@@ -30,6 +30,7 @@ interface PostProps {
     userId?: number;
     onDelete?: (postId: number) => void;
     onUpdate?: (post: IPost) => void;
+    onToggleLikeLocal: (postId: number, isLiked: boolean) => void;
 }
 
 const areSameImages = (currentImages: string[], nextImages: string[]) =>
@@ -64,9 +65,10 @@ const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
     })) || [],
 });
 
-export function PublicationCard({ post, userId, onDelete, onUpdate }: PostProps) {
+export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLikeLocal }: PostProps) {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [currentPost, setCurrentPost] = useState(post);
+    const [isHearted, setIsHearted] = useState(false);
     
     useEffect(() => {
         setCurrentPost(post);
@@ -152,12 +154,11 @@ export function PublicationCard({ post, userId, onDelete, onUpdate }: PostProps)
                     style: "destructive", 
                     onPress: async () => {
                         try {
-                            await deletePost(currentPost.id).unwrap();
+                            await deletePost(currentPost.id)
                             onDelete?.(currentPost.id);
                             console.log("Пост видалено успішно");
                         } catch (err) {
                             console.error("Помилка при видаленні:", err);
-                            Alert.alert("Помилка", "не вдалося видалити пост");
                         }
                     } 
                 }
@@ -265,10 +266,11 @@ export function PublicationCard({ post, userId, onDelete, onUpdate }: PostProps)
                     <TouchableOpacity
                         style={styles.statItem}
                         onPress={() => {
+                            setIsHearted(!isHearted);
                             increaseHeart({ postId: currentPost.id });
                         }}
                     >
-                        <ICONS.heart />
+                        {isHearted ? <ICONS.heartFill /> : <ICONS.heart />}
 
                         <Text style={styles.statText}>
                             {getPostHeartsCount(currentPost)} Вподобань

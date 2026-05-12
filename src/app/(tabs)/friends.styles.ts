@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 30,
+    paddingBottom: 45,
     backgroundColor: "#ffffff",
     gap: 8
   },

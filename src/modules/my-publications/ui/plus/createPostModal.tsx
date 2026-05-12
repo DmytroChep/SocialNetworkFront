@@ -12,6 +12,7 @@ import { Input } from "../../../../shared/ui/input";
 import { COLORS } from "../../../../shared/constants";
 import { useCreatePostMutation } from "../../../../shared/api/baseApi";
 import { useUserContext } from "../../../../shared/context/user-context";
+import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
 
 interface IPostForm {
     title: string;
@@ -20,6 +21,7 @@ interface IPostForm {
     links: { value: string }[];
     tags: string[];
     images: string[];
+    tagsDisplay: string;
 }
 
 export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, onClose: () => void }) => {
@@ -44,13 +46,13 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
     const currentContent = watch("content");
     const selectedImages = watch("images");
 
-    const handleTagPress = (tag: string) => {
-        const tagString = `#${tag} `;
-        if (!currentContent.includes(tagString)) {
-            setValue("content", currentContent + tagString);
-            if (!selectedTags.includes(tag)) {
-                setValue("tags", [...selectedTags, tag]);
-            }
+   const handleTagPress = (tag: string) => {
+        const selectedTags = watch("tags") || [];
+
+        if (selectedTags.includes(tag)) {
+            setValue("tags", selectedTags.filter(t => t !== tag));
+        } else {
+            setValue("tags", [...selectedTags, tag]);
         }
     };
 
@@ -69,14 +71,11 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
-            quality: 1,
-            base64: true,
+            ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
         });
 
         if (!result.canceled) {
-            const base64Images = result.assets.map(asset => 
-                `data:${asset.mimeType || 'image/png'};base64,${asset.base64}`
-            );
+            const base64Images = imageAssetsToDataUris(result.assets);
             setValue("images", [...selectedImages, ...base64Images]);
         }
     };
@@ -154,22 +153,29 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                 <View style={styles.contentInputContainer}>
                                     <TextInput
                                         multiline
-                                        style={styles.contentInput}
+                                        style={[styles.contentInput, { minHeight: 120 }]} 
                                         onChangeText={onChange}
+                                        value={value}
                                         placeholder="Інколи найкращі ідеї народжуються в тиші..."
                                         textAlignVertical="top"
-                                    >
-                                        {value.split(/(\s+)/).map((part, index) => {
-                                            if (part.startsWith('#')) {
-                                                return (
-                                                    <Text key={index} style={{ color: COLORS.plum, fontWeight: '600' }}>
-                                                        {part}
-                                                    </Text>
-                                                );
-                                            }
-                                            return <Text key={index} style={{ color: '#333' }}>{part}</Text>;
-                                        })}
-                                    </TextInput>
+                                    />
+
+                                    <View style={{ 
+                                        padding: 12, 
+                                        flexDirection: 'row',
+                                        flexWrap: 'wrap',
+                                        gap: 6,
+                                    }}>
+                                        {watch("tags")?.length > 0 ? (
+                                            watch("tags").map((tag, index) => (
+                                                <Text key={index} style={{ color: COLORS.plum, fontWeight: '700' }}>
+                                                    #{tag}
+                                                </Text>
+                                            ))
+                                        ) : (
+                                            <Text style={{ color: '#BBB', fontSize: 13 }}>Теги з'являться тут...</Text>
+                                        )}
+                                    </View>
                                 </View>
                             )}
                         />

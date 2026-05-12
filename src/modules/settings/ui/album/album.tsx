@@ -11,6 +11,7 @@ import { COLORS } from "../../../../shared/constants";
 import { useDeleteAlbumMutation, useAddAlbumImagesMutation, useDeleteAlbumImageMutation } from "../../../../shared/api/baseApi";
 import { IAlbum } from "../../../../shared/context/types";
 import { getUserAlbums, toMediaUrl } from "../../../../shared/lib/model-helpers";
+import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
 
 export function Albums() {
     const { user } = useUserContext();
@@ -52,17 +53,14 @@ export function Albums() {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 allowsMultipleSelection: true,
-                base64: true,
                 allowsEditing: false,
-                quality: 0.5,
+                ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
             });
 
             if (!result.canceled && result.assets.length > 0) {
                 setIsAddingImages(true);
                 
-                const images = result.assets.map((asset) => ({
-                    image: `data:image/jpeg;base64,${asset.base64}`
-                }));
+                const images = imageAssetsToDataUris(result.assets).map((image) => ({ image }));
 
                 await addAlbumImages({ 
                     albumId: album.id!,

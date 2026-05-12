@@ -121,7 +121,9 @@ export default function ProfileScreen() {
     if (!user?.id) return;
 
     try {
-      if (localAvatar?.startsWith("file://")) {
+      if (localAvatar?.startsWith("data:image")) {
+        await updateAvatar({ userId: user.id, image: localAvatar }).unwrap();
+      } else if (localAvatar?.startsWith("file://")) {
         const base64 = await FileSystem.readAsStringAsync(localAvatar, { encoding: "base64" });
         await updateAvatar({ userId: user.id, image: `data:image/jpeg;base64,${base64}` }).unwrap();
       }

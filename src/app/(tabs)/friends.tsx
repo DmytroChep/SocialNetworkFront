@@ -56,7 +56,7 @@ export default function Friends() {
     ];
 
     const MainContent = () => (
-        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={[styles.blockFriends]}>
                 <SectionHeader title="Запити"/>
                 {mockUsers.map((user, i) => (

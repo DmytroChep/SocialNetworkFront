@@ -59,7 +59,8 @@ export const styles = StyleSheet.create({
         width: 100,
         height: 40,
         marginLeft: 12,
-        marginTop: -5,
+        marginTop: 10,
+    
     },
     menuButton: {
         padding: 4,
