@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
     Modal, View, Text, TextInput, TouchableOpacity, 
     ScrollView, Image 
@@ -19,13 +19,12 @@ interface IPostForm {
     topic: string;
     content: string;
     links: { value: string }[];
-    tags: string[];
+    hashtags: string[];
     images: string[];
-    tagsDisplay: string;
 }
 
 export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, onClose: () => void }) => {
-    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
+    const [baseTags, setBaseTags] = useState<string[]>([]);
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
 
@@ -36,23 +35,37 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         defaultValues: {
             title: "", topic: "", content: "",
             links: [{ value: "" }],
-            tags: [], images: []
+            hashtags: [], 
+            images: []
         }
     });
 
     const { fields, append, remove } = useFieldArray({ control, name: "links" });
     
-    const selectedTags = watch("tags");
+    const selectedTags = watch("hashtags");
     const currentContent = watch("content");
     const selectedImages = watch("images");
 
-   const handleTagPress = (tag: string) => {
-        const selectedTags = watch("tags") || [];
+    useEffect(() => {
+        const loadTags = async () => {
+            try {
+                const response = await fetch("YOUR_API_URL/hashtags");
+                const tags = await response.json();
+                setBaseTags(tags.map((t: any) => t.title || t.name));
+            } catch (err) {
+                setBaseTags(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
+            }
+        };
+        loadTags();
+    }, []);
 
-        if (selectedTags.includes(tag)) {
-            setValue("tags", selectedTags.filter(t => t !== tag));
+    const handleTagPress = (tag: string) => {
+        const currentTags = watch("hashtags") || [];
+
+        if (currentTags.includes(tag)) {
+            setValue("hashtags", currentTags.filter(t => t !== tag));
         } else {
-            setValue("tags", [...selectedTags, tag]);
+            setValue("hashtags", [...currentTags, tag]);
         }
     };
 
@@ -86,7 +99,7 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
             author_id: user?.id ? Number(user.id) : 2,
             content: data.content || "",
             topic: data.topic || null,
-            tags: data.tags,
+            hashtags: data.hashtags,
             links: data.links?.map((link) => link.value).filter(Boolean) || [],
             images: data.images?.map((url) => ({ original_image: url })) || [],
         };
@@ -123,8 +136,8 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                         <View style={styles.tagContainer}>
                             <View style={styles.tagList}>
                                 {baseTags.map((tag, i) => (
-                                    <TouchableOpacity key={i} style={styles.tag} onPress={() => handleTagPress(tag)}>
-                                        <Text style={styles.tagText}>#{tag}</Text>
+                                    <TouchableOpacity key={i} style={[styles.tag, selectedTags?.includes(tag) && { backgroundColor: COLORS.plum, borderColor: COLORS.plum }]} onPress={() => handleTagPress(tag)}>
+                                        <Text style={[styles.tagText, selectedTags?.includes(tag) && { color: '#fff' }]}>#{tag}</Text>
                                     </TouchableOpacity>
                                 ))}
                                 <TouchableOpacity style={styles.addCircle} onPress={() => setIsAddingTag(!isAddingTag)}>
@@ -166,8 +179,8 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                         flexWrap: 'wrap',
                                         gap: 6,
                                     }}>
-                                        {watch("tags")?.length > 0 ? (
-                                            watch("tags").map((tag, index) => (
+                                        {watch("hashtags")?.length > 0 ? (
+                                            watch("hashtags").map((tag, index) => (
                                                 <Text key={index} style={{ color: COLORS.plum, fontWeight: '700' }}>
                                                     #{tag}
                                                 </Text>

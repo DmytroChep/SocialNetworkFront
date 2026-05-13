@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Image, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RadioTabs } from "../../shared/ui/RadioTab";
 import { IRadioTab } from "../../shared/ui/RadioTab/radioTab.types";
 import { FONTS } from "../../shared/constants/fonts";
 import { styles } from "./friends.styles";
-
+// Імпортуємо твою нову модалку
+import { DeleteFriendModal } from '../../modules/friends/friendsDeletePopUp/friendsDeletePopUp';
 
 const SectionHeader = ({ title }: { title: string }) => (
     <View style={styles.sectionHeader}>
@@ -20,18 +21,15 @@ const SectionHeader = ({ title }: { title: string }) => (
     </View>
 );
 
-const FriendCard = ({ name, handle, avatar, primaryText, secondaryText }: any) => (
+// Додали пропс onSecondaryPress
+const FriendCard = ({ name, handle, avatar, primaryText, secondaryText, onSecondaryPress }: any) => (
     <View style={styles.card}>
         <View style={styles.avatarContainer}>
             <Image source={{ uri: avatar }} style={styles.avatar} />
             <View style={styles.statusIndicator} />
         </View>
-        <Text style={[styles.name, { fontFamily: FONTS["GTWalsheimPro-Regular"], color: "#070A1C" }]}>
-            {name}
-        </Text>
-        <Text style={[styles.handle, { fontFamily: FONTS["GTWalsheimPro-Regular"], color: "#070A1C" }]}>
-            {handle}
-        </Text>
+        <Text style={[styles.name, { fontFamily: FONTS["GTWalsheimPro-Regular"], color: "#070A1C" }]}>{name}</Text>
+        <Text style={[styles.handle, { fontFamily: FONTS["GTWalsheimPro-Regular"], color: "#070A1C" }]}>{handle}</Text>
         
         <View style={styles.buttonRow}>
             <TouchableOpacity style={styles.primaryBtn}>
@@ -39,7 +37,8 @@ const FriendCard = ({ name, handle, avatar, primaryText, secondaryText }: any) =
                     {primaryText}
                 </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.outlineBtn}>
+            {/* Викликаємо функцію видалення */}
+            <TouchableOpacity style={styles.outlineBtn} onPress={onSecondaryPress}>
                 <Text style={[styles.outlineBtnText, { fontFamily: FONTS["GTWalsheimPro-Medium"] }]}>
                     {secondaryText}
                 </Text>
@@ -48,66 +47,69 @@ const FriendCard = ({ name, handle, avatar, primaryText, secondaryText }: any) =
     </View>
 );
 
-
 export default function Friends() {
-    const mockUsers = [
-        { name: "Yehor Aung", handle: "@thelili", avatar: "https://i.postimg.cc/0y93rTHc/image.png" },
-        { name: "Ann Ann", handle: "@thelili", avatar: "https://i.postimg.cc/6Q3mfdK4/image.png" },
-    ];
+    const [friends, setFriends] = useState([
+        { id: 1, name: "Yehor Aung", handle: "@thelili", avatar: "https://i.postimg.cc/0y93rTHc/image.png" },
+        { id: 2, name: "Ann Ann", handle: "@thelili", avatar: "https://i.postimg.cc/6Q3mfdK4/image.png" },
+    ]);
+
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<number | null>(null);
+
+    const openDeleteModal = (id: number) => {
+        setUserToDelete(id);
+        setModalVisible(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (userToDelete) {
+            setFriends(prev => prev.filter(user => user.id !== userToDelete));
+            setModalVisible(false);
+            setUserToDelete(null);
+        }
+    };
 
     const MainContent = () => (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={[styles.blockFriends]}>
+        <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+        >
+            <View style={styles.blockFriends}>
                 <SectionHeader title="Запити"/>
-                {mockUsers.map((user, i) => (
-                    <FriendCard key={`req-main-${i}`} {...user} primaryText="Підтвердити" secondaryText="Видалити" />
+                {friends.map((user) => (
+                    <FriendCard 
+                        key={`req-${user.id}`} 
+                        {...user} 
+                        primaryText="Підтвердити" 
+                        secondaryText="Видалити" 
+                        onSecondaryPress={() => openDeleteModal(user.id)}
+                    />
                 ))}
             </View>
 
-            <View style={[styles.blockFriends]}>
+            <View style={styles.blockFriends}>
                 <SectionHeader title="Рекомендації" />
-                {mockUsers.map((user, i) => (
-                    <FriendCard key={`rec-main-${i}`} {...user} primaryText="Додати" secondaryText="Видалити" />
+                {friends.map((user) => (
+                    <FriendCard 
+                        key={`rec-${user.id}`} 
+                        {...user} 
+                        primaryText="Додати" 
+                        secondaryText="Видалити" 
+                        onSecondaryPress={() => openDeleteModal(user.id)}
+                    />
                 ))}
             </View>
-            
-            <View style={[styles.blockFriends]}>
+
+            <View style={styles.blockFriends}>
                 <SectionHeader title="Всі друзі" />
-                {mockUsers.map((user, i) => (
-                    <FriendCard key={`all-main-${i}`} {...user} primaryText="Повідомлення" secondaryText="Видалити" />
-                ))}
-            </View>
-        </ScrollView>
-    );
-
-    const RequestsContent = () => (
-        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={[styles.blockFriends]}>
-                <SectionHeader title="Всі запити"/>
-                {mockUsers.map((user, i) => (
-                    <FriendCard key={`req-page-${i}`} {...user} primaryText="Підтвердити" secondaryText="Видалити" />
-                ))}
-            </View>
-        </ScrollView>
-    );
-
-    const RecommendationsContent = () => (
-        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={[styles.blockFriends]}>
-                <SectionHeader title="Рекомендації для вас"/>
-                {mockUsers.map((user, i) => (
-                    <FriendCard key={`rec-page-${i}`} {...user} primaryText="Додати" secondaryText="Видалити" />
-                ))}
-            </View>
-        </ScrollView>
-    );
-
-    const AllFriendsContent = () => (
-        <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={[styles.blockFriends]}>
-                <SectionHeader title="Ваші друзі"/>
-                {mockUsers.map((user, i) => (
-                    <FriendCard key={`all-page-${i}`} {...user} primaryText="Повідомлення" secondaryText="Видалити" />
+                {friends.map((user) => (
+                    <FriendCard 
+                        key={`all-${user.id}`} 
+                        {...user} 
+                        primaryText="Повідомлення" 
+                        secondaryText="Видалити" 
+                        onSecondaryPress={() => openDeleteModal(user.id)}
+                    />
                 ))}
             </View>
         </ScrollView>
@@ -115,9 +117,9 @@ export default function Friends() {
 
     const radioTabsArray: IRadioTab[] = [
         { title: "Головна", content: <MainContent /> },
-        { title: "Запити", content: <RequestsContent /> },
-        { title: "Рекомендації", content: <RecommendationsContent /> },
-        { title: "Всі друзі", content: <AllFriendsContent /> },
+        { title: "Запити", content: <View style={styles.centered}><Text>Тут будуть запити</Text></View> },
+        { title: "Рекомендації", content: <View style={styles.centered}><Text>Тут будуть рекомендації</Text></View> },
+        { title: "Всі друзі", content: <View style={styles.centered}><Text>Тут будуть всі друзі</Text></View> },
     ];
 
     return (
@@ -125,6 +127,12 @@ export default function Friends() {
             <View style={{ flex: 1 }}>
                 <RadioTabs radioTabsArray={radioTabsArray} />
             </View>
+
+            <DeleteFriendModal 
+                isVisible={isModalVisible}
+                onClose={() => setModalVisible(false)}
+                onConfirm={handleConfirmDelete}
+            />
         </SafeAreaView>
     );
 }

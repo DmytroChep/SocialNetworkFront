@@ -41,7 +41,6 @@ const getOriginalImageValue = (post: IPost, imageUrl: string) => {
     const existingImage = post.images?.find(
         (image) => toMediaUrl(image.compressed_image || image.original_image || image.url) === imageUrl
     );
-
     return existingImage?.original_image || existingImage?.url || imageUrl;
 };
 
@@ -50,13 +49,11 @@ const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
     title: formData.title,
     content: formData.content,
     topic: formData.topic,
-    links: formData.links
-        ?.map((link: { value: string }, index: number) => ({
-            id: post.links?.[index]?.id ?? -index - 1,
-            post_id: post.id,
-            url: link.value,
-        }))
-        .filter((link: { url: string }) => Boolean(link.url)) || [],
+    links: formData.links?.map((link: { value: string }, index: number) => ({
+        id: post.links?.[index]?.id ?? -index - 1,
+        post_id: post.id,
+        url: link.value,
+    })).filter((link: { url: string }) => Boolean(link.url)) || [],
     images: formData.images?.map((url: string, index: number) => ({
         id: post.images?.[index]?.id ?? -index - 1,
         post_id: post.id,
@@ -68,7 +65,6 @@ const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
 export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLikeLocal }: PostProps) {
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [currentPost, setCurrentPost] = useState(post);
-    const [isHearted, setIsHearted] = useState(false);
     
     useEffect(() => {
         setCurrentPost(post);
@@ -85,11 +81,47 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
     const [increaseHeart] = useHeartIncreaseMutation();
     const [updatePost] = useUpdatePostMutation();
     const [replacePostImages] = useReplacePostImagesMutation();
-    const [deletePost, { isLoading: isDeleting }] = useDeletePostMutation();
+    const [deletePost] = useDeletePostMutation();
 
     const [popupPosition, setPopupPosition] = useState({ top: 0, right: 20 });
-
     const dotsRefs = useRef<{ [key: string]: View | null }>({});
+
+    const handleHeartPress = async () => {
+        const previousPost = currentPost;
+        const isCurrentlyHearted = currentPost.isHeartLiked;
+
+        setCurrentPost((prev) => ({
+            ...prev,
+            isHeartLiked: !isCurrentlyHearted,
+            heartCount: isCurrentlyHearted 
+                ? (prev.heartCount || 1) - 1 
+                : (prev.heartCount || 0) + 1
+        }));
+
+        try {
+            await increaseHeart({ postId: currentPost.id }).unwrap();
+        } catch (err) {
+            setCurrentPost(previousPost);
+            console.error(err);
+        }
+    };
+
+    const handleLikePress = async () => {
+        const previousPost = currentPost;
+        
+        // ВАЖНО: Если в IPost поле называется иначе, замени likes_count на правильное имя
+        setCurrentPost((prev) => ({
+            ...prev,
+            likes_count: (getPostLikesCount(prev) || 0) + 1
+        }));
+
+        try {
+            await increaseThumbUp({ postId: currentPost.id }).unwrap();
+        } catch (err) {
+            setCurrentPost(previousPost);
+            console.error(err);
+        }
+    };
 
     const handleUpdatePost = async (formData: any) => {
         const payload = {
@@ -99,114 +131,63 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
             author_id: userId || getPostAuthorId(currentPost),
             links: formData.links?.map((link: { value: string }) => link.value).filter(Boolean) || [],
         };
-
         const localUpdatedPost = buildLocalUpdatedPost(currentPost, formData);
-
         try {
             let updatedPost = await updatePost({ postId: currentPost.id, post: payload }).unwrap();
             const nextImages = formData.images || [];
             const currentImages = getPostImages(currentPost).map((image) => image.url);
-
             if (!areSameImages(currentImages, nextImages)) {
                 updatedPost = await replacePostImages({
                     postId: currentPost.id,
                     images: nextImages.map((url: string) => ({
                         original_image: getOriginalImageValue(currentPost, url),
-                    })),
+                     })),
                 }).unwrap();
             }
-
             setCurrentPost(updatedPost);
             onUpdate?.(updatedPost);
-            console.log("Обновлено");
         } catch (err) {
             setCurrentPost(localUpdatedPost);
             onUpdate?.(localUpdatedPost);
-            console.log("Пост обновлён локально после ответа сервера:", String(err));
         }
     };
 
     const handleOpenPopup = (element: IPost) => {
         dotsRefs.current[element.id]?.measureInWindow((x, y, width, height) => {
-
-            const statusBarHeight =
-                Platform.OS === 'android'
-                    ? StatusBar.currentHeight || 0
-                    : 0;
-
-            setPopupPosition({
-                top: y - statusBarHeight - 10,
-                right: -90
-            });
-
+            const statusBarHeight = Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0;
+            setPopupPosition({ top: y - statusBarHeight - 10, right: -90 });
             setIsMenuVisible(true);
         });
     };
 
     const handleDeletePress = () => {
-        Alert.alert(
-            "Видалення",
-            "Ви впевнені, що хочете видалити цю публікацію?",
-            [
-                { text: "Скасувати", style: "cancel" },
-                { 
-                    text: "Видалити", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        try {
-                            await deletePost(currentPost.id)
-                            onDelete?.(currentPost.id);
-                            console.log("Пост видалено успішно");
-                        } catch (err) {
-                            console.error("Помилка при видаленні:", err);
-                        }
-                    } 
-                }
-            ]
-        );
+        Alert.alert("Видалення", "Ви впевнені?", [
+            { text: "Скасувати", style: "cancel" },
+            { text: "Видалити", style: "destructive", onPress: async () => {
+                try {
+                    await deletePost(currentPost.id).unwrap();
+                    onDelete?.(currentPost.id);
+                } catch (err) { console.error(err); }
+            }}
+        ]);
     };
 
     return (
         <View style={styles.card}>
-
             <View style={styles.header}>
-
                 <View style={styles.headerLeft}>
                     <View style={styles.avatarWrapper}>
-                        {authorAvatar ? (
-                            <Image source={{ uri: authorAvatar }} style={styles.avatar} />
-                        ) : (
-                            <View style={styles.avatar} />
-                        )}
+                        {authorAvatar ? <Image source={{ uri: authorAvatar }} style={styles.avatar} /> : <View style={styles.avatar} />}
                         <View style={styles.statusDot} />
                     </View>
-
                     <View>
-                        <Text style={styles.userName}>
-                            {getUserDisplayName(currentPost.author)}
-                        </Text>
-
-                        {authorSignature && (
-                            <Image
-                                source={{ uri: authorSignature }}
-                                style={styles.signature}
-                                resizeMode="contain"
-                            />
-                        )}
+                        <Text style={styles.userName}>{getUserDisplayName(currentPost.author)}</Text>
+                        {authorSignature && <Image source={{ uri: authorSignature }} style={styles.signature} resizeMode="contain" />}
                     </View>
                 </View>
-
                 {userId === getPostAuthorId(currentPost) && (
-                    <View
-                        ref={(el) => {
-                            dotsRefs.current[currentPost.id] = el;
-                        }}
-                        collapsable={false}
-                    >
-                        <TouchableOpacity
-                            style={styles.menuButton}
-                            onPress={() => handleOpenPopup(currentPost)}
-                        >
+                    <View ref={(el) => { dotsRefs.current[currentPost.id] = el; }} collapsable={false}>
+                        <TouchableOpacity style={styles.menuButton} onPress={() => handleOpenPopup(currentPost)}>
                             <ICONS.dots />
                         </TouchableOpacity>
                     </View>
@@ -214,92 +195,45 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
             </View>
 
             <View style={styles.contentContainer}>
-                <Text style={styles.description}>
-                    {currentPost.title}
-                </Text>
-
-                <Text style={styles.description}>
-                    {getPostContent(currentPost)}
-                </Text>
-
+                <Text style={styles.description}>{currentPost.title}</Text>
+                <Text style={styles.description}>{getPostContent(currentPost)}</Text>
                 <View style={styles.hashtagContainer}>
-                    {tags.map((tag) => (
-                        <Text
-                            key={tag}
-                            style={styles.hashtag}
-                        >
-                            #{tag}
-                        </Text>
+                    {tags.map((tag, index) => (
+                        <Text key={index} style={styles.hashtag}>#{tag}</Text>
                     ))}
                 </View>
             </View>
 
             <View style={styles.gridContainer}>
-
                 <View style={styles.topRow}>
-                    {topImages.map((img, index) => (
-                        <Image
-                            key={`top-${img.id}-${index}`}
-                            source={{ uri: img.url }}
-                            style={styles.largeImage}
-                        />
-                    ))}
+                    {topImages.map((img, index) => <Image key={`top-${img.id}-${index}`} source={{ uri: img.url }} style={styles.largeImage} />)}
                 </View>
-
                 {bottomImages.length > 0 && (
                     <View style={styles.bottomRow}>
-                        {bottomImages.map((img, index) => (
-                            <Image
-                                key={`bottom-${img.id}-${index}`}
-                                source={{ uri: img.url }}
-                                style={styles.smallImage}
-                            />
-                        ))}
+                        {bottomImages.map((img, index) => <Image key={`bottom-${img.id}-${index}`} source={{ uri: img.url }} style={styles.smallImage} />)}
                     </View>
                 )}
             </View>
 
             <View style={styles.footer}>
-
                 <View style={styles.statsRow}>
-
-                    <TouchableOpacity
-                        style={styles.statItem}
-                        onPress={() => {
-                            setIsHearted(!isHearted);
-                            increaseHeart({ postId: currentPost.id });
-                        }}
-                    >
-                        {isHearted ? <ICONS.heartFill /> : <ICONS.heart />}
-
-                        <Text style={styles.statText}>
-                            {getPostHeartsCount(currentPost)} Вподобань
-                        </Text>
+                    <TouchableOpacity style={styles.statItem} onPress={handleHeartPress}>
+                        {currentPost.isHeartLiked ? <ICONS.heartFill /> : <ICONS.heart />}
+                        <Text style={styles.statText}>{currentPost.heartCount || 0} Вподобань</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.statItem}
-                        onPress={() => {
-                            increaseThumbUp({ postId: currentPost.id });
-                        }}
-                    >
+                    
+                    <TouchableOpacity style={styles.statItem} onPress={handleLikePress}>
                         <ICONS.like />
-
                         <Text style={styles.statText}>
                             {getPostLikesCount(currentPost)} Вподобань
                         </Text>
                     </TouchableOpacity>
-
                 </View>
 
                 <View style={styles.statItem}>
                     <ICONS.eye />
-
-                    <Text style={styles.statText}>
-                        {getPostViewsCount(currentPost)} Переглядів
-                    </Text>
+                    <Text style={styles.statText}>{getPostViewsCount(currentPost)} Переглядів</Text>
                 </View>
-
             </View>
 
             <ThreeDotsModal
@@ -310,7 +244,6 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
                 onUpdatePost={handleUpdatePost}
                 onDelete={handleDeletePress}
             />
-
         </View>
     );
 }

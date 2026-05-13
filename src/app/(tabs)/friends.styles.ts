@@ -1,17 +1,23 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 20
+  },
   scrollContent: {
-    paddingBottom: 45,
+    paddingHorizontal: 16,
+    paddingBottom: 100,
     backgroundColor: "#ffffff",
-    gap: 8
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 16,
@@ -20,20 +26,28 @@ export const styles = StyleSheet.create({
   seeAll: {
     fontSize: 14,
   },
+  blockFriends: {
+    borderWidth: 1,
+    borderColor: '#CDCED2',
+    borderRadius: 16,
+    width: "100%",
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    marginTop: 12,
+    backgroundColor: '#FFFFFF',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#CDCED2', 
-    padding: 24,
+    borderColor: '#F2F2F7',
+    padding: 20,
     alignItems: 'center',
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: "#000",
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   avatar: {
     width: 100,
@@ -48,8 +62,8 @@ export const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     backgroundColor: '#D1D1D6',
-    borderWidth: 1,
-    borderColor: '#CDCED2',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   name: {
     fontSize: 20,
@@ -57,27 +71,27 @@ export const styles = StyleSheet.create({
   },
   handle: {
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: 15,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   primaryBtn: {
     backgroundColor: '#4A354A',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 24,
-    minWidth: 135,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    minWidth: 130,
     alignItems: 'center',
   },
   outlineBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#4A354A',
-    minWidth: 135,
+    minWidth: 130,
     alignItems: 'center',
   },
   primaryBtnText: {
@@ -87,13 +101,5 @@ export const styles = StyleSheet.create({
   outlineBtnText: {
     color: '#4A354A',
     fontSize: 14,
-  },
-  blockFriends: {
-    borderWidth: 1,
-    borderColor: '#CDCED2',
-    borderRadius: 16,
-    width: "100%",
-    paddingHorizontal: 16,
-    marginTop: 8
   }
 });
