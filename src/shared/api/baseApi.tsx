@@ -10,6 +10,12 @@ import {
   IPaginatedPostsResponse,
   IPostsPaginationParams,
 } from "../../modules/my-publications/types/Post.type";
+import type {
+  ICreateFriendRequestPayload,
+  IProfileFriend,
+  IUpdateFriendRequestPayload,
+  IUserFriendships,
+} from "../../modules/friends/types/Friendship.type";
 
 
 export const baseApi = createApi({
@@ -24,7 +30,7 @@ export const baseApi = createApi({
             return headers;
         },
     }),
-  tagTypes: ['Posts'],
+  tagTypes: ['Posts', 'User', 'Friendship'],
   endpoints: (builder) => ({
     login: builder.mutation<string, IAuthUser>({
       query: (body) => ({
@@ -44,6 +50,7 @@ export const baseApi = createApi({
       query: () => ({
         url: "user/me",
       }),
+      providesTags: ['User'],
     }),
     update: builder.mutation<IPartialUser | string, { userId: number; body: IPartialUser }>({
       query: ({ userId, body }) => ({
@@ -51,6 +58,7 @@ export const baseApi = createApi({
         method: "PATCH",
         body,
       }),
+      invalidatesTags: ['User'],
     }),
     sendCodeVerify: builder.query<string, {gmail: string}>({
       query: ({gmail}) => ({
@@ -66,8 +74,9 @@ export const baseApi = createApi({
       query: ({ userId, image }) => ({
         url: `update-avatar`,
         method: "POST",
-        body: { user_id: userId, image },
+        body: { userId, image },
       }),
+      invalidatesTags: ['User'],
     }),
     getContacts: builder.query<IContact[], void>({
       query: () => ({
@@ -205,6 +214,47 @@ export const baseApi = createApi({
         method: "DELETE",
       }),
     }),
+
+    getAllUsers: builder.query<IUser[], void>({
+      query: () => '/users/all',
+      providesTags: ['User'],
+    }),
+
+    getUserById: builder.query<IUser, number>({
+      query: (userId) => `/user/${userId}`,
+      providesTags: ['User'],
+    }),
+
+    getUserFriendships: builder.query<IUserFriendships, number>({
+      query: (userId) => `/friendship/user/${userId}`,
+      providesTags: ['Friendship'],
+    }),
+
+    createFriendshipRequest: builder.mutation<unknown, ICreateFriendRequestPayload>({
+      query: (body) => ({
+        url: '/friendship/request',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Friendship'],
+    }),
+
+    updateFriendshipStatus: builder.mutation<unknown, IUpdateFriendRequestPayload>({
+      query: (body) => ({
+        url: '/friendship/status',
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['Friendship'],
+    }),
+
+    deleteFriendship: builder.mutation<string | IProfileFriend, number>({
+      query: (id) => ({
+        url: `/friendship/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Friendship'],
+    }),
   }),
 });
 
@@ -237,5 +287,11 @@ export const {
   useViewsIncreaseMutation,
   useUpdatePostMutation,
   useReplacePostImagesMutation,
-  useDeletePostMutation
+  useDeletePostMutation,
+  useGetAllUsersQuery, 
+  useGetUserByIdQuery,
+  useGetUserFriendshipsQuery, 
+  useCreateFriendshipRequestMutation,
+  useUpdateFriendshipStatusMutation,
+  useDeleteFriendshipMutation
 } = baseApi;

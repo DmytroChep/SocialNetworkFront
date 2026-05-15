@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Alert, View, Text, Image, TouchableOpacity, StatusBar, Platform } from 'react-native';
+import { useRouter } from 'expo-router'; // Додано для навігації
 import { IPost } from '../../types/Post.type';
 import { styles } from './publicationCard.styles';
 import { ICONS } from '../../../../shared/icons';
@@ -30,7 +31,8 @@ interface PostProps {
     userId?: number;
     onDelete?: (postId: number) => void;
     onUpdate?: (post: IPost) => void;
-    onToggleLikeLocal: (postId: number, isLiked: boolean) => void;
+    onToggleLikeLocal?: (postId: number, isLiked: boolean) => void;
+    onProfilePress?: () => void; // Додано пропс
 }
 
 const areSameImages = (currentImages: string[], nextImages: string[]) =>
@@ -62,7 +64,8 @@ const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
     })) || [],
 });
 
-export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLikeLocal }: PostProps) {
+export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLikeLocal, onProfilePress }: PostProps) {
+    const router = useRouter(); // Ініціалізація роутера
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [currentPost, setCurrentPost] = useState(post);
     
@@ -76,6 +79,7 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
     const tags = getPostTags(currentPost);
     const authorAvatar = getUserAvatar(currentPost.author);
     const authorSignature = getUserSignature(currentPost.author);
+    const authorName = getUserDisplayName(currentPost.author);
 
     const [increaseThumbUp] = useThumbUpIncreaseMutation();
     const [increaseHeart] = useHeartIncreaseMutation();
@@ -85,6 +89,23 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
 
     const [popupPosition, setPopupPosition] = useState({ top: 0, right: 20 });
     const dotsRefs = useRef<{ [key: string]: View | null }>({});
+
+    // Функція внутрішнього переходу (якщо пропс не передано)
+    const handleProfileNavigation = () => {
+        if (onProfilePress) {
+            onProfilePress();
+        } else {
+            router.push({
+                pathname: "/user-profile",
+                params: { 
+                    id: currentPost.author.id, 
+                    name: authorName, 
+                    handle: `@${authorName.toLowerCase().replace(/\s/g, '')}`, 
+                    avatar: authorAvatar 
+                }
+            });
+        }
+    };
 
     const handleHeartPress = async () => {
         const previousPost = currentPost;
@@ -108,17 +129,22 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
 
     const handleLikePress = async () => {
         const previousPost = currentPost;
-        
-        // ВАЖНО: Если в IPost поле называется иначе, замени likes_count на правильное имя
+        const isCurrentlyLiked = !!currentPost.isThumbsUpLiked;
+
         setCurrentPost((prev) => ({
             ...prev,
-            likes_count: (getPostLikesCount(prev) || 0) + 1
+            isThumbsUpLiked: !isCurrentlyLiked,
+            thumbsUpCount: isCurrentlyLiked
+                ? Math.max(getPostLikesCount(prev) - 1, 0)
+                : getPostLikesCount(prev) + 1,
         }));
+        onToggleLikeLocal?.(currentPost.id, !isCurrentlyLiked);
 
         try {
             await increaseThumbUp({ postId: currentPost.id }).unwrap();
         } catch (err) {
             setCurrentPost(previousPost);
+            onToggleLikeLocal?.(currentPost.id, isCurrentlyLiked);
             console.error(err);
         }
     };
@@ -175,16 +201,18 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
     return (
         <View style={styles.card}>
             <View style={styles.header}>
-                <View style={styles.headerLeft}>
+                {/* Тепер весь блок автора клікабельний */}
+                <TouchableOpacity style={styles.headerLeft} onPress={handleProfileNavigation}>
                     <View style={styles.avatarWrapper}>
                         {authorAvatar ? <Image source={{ uri: authorAvatar }} style={styles.avatar} /> : <View style={styles.avatar} />}
                         <View style={styles.statusDot} />
                     </View>
                     <View>
-                        <Text style={styles.userName}>{getUserDisplayName(currentPost.author)}</Text>
+                        <Text style={styles.userName}>{authorName}</Text>
                         {authorSignature && <Image source={{ uri: authorSignature }} style={styles.signature} resizeMode="contain" />}
                     </View>
-                </View>
+                </TouchableOpacity>
+
                 {userId === getPostAuthorId(currentPost) && (
                     <View ref={(el) => { dotsRefs.current[currentPost.id] = el; }} collapsable={false}>
                         <TouchableOpacity style={styles.menuButton} onPress={() => handleOpenPopup(currentPost)}>
@@ -223,7 +251,7 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
                     </TouchableOpacity>
                     
                     <TouchableOpacity style={styles.statItem} onPress={handleLikePress}>
-                        <ICONS.like />
+                        {currentPost.isThumbsUpLiked ? <ICONS.FilledLikeIcon /> : <ICONS.like />}
                         <Text style={styles.statText}>
                             {getPostLikesCount(currentPost)} Вподобань
                         </Text>

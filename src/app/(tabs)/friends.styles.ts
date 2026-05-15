@@ -1,6 +1,10 @@
 import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -45,6 +49,10 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  profileButton: {
+    alignItems: 'center',
+    width: '100%',
+  },
   avatarContainer: {
     position: 'relative',
     marginBottom: 10,
@@ -68,10 +76,14 @@ export const styles = StyleSheet.create({
   name: {
     fontSize: 20,
     marginBottom: 2,
+    color: '#070A1C',
+    textAlign: 'center',
   },
   handle: {
     fontSize: 14,
     marginBottom: 15,
+    color: '#070A1C',
+    textAlign: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -84,6 +96,9 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     minWidth: 130,
     alignItems: 'center',
+  },
+  disabledBtn: {
+    opacity: 0.6,
   },
   outlineBtn: {
     paddingVertical: 10,
@@ -101,5 +116,11 @@ export const styles = StyleSheet.create({
   outlineBtnText: {
     color: '#4A354A',
     fontSize: 14,
+  },
+  emptyText: {
+    color: '#6B6D7A',
+    fontSize: 14,
+    paddingVertical: 16,
+    textAlign: 'center',
   }
 });
