@@ -12,7 +12,6 @@ export const styles = StyleSheet.create({
         padding: CARD_PADDING,
         borderWidth: 1,
         borderColor: '#E0E0E0',
-        margin: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,

@@ -25,6 +25,7 @@ export interface IFriendRequest {
 	from_profile_id: number;
 	to_profile_id: number;
 	created_at: string;
+	status?: FriendRequestStatus;
 	from_profile: IFriendshipProfile;
 	to_profile: IFriendshipProfile;
 }
@@ -33,14 +34,22 @@ export interface IUserFriendships {
 	friends: IProfileFriend[];
 	incomingRequests: IFriendRequest[];
 	outgoingRequests: IFriendRequest[];
+	blacklistedRequests?: IFriendRequest[];
 }
+
+export type FriendRequestStatus =
+	| "ACCEPTED"
+	| "REJECTED"
+	| "PENDING"
+	| "BLACKLISTED";
 
 export interface ICreateFriendRequestPayload {
 	senderId: number;
 	receiverId: number;
+	status?: FriendRequestStatus;
 }
 
 export interface IUpdateFriendRequestPayload {
 	requestId: number;
-	status: "ACCEPTED" | "REJECTED" | "PENDING";
+	status: FriendRequestStatus;
 }

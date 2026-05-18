@@ -1,31 +1,36 @@
-import { View, Image, Text, Pressable } from "react-native";
-import { styles } from "./radioTab.module";
-import { IMAGES } from "../../images";
-import { RoundButton } from "../RoundButton";
-import { ICONS } from "../../icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { IProps } from "./radioTab.types";
-import { useRouter } from "expo-router";
-import { usePathname } from "expo-router";
 import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import { styles } from "./radioTab.module";
+import type { IProps } from "./radioTab.types";
 
 export function RadioTabs(props: IProps) {
-	const { radioTabsArray } = props;
-	const [choosedTab, setChoosedTab] = useState<string>(radioTabsArray[0].title);
+	const { radioTabsArray, activeTab, onTabChange, fullHeight, variant } = props;
+	const [localTab, setLocalTab] = useState<string>(radioTabsArray[0].title);
+	const choosedTab = activeTab ?? localTab;
+	const isFriendsVariant = variant === "friends";
+	const setChoosedTab = (title: string) => {
+		setLocalTab(title);
+		onTabChange?.(title);
+	};
 
 	return (
-		<View style={styles.radioTabs}>
-			<View style={styles.tabs}>
+		<View style={[styles.radioTabs, fullHeight && styles.fullHeight]}>
+			<View style={[styles.tabs, isFriendsVariant && styles.friendsTabs]}>
 				{radioTabsArray.map((element) => {
+					const isActive = choosedTab === element.title;
+
 					return (
 						<Pressable
 							key={element.title}
+							style={isFriendsVariant && styles.friendsTabButton}
 							onPress={() => setChoosedTab(element.title)}
 						>
 							<Text
-								style={
-									choosedTab === element.title ? styles.choosedTab : styles.tab
-								}
+								style={[
+									isActive ? styles.choosedTab : styles.tab,
+									isFriendsVariant && styles.friendsTab,
+									isFriendsVariant && isActive && styles.friendsChoosedTab,
+								]}
 							>
 								{element.title}
 							</Text>
@@ -38,9 +43,10 @@ export function RadioTabs(props: IProps) {
 				return (
 					<View
 						key={element.title}
-						style={
-							choosedTab === element.title ? styles.visible : styles.hidden
-						}
+						style={[
+							choosedTab === element.title ? styles.visible : styles.hidden,
+							fullHeight && styles.fullHeight,
+						]}
 					>
 						{element.content}
 					</View>

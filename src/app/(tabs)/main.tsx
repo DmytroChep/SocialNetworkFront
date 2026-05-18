@@ -1,170 +1,239 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ViewToken } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router"; // Додано
-
-import { FirstEnterModal } from "../../shared/ui/first-enter-modal/firstEnterModal";
-import { useLazyGetAllPostsQuery, useViewsIncreaseMutation } from "../../shared/api/baseApi";
-import { useUserContext } from "../../shared/context/user-context";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	ActivityIndicator,
+	FlatList,
+	RefreshControl,
+	View,
+	type ViewToken,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import type { IPost } from "../../modules/my-publications/types/Post.type";
 import { PublicationCard } from "../../modules/my-publications/ui/publicationCard/publicationCard";
-import { IPost } from "../../modules/my-publications/types/Post.type";
+import {
+	useLazyGetAllPostsQuery,
+	useViewsIncreaseMutation,
+} from "../../shared/api/baseApi";
+import { useUserContext } from "../../shared/context/user-context";
+import {
+	getUserAvatar,
+	getUserDisplayName,
+	getUserHandle,
+} from "../../shared/lib/model-helpers";
+import { FirstEnterModal } from "../../shared/ui/first-enter-modal/firstEnterModal";
 
 const POSTS_LIMIT = 5;
 
-function needsFirstEnterProfile(user: ReturnType<typeof useUserContext>["user"]) {
-  if (!user) return false;
+function needsFirstEnterProfile(
+	user: ReturnType<typeof useUserContext>["user"],
+) {
+	if (!user) return false;
 
-  const hasDisplayName = Boolean(user.first_name?.trim() || user.profile?.pseudonym?.trim());
+	const hasDisplayName = Boolean(
+		user.first_name?.trim() || user.profile?.pseudonym?.trim(),
+	);
 
-  return !hasDisplayName;
+	return !hasDisplayName;
 }
 
 export default function Main() {
-  const { user } = useUserContext();
-  const router = useRouter(); // Ініціалізуємо роутер
+	const { user } = useUserContext();
+	const router = useRouter(); // Ініціалізуємо роутер
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [posts, setPosts] = useState<IPost[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+	const [modalVisible, setModalVisible] = useState(false);
+	const [posts, setPosts] = useState<IPost[]>([]);
+	const [hasMore, setHasMore] = useState(true);
+	const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [getAllPosts, { isFetching }] = useLazyGetAllPostsQuery();
-  const [increaseView] = useViewsIncreaseMutation();
-  const viewedPosts = useRef(new Set<number>());
+	const [getAllPosts, { isFetching }] = useLazyGetAllPostsQuery();
+	const [increaseView] = useViewsIncreaseMutation();
+	const viewedPosts = useRef(new Set<number>());
 
-  const paginationRef = useRef({
-    nextCursor: null as number | null,
-    hasMore: true,
-    isLoading: false,
-  });
+	const paginationRef = useRef({
+		nextCursor: null as number | null,
+		hasMore: true,
+		isLoading: false,
+	});
 
-  // Функція для переходу на профіль автора поста
-  const handleNavigateToProfile = useCallback((author: any) => {
-    router.push({
-      pathname: "/user-profile",
-      params: { 
-        id: author.id, 
-        name: author.name, 
-        handle: author.handle || `@${author.name.toLowerCase().replace(/\s/g, '')}`, 
-        avatar: author.avatar 
-      }
-    });
-  }, [router]);
+	// Функція для переходу на профіль автора поста
+	const handleNavigateToProfile = useCallback(
+		(
+			author: IPost["author"] & {
+				name?: string;
+				handle?: string;
+				avatar?: string | null;
+			},
+		) => {
+			const authorName = author.name || getUserDisplayName(author);
+			const authorHandle =
+				author.handle ||
+				getUserHandle(author) ||
+				authorName.toLowerCase().replace(/\s/g, "");
+			const authorAvatar = author.avatar || getUserAvatar(author);
 
-  const loadPosts = useCallback(async (reset = false) => {
-    const pagination = paginationRef.current;
-    if (pagination.isLoading || (!reset && !pagination.hasMore)) return;
-    pagination.isLoading = true;
+			router.push({
+				pathname: "/user-profile",
+				params: {
+					id: author.id,
+					name: authorName,
+					handle: authorHandle.startsWith("@")
+						? authorHandle
+						: `@${authorHandle}`,
+					avatar: authorAvatar,
+				},
+			});
+		},
+		[router],
+	);
 
-    try {
-      const response = await getAllPosts({
-        limit: POSTS_LIMIT,
-        cursor: reset ? undefined : pagination.nextCursor ?? undefined,
-      }).unwrap();
+	const loadPosts = useCallback(
+		async (reset = false) => {
+			const pagination = paginationRef.current;
+			if (pagination.isLoading || (!reset && !pagination.hasMore)) return;
+			pagination.isLoading = true;
 
-      setPosts((currentPosts) => {
-        if (reset) return response.items;
-        const existingIds = new Set(currentPosts.map((p) => p.id));
-        const newPosts = response.items.filter((p) => !existingIds.has(p.id));
-        return [...currentPosts, ...newPosts];
-      });
+			try {
+				const response = await getAllPosts({
+					limit: POSTS_LIMIT,
+					cursor: reset ? undefined : (pagination.nextCursor ?? undefined),
+				}).unwrap();
 
-      pagination.nextCursor = response.nextCursor;
-      pagination.hasMore = response.hasMore;
-      setHasMore(response.hasMore);
-    } catch {
-      if (reset) {
-        pagination.nextCursor = null;
-        pagination.hasMore = true;
-      }
-    } finally {
-      pagination.isLoading = false;
-    }
-  }, [getAllPosts]);
+				setPosts((currentPosts) => {
+					if (reset) return response.items;
+					const existingIds = new Set(currentPosts.map((p) => p.id));
+					const newPosts = response.items.filter((p) => !existingIds.has(p.id));
+					return [...currentPosts, ...newPosts];
+				});
 
-  const refreshPosts = useCallback(async () => {
-    setIsRefreshing(true);
-    paginationRef.current.nextCursor = null;
-    paginationRef.current.hasMore = true;
-    viewedPosts.current.clear();
-    await loadPosts(true);
-    setIsRefreshing(false);
-  }, [loadPosts]);
+				pagination.nextCursor = response.nextCursor;
+				pagination.hasMore = response.hasMore;
+				setHasMore(response.hasMore);
+			} catch {
+				if (reset) {
+					pagination.nextCursor = null;
+					pagination.hasMore = true;
+				}
+			} finally {
+				pagination.isLoading = false;
+			}
+		},
+		[getAllPosts],
+	);
 
-  const handleToggleLikeLocal = useCallback((postId: number, isLiked: boolean) => {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) => {
-        if (post.id !== postId) return post;
-        const likes = post.thumbsUpCount ?? post.likes?.length ?? 0;
-        return {
-          ...post,
-          isThumbsUpLiked: isLiked,
-          thumbsUpCount: isLiked ? likes + 1 : Math.max(likes - 1, 0),
-        };
-      })
-    );
-  }, []);
+	const refreshPosts = useCallback(async () => {
+		setIsRefreshing(true);
+		paginationRef.current.nextCursor = null;
+		paginationRef.current.hasMore = true;
+		viewedPosts.current.clear();
+		await loadPosts(true);
+		setIsRefreshing(false);
+	}, [loadPosts]);
 
-  const handleUpdatePost = useCallback((updatedPost: IPost) => {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) => post.id === updatedPost.id ? updatedPost : post)
-    );
-  }, []);
+	const handleToggleLikeLocal = useCallback(
+		(postId: number, isLiked: boolean) => {
+			setPosts((currentPosts) =>
+				currentPosts.map((post) => {
+					if (post.id !== postId) return post;
+					const likes = post.thumbsUpCount ?? post.likes?.length ?? 0;
+					return {
+						...post,
+						isThumbsUpLiked: isLiked,
+						thumbsUpCount: isLiked ? likes + 1 : Math.max(likes - 1, 0),
+					};
+				}),
+			);
+		},
+		[],
+	);
 
-  const handleDeletePost = useCallback((postId: number) => {
-    setPosts((currentPosts) => currentPosts.filter((post) => post.id !== postId));
-  }, []);
+	const handleUpdatePost = useCallback((updatedPost: IPost) => {
+		setPosts((currentPosts) =>
+			currentPosts.map((post) =>
+				post.id === updatedPost.id ? updatedPost : post,
+			),
+		);
+	}, []);
 
-  useEffect(() => {
-    loadPosts(true);
-  }, [loadPosts]);
+	const handleDeletePost = useCallback((postId: number) => {
+		setPosts((currentPosts) =>
+			currentPosts.filter((post) => post.id !== postId),
+		);
+	}, []);
 
-  useEffect(() => {
-    if (needsFirstEnterProfile(user)) {
-      setModalVisible(true);
-    }
-  }, [user]);
+	useEffect(() => {
+		loadPosts(true);
+	}, [loadPosts]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    viewableItems.forEach((viewToken) => {
-      const post = viewToken.item as IPost;
-      if (!post?.id || viewedPosts.current.has(post.id)) return;
-      viewedPosts.current.add(post.id);
-      setPosts((currentPosts) =>
-        currentPosts.map((p) =>
-          p.id === post.id
-            ? { ...p, views: (Array.isArray(p.views) ? p.views.length : p.views ?? 0) + 1 }
-            : p
-        )
-      );
-      increaseView({ postId: post.id });
-    });
-  }).current;
+	useEffect(() => {
+		if (needsFirstEnterProfile(user)) {
+			setModalVisible(true);
+		}
+	}, [user]);
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFF' }} edges={["left", "right"]}>
-      <FirstEnterModal visible={modalVisible} onClose={() => setModalVisible(false)} />
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <PublicationCard
-            post={item}
-            userId={user?.id}
-            onDelete={handleDeletePost}
-            onUpdate={handleUpdatePost}
-            onToggleLikeLocal={handleToggleLikeLocal}
-            onProfilePress={() => handleNavigateToProfile(item.author)} // Новий пропс
-          />
-        )}
-        onEndReached={() => loadPosts()}
-        onEndReachedThreshold={0.5}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 70 }}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refreshPosts} />}
-        ListFooterComponent={isFetching && posts.length > 0 && hasMore ? <ActivityIndicator style={{ paddingVertical: 16 }} /> : null}
-        ListEmptyComponent={isFetching ? <ActivityIndicator style={{ paddingVertical: 24 }} /> : null}
-      />
-    </SafeAreaView>
-  );
+	const onViewableItemsChanged = useRef(
+		({ viewableItems }: { viewableItems: ViewToken[] }) => {
+			viewableItems.forEach((viewToken) => {
+				const post = viewToken.item as IPost;
+				if (!post?.id || viewedPosts.current.has(post.id)) return;
+				viewedPosts.current.add(post.id);
+				setPosts((currentPosts) =>
+					currentPosts.map((p) =>
+						p.id === post.id
+							? {
+									...p,
+									views:
+										(Array.isArray(p.views) ? p.views.length : (p.views ?? 0)) +
+										1,
+								}
+							: p,
+					),
+				);
+				increaseView({ postId: post.id });
+			});
+		},
+	).current;
+
+	return (
+		<SafeAreaView
+			style={{ flex: 1, backgroundColor: "#FFF", gap: 6 }}
+			edges={["left", "right"]}
+		>
+			<FirstEnterModal
+				visible={modalVisible}
+				onClose={() => setModalVisible(false)}
+			/>
+			<FlatList
+				data={posts}
+				keyExtractor={(item) => item.id.toString()}
+				ItemSeparatorComponent={() => <View style={{ height: 9 }} />}
+				renderItem={({ item }) => (
+					<PublicationCard
+						post={item}
+						userId={user?.id}
+						onDelete={handleDeletePost}
+						onUpdate={handleUpdatePost}
+						onToggleLikeLocal={handleToggleLikeLocal}
+						onProfilePress={() => handleNavigateToProfile(item.author)} // Новий пропс
+					/>
+				)}
+				onEndReached={() => loadPosts()}
+				onEndReachedThreshold={0.5}
+				onViewableItemsChanged={onViewableItemsChanged}
+				viewabilityConfig={{ itemVisiblePercentThreshold: 70 }}
+				refreshControl={
+					<RefreshControl refreshing={isRefreshing} onRefresh={refreshPosts} />
+				}
+				ListFooterComponent={
+					isFetching && posts.length > 0 && hasMore ? (
+						<ActivityIndicator style={{ paddingVertical: 16 }} />
+					) : null
+				}
+				ListEmptyComponent={
+					isFetching ? (
+						<ActivityIndicator style={{ paddingVertical: 24 }} />
+					) : null
+				}
+			/>
+		</SafeAreaView>
+	);
 }
