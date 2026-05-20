@@ -1,10 +1,12 @@
 {
 	"extends": "expo/tsconfig.base",
 	"compilerOptions": {
-		"strict": true
+		"strict": true,
+		"jsx": "react-native"
 	},
 	"baseUrl": "./src",
 	"paths": {
 		"@shared/*": ["./src/shared/"]
 	}
+	
 }

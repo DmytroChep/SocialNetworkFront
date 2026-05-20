@@ -4,118 +4,107 @@ import { ICONS } from "../../shared/icons";
 import { COLORS } from "../../shared/constants";
 import { useState } from "react";
 import { FONTS } from "../../shared/constants/fonts";
-import { Chat } from "../../modules/chats/chat/chat";
+import { ContactsList } from "../../modules/chats/contactsList";	
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    tabsContainer: {
-        width: "100%",
-        // paddingHorizontal: 16,
-        justifyContent: "space-between",
-        flexDirection: "row",
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.blue20,
-    },
-    tab: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        borderBottomWidth: 2,
-        borderBottomColor: "transparent",
-    },
     choosedTab: {
-        borderBottomColor: COLORS.darkBlue,
-    },
-    tabText: {
-        fontSize: 13,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
-        color: "black",
-    },
-    choosedTabText: {
-        color: COLORS.darkBlue,
-        fontWeight: "600",
-    },
-    contentContainer: {
-        flex: 1,
-        width: "100%",
-        padding: 16,
+        
     },
     visible: {
-        flex: 1,
-        width: "100%",
-        display: "flex"
+        display: "flex",
+        flex: 1,       // Додаємо, щоб компонент займав весь доступний простір
+        width: "100%"  // Щоб картка розтягувалася по ширині екрану
     },
     hidden: {
         display: "none"
+    },
+    radioTabs: { 
+        flex: 1,       // Змінюємо на flex: 1, щоб контент під табами не обрізався
+        width: "100%",
+        gap: 6, 
+        paddingVertical: 8
+    },
+    tabs: {
+        width: "100%",
+        paddingHorizontal: 16,
+        justifyContent: "space-between",
+        flexDirection: "row",
+        marginBottom: 8 // Невеликий відступ від табів до картки
+    },
+    tab: {
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+    },
+    choosedRadioTabs: {
+        alignItems: "center",
+        paddingVertical: 8,
+        justifyContent: "center",
+        gap: 6,
+        borderTopColor: COLORS.darkBlue,
+        borderTopWidth: 2
     }
-});
+})
 
 export default function Chats() {
+    // 2. Замінюємо текстову заглушку на наш <ContactsList />
     const radioTabsArray = [
         { 
             title: "Контакти", 
             icon: <ICONS.people />, 
-            content: <Chat chat={{
-                is_group: true, 
-                name: "super chat", 
-                avatar: "avatars/default_avatar.png", 
-                users: [
-                    { id: 1, name: "user", avatar: "/media/avatars/default_avatar.jpg" },
-                    { id: 2, name: "user", avatar: "/media/avatars/default_avatar.jpg" }
-                ], 
-                message: [
-                    { text: "hello", created_at: 123344433, sender: { id: 2, name: "user", avatar: "/media/avatars/default_avatar.jpg" } },
-                    { text: "hello you too!", created_at: 1233444323, sender: { id: 2, name: "username", avatar: "/media/avatars/default_avatar.jpg" } }
-                ]
-            }} /> 
+            content: <ContactsList/> 
         },
-        { title: "Повідомлення", icon: <ICONS.chat />, content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Повідомлення</Text></View> },
-        { title: "Групові чати", icon: <ICONS.chat />, content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Групові чати</Text></View> },
+        { 
+            title: "Повідмолення", 
+            icon: <ICONS.chat />, 
+            content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Повідмолення</Text></View> 
+        },
+        { 
+            title: "Групові чати", 
+            icon: <ICONS.chat />, 
+            content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Групові чати</Text></View> 
+        },
     ];
     
     const [choosedTab, setChoosedTab] = useState<string>(radioTabsArray[0].title);
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: "white" }} edges={["left", "right"]}>
-            <View style={styles.container}>
-                
-                {/* Рендерим ТАБЫ */}
-                <View style={styles.tabsContainer}>
-                    {radioTabsArray.map((element) => {
-                        const isSelected = choosedTab === element.title;
-                        return (
-                            <Pressable 
-                                key={element.title}
-                                style={[styles.tab, isSelected && styles.choosedTab]}
-                                onPress={() => setChoosedTab(element.title)}
-                            >
-                                {element.icon}
-                                <Text style={[styles.tabText, isSelected && styles.choosedTabText]}>
-                                    {element.title}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
-                </View>
-    
-                {/* Рендерим КОНТЕНТ */}
-                <View style={styles.contentContainer}>
+            <View style={{ flex: 1 }}>
+                <View style={styles.radioTabs}>
+                    {/* Рендер кнопок перемикання табів */}
+                    <View style={styles.tabs}>
+                        {radioTabsArray.map((element) => {
+                            return (
+                                <Pressable 
+                                    key={element.title}
+                                    style={
+                                        choosedTab === element.title ? styles.choosedRadioTabs : styles.tab
+                                    }
+                                    onPress={() => setChoosedTab(element.title)}
+                                >
+                                    {element.icon}
+                                    <Text>{element.title}</Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+        
+                    {/* Рендер контенту обраного табу */}
                     {radioTabsArray.map((element) => {
                         return (
                             <View
                                 key={element.title}
-                                style={choosedTab === element.title ? styles.visible : styles.hidden}
+                                style={
+                                    choosedTab === element.title ? styles.visible : styles.hidden
+                                }
                             >
                                 {element.content}
                             </View>
                         );
                     })}
                 </View>
-
             </View>
         </SafeAreaView>
     );
-}	
+}
