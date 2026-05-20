@@ -6,7 +6,7 @@ import { COLORS } from "../../../../shared/constants";
 import { useUserContext } from "../../../../shared/context/user-context";
 import { useRouter } from "expo-router";
 import { RoundButton } from "../../../../shared/ui/RoundButton";
-import { ip } from "../../../../config/ip";
+import { getUserAvatar } from "../../../../shared/lib/model-helpers";
 
 export function Avatars() {
     const { user } = useUserContext();
@@ -17,8 +17,9 @@ export function Avatars() {
         return null;
     }
 
-    const hasAvatars = user.avatars && user.avatars.length > 0;
-    const avatars = hasAvatars ? user.avatars.toReversed() : [];
+    const currentAvatar = getUserAvatar(user);
+    const avatars = currentAvatar ? [{ id: user.profile?.id || user.id, image: currentAvatar }] : [];
+    const hasAvatars = avatars.length > 0;
 
 
     return (
@@ -57,7 +58,7 @@ export function Avatars() {
                             <View key={avatar.id} style={styles.avatarCard}>
                                 <Image
                                     source={{
-                                        uri: `http://${ip}:8000${avatar.image}`,
+                                        uri: avatar.image,
                                     }}
                                     style={styles.avatarImage}
                                     width={200}

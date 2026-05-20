@@ -134,6 +134,19 @@ export default function TabsLayout() {
                         tabBarItemStyle: { display: "none" },
                     }}
                 />
+                <Tabs.Screen
+                    name="profile"
+                    options={{
+                        title: "Профіль",
+                        header: () => (
+                            <Header
+                                hiddenButtons={{ plus: true, settings: false, exit: false }}
+                                onPlusPress={() => setIsPostModalVisible(true)}
+                            />
+                        ),
+                        tabBarItemStyle: { display: "none" },
+                    }}
+                />
             </Tabs>
 
             <CreatePostModal 

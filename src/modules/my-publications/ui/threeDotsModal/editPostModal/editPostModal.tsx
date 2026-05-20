@@ -1,87 +1,70 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from 'react';
 import { 
-    Modal, View, Text, TextInput, TouchableOpacity, 
-    ScrollView, Image 
-} from "react-native";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+    Modal, 
+    View, 
+    Text, 
+    TextInput, 
+    TouchableOpacity, 
+    ScrollView, 
+    Image 
+} from 'react-native';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
-import { styles } from "./createPostModal.styles";
-import { RoundButton } from "../../../../shared/ui/RoundButton";
-import { ICONS } from "../../../../shared/icons";
-import { Input } from "../../../../shared/ui/input";
-import { COLORS } from "../../../../shared/constants";
-import { useCreatePostMutation } from "../../../../shared/api/baseApi";
-import { useUserContext } from "../../../../shared/context/user-context";
-import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
+import { styles } from './editPostModal.styles'
+import { ICONS } from '../../../../../shared/icons';
+import { COLORS } from '../../../../../shared/constants';
+import { IPost } from '../../../types/Post.type';
+import { Input } from '../../../../../shared/ui/input';
+import { RoundButton } from '../../../../../shared/ui/RoundButton';
+import { getPostContent, getPostImages, getPostLinks } from '../../../../../shared/lib/model-helpers';
+import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from '../../../../../shared/lib/image-upload';
 
-interface IPostForm {
-    title: string;
-    topic: string;
-    content: string;
-    links: { value: string }[];
-    hashtags: string[];
-    images: string[];
+interface EditPostModalProps {
+    isVisible: boolean;
+    onClose: () => void;
+    post?: IPost | null;
+    onSubmitAction: (data: any) => void;
 }
 
-export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, onClose: () => void }) => {
-    const [baseTags, setBaseTags] = useState<string[]>([]);
+export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: EditPostModalProps) {
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
+    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа"]);
 
-    const [createPost] = useCreatePostMutation();
-    const { user } = useUserContext();
-
-    const { control, handleSubmit, reset, setValue, watch } = useForm<IPostForm>({
+    const { control, handleSubmit, reset, setValue, watch } = useForm({
         defaultValues: {
-            title: "", topic: "", content: "",
+            title: "",
+            topic: "",
+            content: "",
             links: [{ value: "" }],
-            hashtags: [], 
-            images: []
+            images: [] as string[],
+            tags: [] as string[],
         }
     });
 
     const { fields, append, remove } = useFieldArray({ control, name: "links" });
-    
-    const selectedTags = watch("hashtags");
-    const currentContent = watch("content");
     const selectedImages = watch("images");
 
     useEffect(() => {
-        const loadTags = async () => {
-            try {
-                const response = await fetch("YOUR_API_URL/hashtags");
-                const tags = await response.json();
-                setBaseTags(tags.map((t: any) => t.title || t.name));
-            } catch (err) {
-                setBaseTags(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
+        if (isVisible) {
+            if (post) {
+                reset({
+                    title: post.title,
+                    topic: post.topic || "",
+                    content: getPostContent(post),
+                    links: getPostLinks(post).length
+                        ? getPostLinks(post).map((link) => ({ value: link }))
+                        : [{ value: "" }],
+                    images: getPostImages(post).map((image) => image.url)
+                });
+            } else {
+                reset({ title: "", topic: "", content: "", links: [{ value: "" }], images: [] });
             }
-        };
-        loadTags();
-    }, []);
-
-    const handleTagPress = (tag: string) => {
-        const currentTags = watch("hashtags") || [];
-
-        if (currentTags.includes(tag)) {
-            setValue("hashtags", currentTags.filter(t => t !== tag));
-        } else {
-            setValue("hashtags", [...currentTags, tag]);
         }
-    };
-
-    const addNewCustomTag = () => {
-        if (newTag.trim()) {
-            const cleanTag = newTag.replace("#", "").trim();
-            if (!baseTags.includes(cleanTag)) {
-                setBaseTags([...baseTags, cleanTag]);
-            }
-            setNewTag("");
-            setIsAddingTag(false);
-        }
-    };
+    }, [post, isVisible, reset]);
 
     const pickImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
+        let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
             ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
@@ -93,24 +76,28 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         }
     };
 
-    const onSubmit = async (data: IPostForm) => {
-        const payload = {
-            title: data.title.trim(),
-            author_id: user?.id ? Number(user.id) : 2,
-            content: data.content || "",
-            topic: data.topic || null,
-            hashtags: data.hashtags,
-            links: data.links?.map((link) => link.value).filter(Boolean) || [],
-            images: data.images?.map((url) => ({ original_image: url })) || [],
-        };
+    const handleTagPress = (tag: string) => {
+        const selectedTags = watch("tags") || [];
 
-        try {
-            await createPost(payload).unwrap();
-            reset();
-            onClose();
-        } catch (err) {
-            console.error("Помилка при створенні допису:", err);
+        if (selectedTags.includes(tag)) {
+            setValue("tags", selectedTags.filter(t => t !== tag));
+        } else {
+            setValue("tags", [...selectedTags, tag]);
         }
+    };
+
+    const addNewCustomTag = () => {
+        if (newTag.trim()) {
+            setBaseTags([...baseTags, newTag.trim()]);
+            handleTagPress(newTag.trim());
+            setNewTag("");
+            setIsAddingTag(false);
+        }
+    };
+
+    const onSubmit = async (data: any) => {
+        await onSubmitAction(data);
+        onClose();
     };
 
     return (
@@ -118,8 +105,12 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Створення публікації</Text>
-                        <TouchableOpacity onPress={onClose}><Text style={styles.closeIcon}>✕</Text></TouchableOpacity>
+                        <Text style={styles.headerTitle}>
+                            {post ? "Редагування публікації" : "Створення публікації"}
+                        </Text>
+                        <TouchableOpacity onPress={onClose}>
+                            <Text style={styles.closeIcon}>✕</Text>
+                        </TouchableOpacity>
                     </View>
 
                     <ScrollView showsVerticalScrollIndicator={false}>
@@ -136,8 +127,8 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                         <View style={styles.tagContainer}>
                             <View style={styles.tagList}>
                                 {baseTags.map((tag, i) => (
-                                    <TouchableOpacity key={i} style={[styles.tag, selectedTags?.includes(tag) && { backgroundColor: COLORS.plum, borderColor: COLORS.plum }]} onPress={() => handleTagPress(tag)}>
-                                        <Text style={[styles.tagText, selectedTags?.includes(tag) && { color: '#fff' }]}>#{tag}</Text>
+                                    <TouchableOpacity key={i} style={styles.tag} onPress={() => handleTagPress(tag)}>
+                                        <Text style={styles.tagText}>#{tag}</Text>
                                     </TouchableOpacity>
                                 ))}
                                 <TouchableOpacity style={styles.addCircle} onPress={() => setIsAddingTag(!isAddingTag)}>
@@ -152,8 +143,8 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                         value={newTag} 
                                         onChangeText={setNewTag} 
                                     />
-                                    <TouchableOpacity onPress={addNewCustomTag} style={{ marginLeft: 10, width: 30, height: 30, borderRadius: 15, borderColor: "#000", borderWidth: 1, justifyContent: "center", alignItems: "center" }}>
-                                        <Text style={{ fontSize: 20 }}>✓</Text>
+                                    <TouchableOpacity onPress={addNewCustomTag} style={{ marginLeft: 10 }}>
+                                        <ICONS.round color={COLORS.plum || "#51455D"} />
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -179,8 +170,8 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                         flexWrap: 'wrap',
                                         gap: 6,
                                     }}>
-                                        {watch("hashtags")?.length > 0 ? (
-                                            watch("hashtags").map((tag, index) => (
+                                        {watch("tags")?.length > 0 ? (
+                                            watch("tags").map((tag, index) => (
                                                 <Text key={index} style={{ color: COLORS.plum, fontWeight: '700' }}>
                                                     #{tag}
                                                 </Text>
@@ -208,30 +199,25 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                         />
                                     )}
                                 />
-                                
                                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 5 }}>
                                     {index === fields.length - 1 && (
-                                        <TouchableOpacity 
-                                            style={styles.addCircleInline} 
-                                            onPress={() => append({ value: "" })}
-                                        >
+                                        <TouchableOpacity style={styles.addCircleInline} onPress={() => append({ value: "" })}>
                                             <Text style={styles.plus}>+</Text>
                                         </TouchableOpacity>
                                     )}
-
                                     {fields.length > 1 && (
                                         <TouchableOpacity 
-                                            style={[styles.addCircleInline, { borderColor: COLORS.plum || '#51455D' }]} 
+                                            style={[styles.addCircleInline, { borderColor: COLORS.plum }]} 
                                             onPress={() => remove(index)}
                                         >
-                                            <ICONS.cross width={14} height={14} color={COLORS.plum || '#51455D'} />
+                                            <ICONS.cross width={14} height={14} color={COLORS.plum} />
                                         </TouchableOpacity>
                                     )}
                                 </View>
                             </View>
                         ))}
 
-                        <View style={{ gap: 10, marginBottom: 20 }}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
                             {selectedImages.map((uri, index) => (
                                 <View key={index} style={styles.imageWrapper}>
                                     <Image source={{ uri }} style={styles.previewImageLarge} />
@@ -239,7 +225,7 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                         style={styles.deletePhotoBtn} 
                                         onPress={() => setValue("images", selectedImages.filter((_, i) => i !== index))}
                                     >
-                                        <ICONS.trash color="black" />
+                                        <ICONS.trash color="black" width={18} height={18} />
                                     </TouchableOpacity>
                                 </View>
                             ))}
@@ -248,9 +234,14 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                         <View style={[styles.footer, { justifyContent: 'flex-end', gap: 10 }]}>
                             <RoundButton icon={<ICONS.image />} onPress={pickImage} />
                             <RoundButton icon={<ICONS.smile />} />
-                            <TouchableOpacity style={[styles.publishBtn, { flex: 0, paddingHorizontal: 25 }]} onPress={handleSubmit(onSubmit, (errors) => console.log("Помилки валідації:", errors))}>
-                                <Text style={styles.publishBtnText}>Публікація</Text>
-                                <ICONS.Send />
+                            <TouchableOpacity 
+                                style={[styles.publishBtn, { flex: 0, paddingHorizontal: 25 }]} 
+                                onPress={handleSubmit(onSubmit)}
+                            >
+                                <Text style={styles.publishBtnText}>
+                                    {post ? "Зберегти" : "Публікація"}
+                                </Text>
+                                <ICONS.Send color="white" />
                             </TouchableOpacity>
                         </View>
                     </ScrollView>

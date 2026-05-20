@@ -1,2 +1,3 @@
-import {IUser} from "./User.type"
-export type IPartialUser = Partial<IUser> 
+import { IUserUpdatePayload } from "./User.type";
+
+export type IPartialUser = IUserUpdatePayload;

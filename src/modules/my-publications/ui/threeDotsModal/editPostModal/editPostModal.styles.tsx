@@ -1,5 +1,5 @@
-import { StyleSheet } from "react-native";
-import { COLORS } from "../../../../shared/constants";
+import { StyleSheet, Dimensions } from "react-native";
+import { COLORS } from "../../../../../shared/constants";
 
 export const styles = StyleSheet.create({
     overlay: {
@@ -7,14 +7,13 @@ export const styles = StyleSheet.create({
         backgroundColor: "rgba(0,0,0,0.6)",
         justifyContent: "center", 
         alignItems: "center",
-        paddingHorizontal: 16,
     },
     container: {
         backgroundColor: "white",
         borderRadius: 30,
         padding: 25,
         width: 375,
-        maxHeight: 709, 
+        maxHeight: 709,
     },
     header: {
         flexDirection: "row",
@@ -26,10 +25,9 @@ export const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: "700",
         color: "#000",
-        
     },
     closeIcon: {
-        fontSize: 14,
+        fontSize: 18,
         color: "#000",
         padding: 5,
     },
@@ -38,6 +36,7 @@ export const styles = StyleSheet.create({
         fontWeight: "600",
         marginBottom: 8,
         color: "#333",
+        marginTop: 10,
     },
     tagContainer: {
         marginVertical: 10,
@@ -73,20 +72,20 @@ export const styles = StyleSheet.create({
         borderColor: "#E5E5E5",
         borderRadius: 20,
         padding: 15,
-        minHeight: 180,
+        minHeight: 150,
         marginVertical: 15,
-        // backgroundColor: "#FAFAFA",
     },
     contentInput: {
         fontSize: 16,
         lineHeight: 24,
         color: "#333",
+        minHeight: 120,
     },
     linkRow: {
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
-        marginBottom: 10,
+        marginBottom: 5,
     },
     input: {
         borderWidth: 1,
@@ -96,26 +95,25 @@ export const styles = StyleSheet.create({
         paddingVertical: 12,
         fontSize: 16,
         backgroundColor: "#fff",
+        marginBottom: 10,
     },
     addCircleInline: {
-        width: 30,
-        height: 30,
-        borderRadius: 20,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         borderWidth: 1,
         borderColor: "#000",
         justifyContent: "center",
         alignItems: "center",
-        marginBottom: 10,
     },
     plus: {
         fontSize: 22,
         fontWeight: "300",
-        alignItems: "center",
-        justifyContent: "center",
+        textAlign: "center",
     },
     imageWrapper: {
         width: "100%",
-        aspectRatio: 4 / 3,
+        aspectRatio: 4 / 3, 
         borderRadius: 20,
         overflow: "hidden",
         marginBottom: 15,
@@ -127,28 +125,28 @@ export const styles = StyleSheet.create({
     },
     deletePhotoBtn: {
         position: "absolute",
-        top: 10,
-        right: 10,
-        backgroundColor: "rgba(255,255,255,0.8)",
-        borderRadius: 20,
-        padding: 8,
+        top: 8,
+        right: 8,
+        backgroundColor: "rgba(255,255,255,0.9)",
+        borderRadius: 15,
+        width: 28,
+        height: 28,
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 10,
     },
     footer: {
         flexDirection: "row",
         justifyContent: "flex-end",
         alignItems: "center",
         marginTop: 20,
-        paddingBottom: 10,
+        paddingBottom: 20,
         gap: 12,
-    },
-    mediaButtons: {
-        flexDirection: "row",
-        gap: 10,
     },
     publishBtn: {
         backgroundColor: COLORS.plum || "#51455D",
-        paddingVertical: 14,
-        paddingHorizontal: 24,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
         borderRadius: 30,
         flexDirection: "row",
         alignItems: "center",
@@ -157,6 +155,6 @@ export const styles = StyleSheet.create({
     publishBtnText: {
         color: "white",
         fontWeight: "600",
-        fontSize: 18,
+        fontSize: 16,
     },
 });

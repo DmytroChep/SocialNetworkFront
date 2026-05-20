@@ -17,5 +17,5 @@ export const registrationValidator = yup.object().shape({
       .required("Обов'язкове поле")
       .min(5, "Мінімум 5 символів")
       .max(50)
-      .oneOf([yup.ref("password"), null], "Паролі повинні збігатися")
+      .oneOf([yup.ref("password")], "Паролі повинні збігатися")
 });

@@ -1,49 +1,89 @@
-import React, { useCallback, useRef } from 'react';
-import { View, FlatList } from 'react-native';
-import { PublicationCard } from '../../modules/my-publications/ui/publicationCard/publicationCard';
-import { useGetUserPostsQuery, useViewsIncreaseMutation } from '../../shared/api/baseApi';
-import { useUserContext } from '../../shared/context/user-context';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	ActivityIndicator,
+	FlatList,
+	View,
+	type ViewToken,
+} from "react-native";
+import type { IPost } from "../../modules/my-publications/types/Post.type";
+import { PublicationCard } from "../../modules/my-publications/ui/publicationCard/publicationCard";
+import {
+	useGetUserPostsQuery,
+	useViewsIncreaseMutation,
+} from "../../shared/api/baseApi";
+import { useUserContext } from "../../shared/context/user-context";
 
 export default function MyPublicationsScreen() {
-  const { user, token } = useUserContext();
+	const { user } = useUserContext();
 
-  if (!user){
-    return
-  }
-  const { data: publications } = useGetUserPostsQuery({ userId: user.id }, { pollingInterval: 1000 });
-  const [increaseView] = useViewsIncreaseMutation();
+	const { data: publications } = useGetUserPostsQuery(
+		{ userId: user?.id ?? 0 },
+		{ pollingInterval: 1000, skip: !user?.id },
+	);
+	const [increaseView] = useViewsIncreaseMutation();
 
-  
-  const viewedIds = useRef(new Set<number>());
+	const [localPublications, setLocalPublications] = useState(
+		publications || [],
+	);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    viewableItems.forEach(({ item }: any) => {
-      if (item && !viewedIds.current.has(item.id)) {
-        viewedIds.current.add(item.id);
-        increaseView(item.id).unwrap().catch(() => {});
-      }
-    });
-  }, [increaseView]);
+	useEffect(() => {
+		setLocalPublications(publications || []);
+	}, [publications]);
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
+	const viewedIds = useRef(new Set<number>());
 
-  const finalPublications = publications || [];
+	const onViewableItemsChanged = useCallback(
+		({ viewableItems }: { viewableItems: ViewToken[] }) => {
+			viewableItems.forEach(({ item }) => {
+				const publication = item as IPost | undefined;
+				if (publication && !viewedIds.current.has(publication.id)) {
+					viewedIds.current.add(publication.id);
+					increaseView({ postId: publication.id })
+						.unwrap()
+						.catch(() => {});
+				}
+			});
+		},
+		[increaseView],
+	);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      <FlatList
-        data={finalPublications}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <PublicationCard post={item} userId={user.id} />
-        )}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        showsVerticalScrollIndicator={false}
-      />
-    </View>
-  );
+	const viewabilityConfig = useRef({
+		itemVisiblePercentThreshold: 50,
+	}).current;
+
+	const handleDeletePost = useCallback((postId: number) => {
+		setLocalPublications((prev) => prev.filter((p) => p.id !== postId));
+	}, []);
+
+	const handleUpdatePost = useCallback((updatedPost: IPost) => {
+		setLocalPublications((prev) =>
+			prev.map((post) => (post.id === updatedPost.id ? updatedPost : post)),
+		);
+	}, []);
+
+	if (!user) {
+		return <ActivityIndicator style={{ flex: 1 }} />;
+	}
+
+	return (
+		<View style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
+			<FlatList
+				data={localPublications}
+				keyExtractor={(item) => item.id.toString()}
+				ItemSeparatorComponent={() => <View style={{ height: 9 }} />}
+				renderItem={({ item }) => (
+					<PublicationCard
+						post={item}
+						userId={user.id}
+						onDelete={handleDeletePost}
+						onUpdate={handleUpdatePost}
+					/>
+				)}
+				onViewableItemsChanged={onViewableItemsChanged}
+				viewabilityConfig={viewabilityConfig}
+				contentContainerStyle={{ paddingBottom: 24 }}
+				showsVerticalScrollIndicator={false}
+			/>
+		</View>
+	);
 }

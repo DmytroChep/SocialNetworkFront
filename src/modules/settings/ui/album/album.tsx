@@ -10,7 +10,8 @@ import { AlbumPopUp } from "../albumPopUp/albumPopUp";
 import { COLORS } from "../../../../shared/constants";
 import { useDeleteAlbumMutation, useAddAlbumImagesMutation, useDeleteAlbumImageMutation } from "../../../../shared/api/baseApi";
 import { IAlbum } from "../../../../shared/context/types";
-import { ip } from "../../../../config/ip";
+import { getUserAlbums, toMediaUrl } from "../../../../shared/lib/model-helpers";
+import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
 
 export function Albums() {
     const { user } = useUserContext();
@@ -31,6 +32,8 @@ export function Albums() {
         return null;
     }
 
+    const albums = getUserAlbums(user);
+
     const handleOpenPopup = (element: IAlbum) => {
         setSelectedAlbum(element);
         
@@ -50,17 +53,14 @@ export function Albums() {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
                 allowsMultipleSelection: true,
-                base64: true,
                 allowsEditing: false,
-                quality: 0.5,
+                ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
             });
 
             if (!result.canceled && result.assets.length > 0) {
                 setIsAddingImages(true);
                 
-                const images = result.assets.map((asset) => ({
-                    image: `data:image/jpeg;base64,${asset.base64}`
-                }));
+                const images = imageAssetsToDataUris(result.assets).map((image) => ({ image }));
 
                 await addAlbumImages({ 
                     albumId: album.id!,
@@ -106,7 +106,7 @@ export function Albums() {
 
     return (
         <View style={styles.albumsParentView}>
-            {user.albums?.length === 0 ? (
+            {albums.length === 0 ? (
                 <View style={styles.albums}>
                     <Text style={styles.albumsText}>Немає ще жодного альбому</Text>
                     <RoundButton 
@@ -132,7 +132,7 @@ export function Albums() {
                         position={popupPosition}
                     />
 
-                    {user.albums.map((element) => (
+                    {albums.map((element) => (
                         <View key={element.id} style={styles.albumsExists}>
                             <View style={styles.header}>
                                 <Text style={styles.albumsText}>{element.name}</Text>
@@ -150,7 +150,7 @@ export function Albums() {
                                 </View>
                             </View>
                             <View style={styles.topic}>
-                                <Text style={{fontSize: 16}}>{element.topic}</Text>
+                                <Text style={{fontSize: 16}}>{element.theme}</Text>
                                 <Text style={{fontSize: 16, color: COLORS.blue50}}>{element.year} рік</Text>
                             </View>
                             <View style={styles.hr}/>
@@ -158,15 +158,15 @@ export function Albums() {
                                 <Text style={{fontSize: 16, fontWeight: '500'}}>Фотографії</Text>
                                 <View style={styles.avatarsView}>
                                     {element.images && element.images.length > 0 && element.images.map((image) => {
-                                                const imageUri = image.image?.includes("file:///") || image.image?.includes("data:image")
-                                                    ? image.image 
-                                                    : `http://${ip}:8000${image.image}`;
+                                                const imageUri = toMediaUrl(image.image);
                                                 return (
                                                     <View key={image.id}>
-                                                        <Image
-                                                            source={{ uri: imageUri }}
-                                                            style={{width: 162, height: 162, borderRadius: 8}}
-                                                        />
+                                                        {imageUri && (
+                                                            <Image
+                                                                source={{ uri: imageUri }}
+                                                                style={{width: 162, height: 162, borderRadius: 8}}
+                                                            />
+                                                        )}
                                                         <View style={styles.cardActions}>
                                                             <RoundButton
                                                                 icon={<ICONS.eye />}

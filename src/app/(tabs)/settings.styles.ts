@@ -210,7 +210,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 12, 
     paddingHorizontal: 20, 
     borderRadius: 24, 
-    backgroundColor: '#E2DDE6', // Світлий пастельний колір з скриншота
+    backgroundColor: '#E2DDE6',
     minWidth: 110,
     alignItems: 'center'
   },
