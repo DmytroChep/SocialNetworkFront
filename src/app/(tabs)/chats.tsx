@@ -1,120 +1,209 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useState, useMemo } from "react";
+import { 
+    View, 
+    Text, 
+    StyleSheet, 
+    Pressable, 
+    ActivityIndicator, 
+    FlatList, 
+    Image, 
+    TouchableOpacity 
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ICONS } from "../../shared/icons";
 import { COLORS } from "../../shared/constants";
-import { useState } from "react";
 import { FONTS } from "../../shared/constants/fonts";
-import { RadioTabs } from "../../shared/ui/RadioTab";
 
-const styles = StyleSheet.create({
-	choosedTab: {
-		
-	},
-	visible: {
-		display: "flex"
-	},
-	hidden: {
-		display: "none"
-	},
-	radioTabs: { 
-		gap: 6, 
-		justifyContent: "center", 
-		alignItems: "center",
-		paddingVertical: 8
-	},
-	tabs: {
-		width: "100%",
-		paddingHorizontal: 16,
-		justifyContent: "space-between",
-		flexDirection: "row"
-		},
-	tab: {
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 6,
-	},
-	choosedRadioTabs: {
-		alignItems: "center",
-		paddingVertical: 8,
-		justifyContent: "center",
-		gap: 6,
-		borderTopColor: COLORS.darkBlue,
-		borderTopWidth: 2
-	}
+import { useGetUserFriendshipsQuery, useGetAllUsersQuery } from "../../shared/api/baseApi";
+import { useUserContext } from "../../shared/context/user-context";
+import { toMediaUrl, getUserAvatar } from "../../shared/lib/model-helpers";
 
-})
+const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
 
+const getProfileUserId = (profile?: any) => profile?.user?.id ?? profile?.user_id;
+
+const profileName = (profile: any, fallbackUser?: any) => {
+    const fullName = [
+        profile.user?.first_name ?? fallbackUser?.first_name,
+        profile.user?.last_name ?? fallbackUser?.last_name,
+    ].filter(Boolean).join(" ").trim();
+
+    return profile.pseudonym || fallbackUser?.profile?.pseudonym || fullName || profile.user?.username || fallbackUser?.username || "Користувач";
+};
+
+const profileToCardUser = (profile: any, fallbackUser?: any) => ({
+    id: profile.user?.id ?? profile.user_id ?? fallbackUser?.id ?? 0,
+    name: profileName(profile, fallbackUser),
+    avatar: toMediaUrl(profile.avatar) || getUserAvatar(fallbackUser) || DEFAULT_AVATAR,
+});
+
+const getFriendProfile = (friendship: any, currentUserId?: number, currentProfileId?: number) => {
+    if (friendship.from_profile_id === currentProfileId) return friendship.to_profile;
+    if (friendship.to_profile_id === currentProfileId) return friendship.from_profile;
+    if (getProfileUserId(friendship.from_profile) === currentUserId) return friendship.to_profile;
+    return friendship.from_profile;
+};
 
 export default function Chats() {
-	const radioTabsArray = [
-		{ title: "Контакти", icon: <ICONS.people />, content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Контакти</Text></View> },
-		{ title: "Повідмолення", icon: <ICONS.chat />, content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Повідмолення</Text></View> },
-		{ title: "Групові чати", icon: <ICONS.chat />, content: <View><Text style={{fontFamily: FONTS["GTWalsheimPro-Medium"]}}>Групові чати</Text></View> },
-	];
-	const [choosedTab, setChoosedTab] = useState<string>(radioTabsArray[0].title);
-	
+    const { user } = useUserContext();
+    const currentUserId = user?.id;
+    const currentProfileId = user?.profile?.id;
 
-	return (
-		<SafeAreaView style={{ flex: 1, backgroundColor: "white" }} edges={["left", "right"]}>
-			<View style={{ flex: 1 }}>
-				{/* <View
-					style={}
-				>
-					<View
-						style={styles.radioTabs}
-					>
-						<ICONS.people />
-						<Text style={{fontSize: 15}}>Контакты</Text>
-					</View>
-					<View
-						style={styles.radioTabs}
-					>
-						<ICONS.people />
-						<Text style={{fontSize: 15}}>Контакты</Text>
-					</View>
-					<View
-						style={styles.radioTabs}
-					>
-						<ICONS.people />
-						<Text style={{fontSize: 15}}>Контакты</Text>
-					</View>
-				</View> */}
+    // Запити до API
+    const { data: friendshipsResponse, isLoading: isFriendshipsLoading } = 
+        useGetUserFriendshipsQuery(currentUserId as number, { skip: !currentUserId });
+    
+    const { data: users = [], isLoading: isUsersLoading } = useGetAllUsersQuery();
 
-				<View style={styles.radioTabs}>
-					<View style={styles.tabs}>
-						{radioTabsArray.map((element) => {
-							return (
-								<Pressable 
-									key={element.title}
-									style={
-											choosedTab === element.title ? styles.choosedRadioTabs : styles.radioTabs
-										}
-									onPress={() => setChoosedTab(element.title)}
-								>
-									{element.icon}
-									<Text
-									>
-										{element.title}
-									</Text>
-								</Pressable>
-							);
-						})}
-					</View>
-		
-					{radioTabsArray.map((element) => {
-						return (
-							<View
-								key={element.title}
-								style={
-									choosedTab === element.title ? styles.visible : styles.hidden
-								}
-							>
-								{element.content}
-							</View>
-						);
-					})}
-				</View>
-			</View>
-		</SafeAreaView>
-	);
+    const [choosedTab, setChoosedTab] = useState<string>("Повідмолення");
+
+    const usersById = useMemo(() => new Map(users.map((item) => [item.id, item])), [users]);
+
+    const chatList = useMemo(() => {
+        if (!friendshipsResponse || !friendshipsResponse.friends) return [];
+
+        return friendshipsResponse.friends.map((friendship: any) => {
+            const friendProfile = getFriendProfile(friendship, currentUserId, currentProfileId);
+            const cardUser = profileToCardUser(friendProfile, usersById.get(getProfileUserId(friendProfile) ?? 0));
+
+            return {
+                ...cardUser,
+                lastMessage: "Привіт! Як справи?",
+                time: "09:41",
+                unreadCount: friendship.id % 3 === 0 ? 1 : 0, 
+            };
+        });
+    }, [friendshipsResponse, usersById, currentUserId, currentProfileId]);
+
+    const radioTabsArray = [
+        { title: "Контакти", icon: <ICONS.people /> },
+        { title: "Повідмолення", icon: <ICONS.chat /> },
+        { title: "Групові чати", icon: <ICONS.chat /> },
+    ];
+
+    if (isFriendshipsLoading || isUsersLoading) {
+        return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} color={COLORS.darkBlue} />;
+    }
+
+    return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: "white" }} edges={["left", "right"]}>
+            <View style={{ flex: 1 }}>
+                
+                <View style={styles.tabs}>
+                    {radioTabsArray.map((element) => (
+                        <Pressable 
+                            key={element.title}
+                            style={choosedTab === element.title ? styles.choosedRadioTabs : styles.radioTabItem}
+                            onPress={() => setChoosedTab(element.title)}
+                        >
+                            {element.icon}
+                            <Text style={{ 
+                                fontSize: 13, 
+                                fontFamily: choosedTab === element.title ? FONTS["GTWalsheimPro-Medium"] : FONTS["GTWalsheimPro-Regular"] 
+                            }}>
+                                {element.title}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
+
+                <View style={{ flex: 1, paddingHorizontal: 16 }}>
+                    
+                    {choosedTab === "Контакти" && (
+                        <View style={styles.centeredContent}>
+                            <Text style={{ fontFamily: FONTS["GTWalsheimPro-Medium"] }}>Контакти</Text>
+                        </View>
+                    )}
+
+                    {/* Повідомлення (Список чатів) */}
+                    {choosedTab === "Повідмолення" && (
+                        <FlatList
+                            data={chatList}
+                            keyExtractor={(item) => item.id.toString()}
+                            showsVerticalScrollIndicator={false}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity style={styles.chatItem}>
+                                    <View style={styles.avatarContainer}>
+                                        <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                                        <View style={styles.onlineStatus} />
+                                    </View>
+                                    <View style={styles.content}>
+                                        <View style={styles.headerRow}>
+                                            <Text style={styles.name}>{item.name}</Text>
+                                            <Text style={styles.time}>{item.time}</Text>
+                                        </View>
+                                        <View style={styles.msgRow}>
+                                            <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMessage}</Text>
+                                            {item.unreadCount > 0 && (
+                                                <View style={styles.badge}>
+                                                    <Text style={styles.badgeText}>{item.unreadCount}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                        />
+                    )}
+
+                    {choosedTab === "Групові чати" && (
+                        <View style={styles.centeredContent}>
+                            <Text style={{ fontFamily: FONTS["GTWalsheimPro-Medium"] }}>Групові чати</Text>
+                        </View>
+                    )}
+
+                </View>
+            </View>
+        </SafeAreaView>
+    );
 }
+
+const styles = StyleSheet.create({
+    tabs: {
+        width: "100%",
+        paddingHorizontal: 16,
+        justifyContent: "space-between",
+        flexDirection: "row",
+    },
+    radioTabItem: {
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        paddingVertical: 8,
+        flex: 1
+    },
+    choosedRadioTabs: {
+        alignItems: "center",
+        paddingVertical: 8,
+        justifyContent: "center",
+        gap: 6,
+        borderTopColor: COLORS.darkBlue,
+        borderTopWidth: 2,
+        flex: 1
+    },
+    chatItem: { 
+        flexDirection: 'row', 
+        paddingVertical: 14, 
+        alignItems: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F8F8F8'
+    },
+    avatarContainer: { position: 'relative' },
+    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#EEE' },
+    onlineStatus: { 
+        position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, 
+        borderRadius: 7, backgroundColor: '#4CD964', borderWidth: 2, borderColor: '#FFF' 
+    },
+    content: { flex: 1, marginLeft: 15 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    name: { fontSize: 16, fontFamily: FONTS["GTWalsheimPro-Medium"], color: '#1C1C1E' },
+    time: { fontSize: 12, color: '#8E8E93', fontFamily: FONTS["GTWalsheimPro-Regular"] },
+    msgRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, alignItems: 'center' },
+    lastMsg: { fontSize: 14, color: '#636366', flex: 1, fontFamily: FONTS["GTWalsheimPro-Regular"] },
+    badge: { 
+        backgroundColor: '#4A314D', minWidth: 20, height: 20, borderRadius: 10, 
+        justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 
+    },
+    badgeText: { color: '#FFF', fontSize: 10, fontFamily: FONTS["GTWalsheimPro-Medium"] },
+    centeredContent: { flex: 1, justifyContent: 'center', alignItems: 'center' }
+});

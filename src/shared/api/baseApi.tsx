@@ -4,7 +4,18 @@ import { IPartialUser } from "../context/types/partial-user.type";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IAlbum, IAlbumImage, ITag } from "../context/types/User.type";
 import { ip } from "../../config/ip";
-import { IPostCreation, IPost } from "../../modules/my-publications/types/Post.type";
+import {
+  IPostCreation,
+  IPost,
+  IPaginatedPostsResponse,
+  IPostsPaginationParams,
+} from "../../modules/my-publications/types/Post.type";
+import type {
+  ICreateFriendRequestPayload,
+  IProfileFriend,
+  IUpdateFriendRequestPayload,
+  IUserFriendships,
+} from "../../modules/friends/types/Friendship.type";
 
 
 export const baseApi = createApi({
@@ -19,7 +30,7 @@ export const baseApi = createApi({
             return headers;
         },
     }),
-  tagTypes: ['Posts'],
+  tagTypes: ['Posts', 'User', 'Friendship'],
   endpoints: (builder) => ({
     login: builder.mutation<string, IAuthUser>({
       query: (body) => ({
@@ -39,6 +50,7 @@ export const baseApi = createApi({
       query: () => ({
         url: "user/me",
       }),
+      providesTags: ['User'],
     }),
     update: builder.mutation<IPartialUser | string, { userId: number; body: IPartialUser }>({
       query: ({ userId, body }) => ({
@@ -46,6 +58,7 @@ export const baseApi = createApi({
         method: "PATCH",
         body,
       }),
+      invalidatesTags: ['User'],
     }),
     sendCodeVerify: builder.query<string, {gmail: string}>({
       query: ({gmail}) => ({
@@ -57,19 +70,20 @@ export const baseApi = createApi({
         url: `user/isCodeExists?code=${code}`,
       }),
     }),
-    updateAvatar: builder.mutation<{userId: number, image: string, id: number}, {userId: number, image: string}>({
+    updateAvatar: builder.mutation<{user_id: number, image: string, id: number}, {userId: number, image: string}>({
       query: ({ userId, image }) => ({
         url: `update-avatar`,
         method: "POST",
-        body: {userId, image},
+        body: { userId, image },
       }),
+      invalidatesTags: ['User'],
     }),
     getContacts: builder.query<IContact[], void>({
       query: () => ({
         url: "user/contacts",
       }),
     }),
-    createAlbum: builder.mutation<IAlbum, IAlbum>({
+    createAlbum: builder.mutation<IAlbum, Partial<IAlbum> & { name: string }>({
       query: (body) => ({
         url: "album",
         method: "POST",
@@ -104,11 +118,11 @@ export const baseApi = createApi({
         url: "hashtags",
       }),
     }),
-    addAlbumImages: builder.mutation<IAlbum, { albumId: number;name: string,userId: number, images: {image:string}[] }>({
+    addAlbumImages: builder.mutation<IAlbum, { albumId: number; name: string; userId: number; images: { image: string }[] }>({
       query: ({ albumId, images, userId, name }) => ({
         url: `album/${albumId}/images`,
         method: "POST",
-        body: { images, name, userId },
+        body: { images, name, user_id: userId },
       }),
     }),
     deleteAlbumImage: builder.mutation<void, number>({
@@ -117,7 +131,7 @@ export const baseApi = createApi({
         method: "DELETE",
       }),
     }),
-    replaceAlbumImages: builder.mutation<IAlbum, { albumId: number;name: string,userId: number, images: { image: string }[] }>({
+    replaceAlbumImages: builder.mutation<IAlbum, { albumId: number; name: string; userId: number; images: { image: string }[] }>({
       query: ({ albumId, images }) => ({
         url: `album/${albumId}/images`,
         method: "PATCH",
@@ -131,9 +145,13 @@ export const baseApi = createApi({
         body: newPost,
       }),
     }),
-    getAllPosts: builder.query<IPost[], void>({
-      query: () => ({
+    getAllPosts: builder.query<IPaginatedPostsResponse, IPostsPaginationParams | void>({
+      query: (params) => ({
         url: "posts",
+        params: {
+          limit: params?.limit ?? 5,
+          ...(params?.cursor ? { cursor: params.cursor } : {}),
+        },
       }),
       providesTags: ['Posts'],
     }),
@@ -176,19 +194,66 @@ export const baseApi = createApi({
 
     updatePost: builder.mutation<IPost, { postId: number; post: Partial<IPostCreation> }>({
       query: ({ postId, post }) => ({
-          url: `post/${postId}`,
-          method: 'PATCH',
-          body: post
+        url: `post/${postId}`,
+        method: "PATCH",
+        body: post,
       }),
-      invalidatesTags: ['Posts']
+    }),
+
+    replacePostImages: builder.mutation<IPost, { postId: number; images: Array<{ original_image: string }> }>({
+      query: ({ postId, images }) => ({
+        url: `post/${postId}/images`,
+        method: "PATCH",
+        body: { images },
+      }),
     }),
 
     deletePost: builder.mutation<void, number>({
-        query: (id) => ({
-            url: `post/${id}`,
-            method: 'DELETE'
-        }),
-        invalidatesTags: ['Posts']
+      query: (postId) => ({
+        url: `post/${postId}`,
+        method: "DELETE",
+      }),
+    }),
+
+    getAllUsers: builder.query<IUser[], void>({
+      query: () => '/users/all',
+      providesTags: ['User'],
+    }),
+
+    getUserById: builder.query<IUser, number>({
+      query: (userId) => `/user/${userId}`,
+      providesTags: ['User'],
+    }),
+
+    getUserFriendships: builder.query<IUserFriendships, number>({
+      query: (userId) => `/friendship/user/${userId}`,
+      providesTags: ['Friendship'],
+    }),
+
+    createFriendshipRequest: builder.mutation<unknown, ICreateFriendRequestPayload>({
+      query: (body) => ({
+        url: '/friendship/request',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Friendship'],
+    }),
+
+    updateFriendshipStatus: builder.mutation<unknown, IUpdateFriendRequestPayload>({
+      query: (body) => ({
+        url: '/friendship/status',
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['Friendship'],
+    }),
+
+    deleteFriendship: builder.mutation<string | IProfileFriend, number>({
+      query: (id) => ({
+        url: `/friendship/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Friendship'],
     }),
   }),
 });
@@ -213,6 +278,7 @@ export const {
   useReplaceAlbumImagesMutation,
   useCreatePostMutation,
   useGetAllPostsQuery,
+  useLazyGetAllPostsQuery,
   useGetUserPostsQuery,
   useThumbUpIncreaseMutation,
   useThumbUpDecreaseMutation,
@@ -220,5 +286,12 @@ export const {
   useHeartDecreaseMutation,
   useViewsIncreaseMutation,
   useUpdatePostMutation,
-  useDeletePostMutation
+  useReplacePostImagesMutation,
+  useDeletePostMutation,
+  useGetAllUsersQuery, 
+  useGetUserByIdQuery,
+  useGetUserFriendshipsQuery, 
+  useCreateFriendshipRequestMutation,
+  useUpdateFriendshipStatusMutation,
+  useDeleteFriendshipMutation
 } = baseApi;

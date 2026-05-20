@@ -18,8 +18,10 @@ export function ThreeDotsModal({ isVisible, onClose, onDelete, onUpdatePost, pos
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
     const handleEditPress = () => {
-        setIsEditModalVisible(true);
         onClose();
+        setTimeout(() => {
+            setIsEditModalVisible(true);
+        }, 300);
     };
 
     return (

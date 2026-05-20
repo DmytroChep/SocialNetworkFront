@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, Modal, TouchableOpacity } from "react-native";
+import React, { useEffect } from "react";
+import { ActivityIndicator, View, Text, Modal, TouchableOpacity } from "react-native";
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { styles } from "./firstEnterModal.styles";
@@ -24,7 +24,7 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
   const {
     handleSubmit,
     control,
-    formState: { errors },
+    reset,
   } = useForm<FirstEnterForm>({
     resolver: yupResolver(firstEnterValidator),
     defaultValues: {
@@ -33,12 +33,33 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
     },
   });
 
-  const [updateUser, { error }] = useUpdateMutation();
+  const [updateUser, { isLoading }] = useUpdateMutation();
   const { data: meData } = useMeQuery();
 
-  const onSubmit = (formData: FirstEnterForm) => {
-    console.log("Дані зібрані:", formData);
-    updateUser({ userId: meData?.id ?? 1, body: formData as IPartialUser });
+  useEffect(() => {
+    if (!meData) return;
+
+    reset({
+      authorName: meData.profile?.pseudonym || meData.first_name || "",
+      userName: meData.username || "",
+    });
+  }, [meData, reset]);
+
+  const onSubmit = async (formData: FirstEnterForm) => {
+    if (!meData?.id) return;
+
+    const body: IPartialUser = {
+      first_name: formData.authorName,
+      username: formData.userName.replace(/^@/, ""),
+      pseudonym: formData.authorName,
+      is_text_signature: true,
+      profile: {
+        pseudonym: formData.authorName,
+        is_text_signature: true,
+      },
+    };
+
+    await updateUser({ userId: meData.id, body }).unwrap();
     onClose();
   };
 
@@ -47,12 +68,12 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={() => {}}
     >
       <TouchableOpacity
         style={styles.overlay}
         activeOpacity={1}
-        onPress={onClose}
+        onPress={() => {}}
       >
         <TouchableOpacity activeOpacity={1} onPress={() => {}}>
           <View style={styles.modalContainer}>
@@ -82,8 +103,8 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
                     <Input
                       label="Ім'я користувача"
                       placeholder="Введіть Ім'я користувача"
-                      onChangeText={onChange}
-                      value={value}
+                      onChangeText={(text) => onChange(text.replace(/^@/, ""))}
+                      value={value ? `@${value.replace(/^@/, "")}` : ""}
                       error={error?.message}
                       labelStyle={styles.label}
                     />
@@ -100,11 +121,13 @@ export function FirstEnterModal({ visible, onClose }: FirstEnterModalProps) {
 
             <View style={styles.buttonContainer}>
               <Button
-                title="Продовжити"
+                title={isLoading ? "Збереження..." : "Продовжити"}
                 onPress={handleSubmit(onSubmit)}
                 style={styles.submitButton}
                 titleStyle={styles.buttonText}
+                disabled={isLoading || !meData?.id}
               />
+              {isLoading && <ActivityIndicator style={{ marginTop: 12 }} />}
             </View>
           </View>
         </TouchableOpacity>

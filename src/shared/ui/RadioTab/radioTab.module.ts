@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
 		color: COLORS.blue50,
 		fontWeight: 500,
 		letterSpacing: -0.66,
-		fontSize: 18
+		fontSize: 18,
 	},
 	choosedTab: {
 		color: COLORS.darkBlue,
@@ -19,15 +19,37 @@ export const styles = StyleSheet.create({
 		letterSpacing: -0.66,
 		borderBottomColor: COLORS.plum,
 		borderBottomWidth: 1,
-		fontSize: 18
+		fontSize: 18,
 	},
 	visible: {
-		display: "flex"
+		display: "flex",
 	},
 	hidden: {
-		display: "none"
+		display: "none",
 	},
 	radioTabs: {
-		paddingTop: 25
-	}
+		paddingTop: 25,
+	},
+	fullHeight: {
+		flex: 1,
+	},
+	friendsTabs: {
+		backgroundColor: COLORS.fog,
+		borderBottomColor: COLORS.blue10,
+		borderBottomWidth: 1,
+		gap: 18,
+		paddingHorizontal: 12,
+		paddingTop: 12,
+	},
+	friendsTabButton: {
+		paddingBottom: 9,
+	},
+	friendsTab: {
+		fontSize: 14,
+		letterSpacing: 0,
+	},
+	friendsChoosedTab: {
+		borderBottomWidth: 2,
+		paddingBottom: 8,
+	},
 });

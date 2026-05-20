@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
     Modal, View, Text, TextInput, TouchableOpacity, 
     ScrollView, Image 
@@ -12,18 +12,19 @@ import { Input } from "../../../../shared/ui/input";
 import { COLORS } from "../../../../shared/constants";
 import { useCreatePostMutation } from "../../../../shared/api/baseApi";
 import { useUserContext } from "../../../../shared/context/user-context";
+import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
 
 interface IPostForm {
     title: string;
     topic: string;
     content: string;
     links: { value: string }[];
-    tags: string[];
+    hashtags: string[];
     images: string[];
 }
 
 export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, onClose: () => void }) => {
-    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
+    const [baseTags, setBaseTags] = useState<string[]>([]);
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
 
@@ -34,23 +35,37 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         defaultValues: {
             title: "", topic: "", content: "",
             links: [{ value: "" }],
-            tags: [], images: []
+            hashtags: [], 
+            images: []
         }
     });
 
     const { fields, append, remove } = useFieldArray({ control, name: "links" });
     
-    const selectedTags = watch("tags");
+    const selectedTags = watch("hashtags");
     const currentContent = watch("content");
     const selectedImages = watch("images");
 
-    const handleTagPress = (tag: string) => {
-        const tagString = `#${tag} `;
-        if (!currentContent.includes(tagString)) {
-            setValue("content", currentContent + tagString);
-            if (!selectedTags.includes(tag)) {
-                setValue("tags", [...selectedTags, tag]);
+    useEffect(() => {
+        const loadTags = async () => {
+            try {
+                const response = await fetch("YOUR_API_URL/hashtags");
+                const tags = await response.json();
+                setBaseTags(tags.map((t: any) => t.title || t.name));
+            } catch (err) {
+                setBaseTags(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
             }
+        };
+        loadTags();
+    }, []);
+
+    const handleTagPress = (tag: string) => {
+        const currentTags = watch("hashtags") || [];
+
+        if (currentTags.includes(tag)) {
+            setValue("hashtags", currentTags.filter(t => t !== tag));
+        } else {
+            setValue("hashtags", [...currentTags, tag]);
         }
     };
 
@@ -69,14 +84,11 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
-            quality: 1,
-            base64: true,
+            ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
         });
 
         if (!result.canceled) {
-            const base64Images = result.assets.map(asset => 
-                `data:${asset.mimeType || 'image/png'};base64,${asset.base64}`
-            );
+            const base64Images = imageAssetsToDataUris(result.assets);
             setValue("images", [...selectedImages, ...base64Images]);
         }
     };
@@ -84,21 +96,20 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
     const onSubmit = async (data: IPostForm) => {
         const payload = {
             title: data.title.trim(),
-            authorId: user?.id ? Number(user.id) : 2, 
-            description: data.content || "",
-            topic: data.topic || "",
-            link: data.links?.map(l => l.value).filter(Boolean).join(", ") || "",
-            images: data.images ? data.images.map(url => ({ url })) : []
+            author_id: user?.id ? Number(user.id) : 2,
+            content: data.content || "",
+            topic: data.topic || null,
+            hashtags: data.hashtags,
+            links: data.links?.map((link) => link.value).filter(Boolean) || [],
+            images: data.images?.map((url) => ({ original_image: url })) || [],
         };
-
-        console.log("ШЛЕМО ЦЕ:", payload);
 
         try {
             await createPost(payload).unwrap();
             reset();
             onClose();
         } catch (err) {
-            console.error("БЕК ВСЕ ОДНО СУЧИТЬСЯ:", err);
+            console.error("Помилка при створенні допису:", err);
         }
     };
 
@@ -125,8 +136,8 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                         <View style={styles.tagContainer}>
                             <View style={styles.tagList}>
                                 {baseTags.map((tag, i) => (
-                                    <TouchableOpacity key={i} style={styles.tag} onPress={() => handleTagPress(tag)}>
-                                        <Text style={styles.tagText}>#{tag}</Text>
+                                    <TouchableOpacity key={i} style={[styles.tag, selectedTags?.includes(tag) && { backgroundColor: COLORS.plum, borderColor: COLORS.plum }]} onPress={() => handleTagPress(tag)}>
+                                        <Text style={[styles.tagText, selectedTags?.includes(tag) && { color: '#fff' }]}>#{tag}</Text>
                                     </TouchableOpacity>
                                 ))}
                                 <TouchableOpacity style={styles.addCircle} onPress={() => setIsAddingTag(!isAddingTag)}>
@@ -155,22 +166,29 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
                                 <View style={styles.contentInputContainer}>
                                     <TextInput
                                         multiline
-                                        style={styles.contentInput}
+                                        style={[styles.contentInput, { minHeight: 120 }]} 
                                         onChangeText={onChange}
+                                        value={value}
                                         placeholder="Інколи найкращі ідеї народжуються в тиші..."
                                         textAlignVertical="top"
-                                    >
-                                        {value.split(/(\s+)/).map((part, index) => {
-                                            if (part.startsWith('#')) {
-                                                return (
-                                                    <Text key={index} style={{ color: COLORS.plum, fontWeight: '600' }}>
-                                                        {part}
-                                                    </Text>
-                                                );
-                                            }
-                                            return <Text key={index} style={{ color: '#333' }}>{part}</Text>;
-                                        })}
-                                    </TextInput>
+                                    />
+
+                                    <View style={{ 
+                                        padding: 12, 
+                                        flexDirection: 'row',
+                                        flexWrap: 'wrap',
+                                        gap: 6,
+                                    }}>
+                                        {watch("hashtags")?.length > 0 ? (
+                                            watch("hashtags").map((tag, index) => (
+                                                <Text key={index} style={{ color: COLORS.plum, fontWeight: '700' }}>
+                                                    #{tag}
+                                                </Text>
+                                            ))
+                                        ) : (
+                                            <Text style={{ color: '#BBB', fontSize: 13 }}>Теги з'являться тут...</Text>
+                                        )}
+                                    </View>
                                 </View>
                             )}
                         />

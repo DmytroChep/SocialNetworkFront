@@ -24,10 +24,13 @@ import { EyeClosed } from "./_icons/eye-closed";
 import {Cross} from "./_icons/cross"
 import { Send } from "./_icons/send";
 import { Tick } from "./_icons/tick";
+import { FilledLikeIcon } from "./_icons/filled-like";
+import { ArrowIcon } from "./_icons/arrow";
 
 export const ICONS = {
     home: HomeIcon,
     people: PeopleIcon,
+    arrow: ArrowIcon,
     chat: ChatIcon,
     cross: Cross, 
     eye: EyeIcon,
@@ -52,4 +55,6 @@ export const ICONS = {
     eyeClosed: EyeClosed ,
     Send,
     Tick,
+    FilledLikeIcon,
+    ArrowIcon
 }  

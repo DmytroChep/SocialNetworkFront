@@ -8,7 +8,6 @@ export function EyeClosed(props: SvgProps) {
       height={20}
       viewBox="0 0 20 20"
       fill="none"
-      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <G clipPath="url(#clip0_11652_1042)">
@@ -29,4 +28,3 @@ export function EyeClosed(props: SvgProps) {
     </Svg>
   )
 }
-

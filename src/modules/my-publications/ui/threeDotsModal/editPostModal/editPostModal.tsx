@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
-import { styles } from './editPostModal.styles';
+import { styles } from './editPostModal.styles'
 import { ICONS } from '../../../../../shared/icons';
 import { COLORS } from '../../../../../shared/constants';
 import { IPost } from '../../../types/Post.type';
 import { Input } from '../../../../../shared/ui/input';
 import { RoundButton } from '../../../../../shared/ui/RoundButton';
+import { getPostContent, getPostImages, getPostLinks } from '../../../../../shared/lib/model-helpers';
+import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from '../../../../../shared/lib/image-upload';
 
 interface EditPostModalProps {
     isVisible: boolean;
@@ -36,6 +38,7 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
             content: "",
             links: [{ value: "" }],
             images: [] as string[],
+            tags: [] as string[],
         }
     });
 
@@ -48,11 +51,11 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
                 reset({
                     title: post.title,
                     topic: post.topic || "",
-                    content: post.description || "",
-                    links: post.link 
-                        ? [{ value: post.link }] 
+                    content: getPostContent(post),
+                    links: getPostLinks(post).length
+                        ? getPostLinks(post).map((link) => ({ value: link }))
                         : [{ value: "" }],
-                    images: post.images?.map(img => img.url) || []
+                    images: getPostImages(post).map((image) => image.url)
                 });
             } else {
                 reset({ title: "", topic: "", content: "", links: [{ value: "" }], images: [] });
@@ -64,21 +67,23 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
-            quality: 1,
-            base64: true,
+            ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
         });
 
         if (!result.canceled) {
-            const base64Images = result.assets.map(asset => 
-                `data:${asset.mimeType || 'image/png'};base64,${asset.base64}`
-            );
+            const base64Images = imageAssetsToDataUris(result.assets);
             setValue("images", [...selectedImages, ...base64Images]);
         }
     };
 
     const handleTagPress = (tag: string) => {
-        const currentContent = watch("content");
-        setValue("content", `${currentContent} #${tag} `);
+        const selectedTags = watch("tags") || [];
+
+        if (selectedTags.includes(tag)) {
+            setValue("tags", selectedTags.filter(t => t !== tag));
+        } else {
+            setValue("tags", [...selectedTags, tag]);
+        }
     };
 
     const addNewCustomTag = () => {
@@ -152,17 +157,29 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
                                 <View style={styles.contentInputContainer}>
                                     <TextInput
                                         multiline
-                                        style={styles.contentInput}
+                                        style={[styles.contentInput, { minHeight: 120 }]} 
                                         onChangeText={onChange}
+                                        value={value}
                                         placeholder="Інколи найкращі ідеї народжуються в тиші..."
                                         textAlignVertical="top"
-                                    >
-                                        {value.split(/(\s+)/).map((part, index) => (
-                                            <Text key={index} style={part.startsWith('#') ? { color: COLORS.plum, fontWeight: '600' } : { color: '#333' }}>
-                                                {part}
-                                            </Text>
-                                        ))}
-                                    </TextInput>
+                                    />
+
+                                    <View style={{ 
+                                        padding: 12, 
+                                        flexDirection: 'row',
+                                        flexWrap: 'wrap',
+                                        gap: 6,
+                                    }}>
+                                        {watch("tags")?.length > 0 ? (
+                                            watch("tags").map((tag, index) => (
+                                                <Text key={index} style={{ color: COLORS.plum, fontWeight: '700' }}>
+                                                    #{tag}
+                                                </Text>
+                                            ))
+                                        ) : (
+                                            <Text style={{ color: '#BBB', fontSize: 13 }}>Теги з'являться тут...</Text>
+                                        )}
+                                    </View>
                                 </View>
                             )}
                         />

@@ -8,7 +8,6 @@ export function Cross(props: SvgProps) {
       height={20}
       viewBox="0 0 20 20"
       fill="none"
-      xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
       <G clipPath="url(#clip0_11049_6914)">
@@ -26,4 +25,3 @@ export function Cross(props: SvgProps) {
     </Svg>
   )
 }
-
