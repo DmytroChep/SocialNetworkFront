@@ -49,7 +49,6 @@ export default function Chats() {
     const currentUserId = user?.id;
     const currentProfileId = user?.profile?.id;
 
-    // Запити до API
     const { data: friendshipsResponse, isLoading: isFriendshipsLoading } = 
         useGetUserFriendshipsQuery(currentUserId as number, { skip: !currentUserId });
     
@@ -115,7 +114,6 @@ export default function Chats() {
                         </View>
                     )}
 
-                    {/* Повідомлення (Список чатів) */}
                     {choosedTab === "Повідмолення" && (
                         <FlatList
                             data={chatList}
