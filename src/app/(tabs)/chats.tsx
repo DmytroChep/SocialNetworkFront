@@ -43,7 +43,8 @@ const profileToCardUser = (profile: any, fallbackUser?: any) => ({
 
 const getFriendProfile = (friendship: any, currentUserId?: number, currentProfileId?: number) => {
     if (friendship.from_profile_id === currentProfileId) return friendship.to_profile;
-    if (friendship.to_profile_id === currentProfileId) return friendship.to_profile;
+    // Беремо логіку з гілки David: якщо поточний юзер є отримувачем, то друг - це відправник
+    if (friendship.to_profile_id === currentProfileId) return friendship.from_profile;
     if (getProfileUserId(friendship.from_profile) === currentUserId) return friendship.to_profile;
     return friendship.from_profile;
 };
