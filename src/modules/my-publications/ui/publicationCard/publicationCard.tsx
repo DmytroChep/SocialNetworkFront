@@ -245,16 +245,13 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
 
             <View style={styles.footer}>
                 <View style={styles.statsRow}>
-                    <TouchableOpacity style={styles.statItem} onPress={handleHeartPress}>
-                        {currentPost.isHeartLiked ? <ICONS.heartFill /> : <ICONS.heart />}
-                        <Text style={styles.statText}>{currentPost.heartCount || 0} Вподобань</Text>
+                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseThumbUp({postId: post.id})}}>
+                        <ICONS.heart />
+                        <Text style={styles.statText} >{post.heartCount} Вподобань</Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity style={styles.statItem} onPress={handleLikePress}>
-                        {currentPost.isThumbsUpLiked ? <ICONS.FilledLikeIcon /> : <ICONS.like />}
-                        <Text style={styles.statText}>
-                            {getPostLikesCount(currentPost)} Вподобань
-                        </Text>
+                    <TouchableOpacity style={styles.statItem} onPress={() => {increaseHeart({postId: post.id})}}>
+                        <ICONS.like />
+                        <Text style={styles.statText} >{post.thumbsUpCount} Вподобань</Text>
                     </TouchableOpacity>
                 </View>
 

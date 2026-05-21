@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import * as ImagePicker from 'expo-image-picker';
-import { styles } from './editPostModal.styles';
+import { styles } from './editPostModal.styles'
 import { ICONS } from '../../../../../shared/icons';
 import { COLORS } from '../../../../../shared/constants';
 import { IPost } from '../../../types/Post.type';
@@ -217,7 +217,7 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
                             </View>
                         ))}
 
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+                        <View style={{ flexDirection: 'column', flexWrap: 'wrap', gap: 10, marginBottom: 5, paddingTop: 20, }}>
                             {selectedImages.map((uri, index) => (
                                 <View key={index} style={styles.imageWrapper}>
                                     <Image source={{ uri }} style={styles.previewImageLarge} />

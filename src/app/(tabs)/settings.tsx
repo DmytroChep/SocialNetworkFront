@@ -14,10 +14,8 @@ import { COLORS } from "../../shared/constants";
 import { ICONS } from "../../shared/icons";
 import {
   getUserAvatar,
-  getUserBirthDate,
   getUserDisplayName,
   getUserHandle,
-  getUserSignature,
 } from "../../shared/lib/model-helpers";
 import { Button } from "../../shared/ui/button";
 import { CodeConfirmationModal } from "../../shared/ui/codeConfirmationModal";
@@ -47,14 +45,17 @@ export default function ProfileScreen() {
   const signatureRef = useRef<SignatureViewRef>(null);
   const isAnyEditing = isEditingCard || isEditingInfo || isEditingPassword || isEditingSignature;
 
-  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, {
-    pollingInterval: isAnyEditing ? 0 : 3000,
+  // Отримуємо дані користувача
+  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { 
+    pollingInterval: isAnyEditing ? 0 : 3000 
   });
+  
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
   const [updateAvatar, { isLoading: isAvatarUpdating }] = useUpdateAvatarMutation();
   const [sendCode, { isLoading: isSendingCode }] = useLazySendCodeVerifyQuery();
 
-  const { control, getValues, handleSubmit, reset, setValue, watch } = useForm<SettingsFormInputs>({
+  const { handleSubmit, control, reset, getValues, watch, setValue } = useForm<SettingsFormInputs>({
+    // Використовуємо as any, щоб уникнути конфліктів типів Yup та Hook Form
     resolver: yupResolver(settingsValidator) as any,
     defaultValues: {
       authorName: "",
@@ -70,27 +71,36 @@ export default function ProfileScreen() {
     },
   });
 
-  const watchedUseSignature = watch("useSignature");
-  const watchedSignature = watch("signature");
-  const watchedAuthorName = watch("authorName");
+  const watchedAuthorName = watch('authorName');
+  const watchedUseSignature = watch('useSignature');
+  const watchedSignature = watch('signature');
 
   useEffect(() => {
-    if (!user || isAnyEditing || isUpdating || isAvatarUpdating) return;
+    if (user && !isAnyEditing && !isUpdating && !isAvatarUpdating) {
+      const formatBirthDateLocal = (dateVal: any) => {
+        if (!dateVal) return '';
+        try {
+          // Обробка і ISO рядка, і Timestamp числа
+          const d = new Date(isNaN(Number(dateVal)) ? dateVal : Number(dateVal));
+          return d.toISOString().split('T')[0];
+        } catch (e) {
+          return '';
+        }
+      };
 
-    reset({
-      authorName: getUserDisplayName(user),
-      userName: getUserHandle(user),
-      email: user.email || "",
-      birthDate: formatBirthDate(getUserBirthDate(user)),
-      usePseudonym: !!user.profile?.pseudonym || !!user.authorName,
-      useSignature: !!getUserSignature(user),
-      password: "",
-      confirmPassword: "",
-      avatar: getUserAvatar(user) || "",
-      signature: getUserSignature(user) || "",
-    });
-    setLocalAvatar(null);
-  }, [isAnyEditing, isAvatarUpdating, isUpdating, reset, user]);
+      reset({
+        authorName: user.authorName || '',
+        userName: user.userName || '',
+        email: user.email || '',
+        birthDate: formatBirthDateLocal(user.birthDate),
+        usePseudonym: !!user.authorName,
+        useSignature: !!user.signatureImage,
+        password: '',
+        confirmPassword: '',
+        avatar: user.currentAvatar?.image || '',
+      });
+    }
+  }, [user, reset, isAnyEditing, isUpdating, isAvatarUpdating]);
 
   const closeEditing = () => {
     setIsEditingCard(false);
@@ -99,71 +109,61 @@ export default function ProfileScreen() {
     setIsEditingSignature(false);
   };
 
-  const handleSignature = (signature: string) => {
-    setValue("signature", signature);
-  };
-
-  const handleEmpty = () => {
-    setValue("signature", "");
-  };
-
-  const handleSaveSignature = () => {
-    if (watchedUseSignature && signatureRef.current) {
-      signatureRef.current.readSignature();
-    }
-
-    setTimeout(() => {
-      handleSubmit(onSubmit)();
-    }, 200);
-  };
+  const handleSaveSignature = handleSubmit((data) => onSubmit(data));
+  const handleSignature = (sig: string) => setValue('signature', sig);
+  const handleEmpty = () => console.log('Empty signature');
 
   const onSubmit: SubmitHandler<SettingsFormInputs> = async (data) => {
     if (!user?.id) return;
 
     try {
-      if (localAvatar?.startsWith("data:image")) {
-        await updateAvatar({ userId: user.id, image: localAvatar }).unwrap();
-      } else if (localAvatar?.startsWith("file://")) {
-        const base64 = await FileSystem.readAsStringAsync(localAvatar, { encoding: "base64" });
+      // 1. Оновлення аватара
+      if (localAvatar && localAvatar.startsWith('file://')) {
+        const base64 = await FileSystem.readAsStringAsync(localAvatar, {
+          encoding: 'base64', 
+        });
         await updateAvatar({ userId: user.id, image: `data:image/jpeg;base64,${base64}` }).unwrap();
       }
 
-      const date = data.birthDate ? new Date(`${data.birthDate}T00:00:00Z`) : null;
-      const birthDate = date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
-      const pseudonym = data.usePseudonym ? data.authorName : null;
-      const signature = data.useSignature ? data.signature || null : null;
+      // 2. Підготовка дати
+      let finalDate: string | null = null;
+      if (data.birthDate && data.birthDate.trim().length >= 10) {
+        const dateObj = new Date(`${data.birthDate}T00:00:00Z`);
+        if (!isNaN(dateObj.getTime())) {
+          finalDate = dateObj.toISOString();
+        }
+      }
 
+      // 3. Оновлення профілю (as any для ігнорування несумісності Prisma типів)
       await updateUser({
         userId: user.id,
         body: {
           username: data.userName,
           first_name: data.authorName,
           email: data.email,
-          birth_date: birthDate,
-          pseudonym,
-          signature,
+          birth_date: finalDate,
+          pseudonym: data.usePseudonym ? data.authorName : undefined,
+          signature: data.useSignature ? data.signature : undefined,
           is_text_signature: data.usePseudonym,
           is_image_signature: data.useSignature,
           profile: {
-            birth_date: birthDate,
-            pseudonym,
-            signature,
+            birth_date: finalDate,
+            pseudonym: data.usePseudonym ? data.authorName : undefined,
+            signature: data.useSignature ? data.signature : undefined,
             is_text_signature: data.usePseudonym,
             is_image_signature: data.useSignature,
           },
         },
-      }).unwrap();
+      } as any).unwrap();
 
       if (isEditingPassword && data.password) {
         await sendCode({ gmail: data.email || user.email }).unwrap();
         setStep(2);
-        return;
+      } else {
+        closeEditing();
       }
-
-      closeEditing();
-    } catch (error) {
-      console.error("Settings submit error:", error);
-      setIsEditingSignature(false);
+    } catch (e) {
+      console.error("Submission error:", e);
     }
   };
 
@@ -189,9 +189,26 @@ export default function ProfileScreen() {
                     </View>
 
                     {isEditingCard ? (
-                      <View style={{ alignItems: "center", marginTop: 10 }}>
-                        <AvatarField value={localAvatar || getUserAvatar(user)} onChange={setLocalAvatar} disabled={false} />
-                        <View style={{ width: "100%", marginTop: 20 }}>
+                      <View style={{ alignItems: 'center', marginTop: 10 }}>
+                        <Text style={{ color: '#1C1C1E', fontSize: 16, marginBottom: 15 }}>
+                          Оберіть або завантажте фото профілю
+                        </Text>
+                        <AvatarField 
+                          value={localAvatar || user?.currentAvatar?.image} 
+                          onChange={(val) => setLocalAvatar(val)} 
+                          disabled={false} 
+                        />
+                        <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25, marginTop: 10 }}>
+                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <ICONS.plus color={COLORS.blue10} />
+                            <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Додайте фото</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                            <ICONS.image color={COLORS.blue10} />
+                            <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Оберіть фото</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={{ width: '100%' }}>
                           <Controller
                             name="userName"
                             control={control}
@@ -252,7 +269,7 @@ export default function ProfileScreen() {
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Пароль</Text>
                       {isEditingPassword ? (
-                        <Button.SaveButton onPress={handleSubmit(onSubmit)} title="Зберегти" />
+                         <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
                       ) : (
                         <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />
                       )}

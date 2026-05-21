@@ -115,7 +115,7 @@ export const styles = StyleSheet.create({
     },
     imageWrapper: {
         width: "100%",
-        aspectRatio: 4 / 3,
+        aspectRatio: 4 / 3, // Використовуємо співвідношення сторін замість фіксованої висоти
         borderRadius: 20,
         overflow: "hidden",
         marginBottom: 15,
