@@ -14,10 +14,8 @@ import { COLORS } from "../../shared/constants";
 import { ICONS } from "../../shared/icons";
 import {
   getUserAvatar,
-  getUserBirthDate,
   getUserDisplayName,
   getUserHandle,
-  getUserSignature,
 } from "../../shared/lib/model-helpers";
 import { Button } from "../../shared/ui/button";
 import { CodeConfirmationModal } from "../../shared/ui/codeConfirmationModal";
@@ -36,7 +34,6 @@ function formatBirthDate(dateValue: unknown): string {
 }
 
 export default function ProfileScreen() {
-<<<<<<<<< Temporary merge branch 1
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
@@ -48,28 +45,15 @@ export default function ProfileScreen() {
   const signatureRef = useRef<SignatureViewRef>(null);
   const isAnyEditing = isEditingCard || isEditingInfo || isEditingPassword || isEditingSignature;
 
-  // Отримуємо дані користувача
   const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { 
     pollingInterval: isAnyEditing ? 0 : 3000 
   });
   
-=========
-  const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { pollingInterval: 3000 });
->>>>>>>>> Temporary merge branch 2
   const [updateUser, { isLoading: isUpdating }] = useUpdateMutation();
   const [updateAvatar, { isLoading: isAvatarUpdating }] = useUpdateAvatarMutation();
   const [sendCode, { isLoading: isSendingCode }] = useLazySendCodeVerifyQuery();
 
-  console.log(user?.currentAvatar)
-  const [step, setStep] = useState(1);
-  const [isEditingCard, setIsEditingCard] = useState(false);
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [isEditingPassword, setIsEditingPassword] = useState(false);
-  const [isEditingSignature, setIsEditingSignature] = useState(false);
-
-<<<<<<<<< Temporary merge branch 1
-  const { handleSubmit, control, reset, getValues, watch } = useForm<SettingsFormInputs>({
-    // Використовуємо as any, щоб уникнути конфліктів типів Yup та Hook Form
+  const { handleSubmit, control, reset, getValues, watch, setValue } = useForm<SettingsFormInputs>({
     resolver: yupResolver(settingsValidator) as any,
     defaultValues: {
       authorName: "",
@@ -85,15 +69,15 @@ export default function ProfileScreen() {
     },
   });
 
-<<<<<<<<< Temporary merge branch 1
   const watchedAuthorName = watch('authorName');
+  const watchedUseSignature = watch('useSignature');
+  const watchedSignature = watch('signature');
 
   useEffect(() => {
     if (user && !isAnyEditing && !isUpdating && !isAvatarUpdating) {
-      const formatBirthDate = (dateVal: any) => {
+      const formatBirthDateLocal = (dateVal: any) => {
         if (!dateVal) return '';
         try {
-          // Обробка і ISO рядка, і Timestamp числа
           const d = new Date(isNaN(Number(dateVal)) ? dateVal : Number(dateVal));
           return d.toISOString().split('T')[0];
         } catch (e) {
@@ -101,116 +85,79 @@ export default function ProfileScreen() {
         }
       };
 
-=========
-  useEffect(() => {
-    if (user) {
->>>>>>>>> Temporary merge branch 2
       reset({
         authorName: user.authorName || '',
         userName: user.userName || '',
         email: user.email || '',
-        birthDate: formatBirthDate(user.birthDate),
+        birthDate: formatBirthDateLocal(user.birthDate),
         usePseudonym: !!user.authorName,
-        useSignature: !!user.sign,
+        useSignature: !!user.signatureImage,
         password: '',
         confirmPassword: '',
         avatar: user.currentAvatar?.image || '',
       });
     }
-  }, [user, reset]);
+  }, [user, reset, isAnyEditing, isUpdating, isAvatarUpdating]);
+
+  const closeEditing = () => {
+    setIsEditingCard(false);
+    setIsEditingInfo(false);
+    setIsEditingPassword(false);
+    setIsEditingSignature(false);
+  };
+
+  const handleSaveSignature = handleSubmit((data) => onSubmit(data));
+  const handleSignature = (sig: string) => setValue('signature', sig);
+  const handleEmpty = () => console.log('Empty signature');
 
   const onSubmit: SubmitHandler<SettingsFormInputs> = async (data) => {
     if (!user?.id) return;
 
     try {
-<<<<<<<<< Temporary merge branch 1
-      // 1. Оновлення аватара
       if (localAvatar && localAvatar.startsWith('file://')) {
         const base64 = await FileSystem.readAsStringAsync(localAvatar, {
-=========
-      if (data.avatar && data.avatar.startsWith('file://')) {
-        const base64 = await FileSystem.readAsStringAsync(data.avatar, {
->>>>>>>>> Temporary merge branch 2
           encoding: 'base64', 
         });
         await updateAvatar({ userId: user.id, image: `data:image/jpeg;base64,${base64}` }).unwrap();
       }
 
-<<<<<<<<< Temporary merge branch 1
-      // 2. Підготовка дати
       let finalDate: string | null = null;
       if (data.birthDate && data.birthDate.trim().length >= 10) {
         const dateObj = new Date(`${data.birthDate}T00:00:00Z`);
-=========
-      let finalDate = null;
-      if (data.birthDate) {
-        const dateObj = new Date(data.birthDate);
->>>>>>>>> Temporary merge branch 2
         if (!isNaN(dateObj.getTime())) {
           finalDate = dateObj.toISOString();
         }
       }
 
-      // 3. Оновлення профілю (as any для ігнорування несумісності Prisma типів)
       await updateUser({
         userId: user.id,
         body: {
           username: data.userName,
           first_name: data.authorName,
           email: data.email,
-          birth_date: birthDate,
-          pseudonym,
-          signature,
+          birth_date: finalDate,
+          pseudonym: data.usePseudonym ? data.authorName : undefined,
+          signature: data.useSignature ? data.signature : undefined,
           is_text_signature: data.usePseudonym,
           is_image_signature: data.useSignature,
           profile: {
-            birth_date: birthDate,
-            pseudonym,
-            signature,
+            birth_date: finalDate,
+            pseudonym: data.usePseudonym ? data.authorName : undefined,
+            signature: data.useSignature ? data.signature : undefined,
             is_text_signature: data.usePseudonym,
             is_image_signature: data.useSignature,
           },
         },
-      }).unwrap();
+      } as any).unwrap();
 
       if (isEditingPassword && data.password) {
         await sendCode({ gmail: data.email || user.email }).unwrap();
         setStep(2);
       } else {
-        setIsEditingCard(false);
-        setIsEditingInfo(false);
-        setIsEditingPassword(false);
-        setIsEditingSignature(false);
+        closeEditing();
       }
     } catch (e) {
-<<<<<<<<< Temporary merge branch 1
       console.error("Submission error:", e);
-=========
-      console.error(e);
-    }
-  };
-
-  const handleConfirmCode = async () => {
-    const values = getValues();
-    
-    try {
-      await updateUser({
-        userId: user?.id!,
-        body: {
-          password: values.password
-        }
-      }).unwrap();
-
-      setStep(1);
-      setIsEditingPassword(false);
-      reset({
-        ...values,
-        password: '*******',
-        confirmPassword: '*******',
-      });
-    } catch (e) {
-      console.error("Помилка при зміні пароля:", e);
->>>>>>>>> Temporary merge branch 2
     }
   };
 
@@ -240,25 +187,12 @@ export default function ProfileScreen() {
                         <Text style={{ color: '#1C1C1E', fontSize: 16, marginBottom: 15 }}>
                           Оберіть або завантажте фото профілю
                         </Text>
-<<<<<<<<< Temporary merge branch 1
                         <AvatarField 
                           value={localAvatar || user?.currentAvatar?.image} 
                           onChange={(val) => setLocalAvatar(val)} 
                           disabled={false} 
                         />
                         <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25, marginTop: 10 }}>
-=========
-                        <View>
-                          <Controller
-                            name="avatar"
-                            control={control}
-                            render={({ field }) => (
-                              <AvatarField value={`${field.value}`} onChange={field.onChange} disabled={false} />
-                              )}
-                          />
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 20, marginBottom: 25 }}>
->>>>>>>>> Temporary merge branch 2
                           <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <ICONS.plus color={COLORS.blue10} />
                             <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Додайте фото</Text>
@@ -268,12 +202,6 @@ export default function ProfileScreen() {
                             <Text style={{ color: '#1C1C1E', fontWeight: '500' }}>Оберіть фото</Text>
                           </TouchableOpacity>
                         </View>
-<<<<<<<<< Temporary merge branch 1
-=========
-                        <Text style={{ fontSize: 24, fontWeight: '700', color: '#1C1C1E', marginBottom: 15 }}>
-                          {user?.authorName}
-                        </Text>
->>>>>>>>> Temporary merge branch 2
                         <View style={{ width: '100%' }}>
                           <Controller
                             name="userName"
@@ -335,11 +263,7 @@ export default function ProfileScreen() {
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardTitle}>Пароль</Text>
                       {isEditingPassword ? (
-<<<<<<<<< Temporary merge branch 1
                          <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Зберегти' />
-=========
-                         <Button.SaveButton onPress={handleSubmit(onSubmit)} title='Змінити пароль' />
->>>>>>>>> Temporary merge branch 2
                       ) : (
                         <RoundButton onPress={() => setIsEditingPassword(true)} icon={<ICONS.edit />} />
                       )}

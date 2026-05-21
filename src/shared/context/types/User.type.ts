@@ -56,6 +56,13 @@ export interface IProfile {
 	albums?: IAlbum[];
 }
 
+export interface IChatUser{
+	id: number,
+	name: string,
+	avatar: string,
+	
+}
+
 export interface IUser {
 	id: number;
 	password?: string;
