@@ -67,28 +67,28 @@ export default function TabsLayout() {
                 }}
             >
                 <Tabs.Screen
-					name="main"
-					options={{
-						title: "Головна",
-						header: () => (
-							<Header
-								hiddenButtons={{plus: true, settings: true, exit: true }}
-								onPlusPress={() => setIsPostModalVisible(true)}
-							/>
-						),
-						tabBarIcon: () => <ICONS.home />,
-						tabBarButton: (props) => <TabButton {...props} route="main" />,
-					}}
-				/>
+                    name="main"
+                    options={{
+                        title: "Головна",
+                        header: () => (
+                            <Header
+                                hiddenButtons={{plus: true, settings: true, exit: true }}
+                                onPlusPress={() => setIsPostModalVisible(true)}
+                            />
+                        ),
+                        tabBarIcon: () => <ICONS.home />,
+                        tabBarButton: (props) => <TabButton {...props} route="main" />,
+                    }}
+                />
                 <Tabs.Screen
                     name="my-publications"
                     options={{
                         title: "Мої публікації",
                         header: () => (
                             <Header
-								hiddenButtons={{plus: true, settings: true, exit: true }}
-								onPlusPress={() => setIsPostModalVisible(true)}
-							/>
+                                hiddenButtons={{plus: true, settings: true, exit: true }}
+                                onPlusPress={() => setIsPostModalVisible(true)}
+                            />
                         ),
                         tabBarIcon: () => <ICONS.image />,
                         tabBarButton: (props) => (
@@ -98,7 +98,6 @@ export default function TabsLayout() {
                 />
                 <Tabs.Screen
                     name="friends"
-                    
                     options={{
                         title: "Друзі",
                         header: () => (
@@ -123,6 +122,16 @@ export default function TabsLayout() {
                         tabBarButton: (props) => <TabButton {...props} route="chats" />,
                     }}
                 />
+                
+                {/* НОВИЙ ЕКРАН: Динамічний маршрут для окремого чату */}
+                <Tabs.Screen
+                    name="chat/[id]"
+                    options={{
+                        headerShown: false, // Хваємо стандартний Header, бо в чаті буде свій кастомний із кнопкою назад
+                        tabBarItemStyle: { display: "none" }, // Приховуємо іконку з нижньої панелі табів
+                    }}
+                />
+
                 <Tabs.Screen
                     name="settings"
                     options={{

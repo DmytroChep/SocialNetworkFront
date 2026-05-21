@@ -17,6 +17,9 @@ import { useGetUserFriendshipsQuery, useGetAllUsersQuery } from "../../shared/ap
 import { useUserContext } from "../../shared/context/user-context";
 import { toMediaUrl, getUserAvatar } from "../../shared/lib/model-helpers";
 
+// Підключаємо новий компонент групових чатів
+import { GroupChatsList } from "../../modules/chats/GroupChatsList.tsx";
+
 const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
 
 const getProfileUserId = (profile?: any) => profile?.user?.id ?? profile?.user_id;
@@ -166,9 +169,7 @@ export default function Chats() {
                     )}
 
                     {choosedTab === "Групові чати" && (
-                        <View style={styles.centeredContent}>
-                            <Text style={{ fontFamily: FONTS["GTWalsheimPro-Medium"] }}>Групові чати</Text>
-                        </View>
+                        <GroupChatsList friends={friendsList} />
                     )}
 
                 </View>
