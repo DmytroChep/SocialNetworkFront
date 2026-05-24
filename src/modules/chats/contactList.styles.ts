@@ -4,29 +4,23 @@ export const styles = StyleSheet.create({
     cardContainer: {
         flex: 1,
         backgroundColor: "#FFFFFF",
-        
-        // 3. Растягиваем на всю ширину экрана (убираем внешние отступы слева и справа)
-        marginHorizontal: 0, 
-        marginTop: 12,
-        marginBottom: 0, // Прижимаем вплотную к нижнему таб-бару
-        
-        // 4. Внутренние отступы, чтобы элементы внутри не липли к краям дисплея
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
         paddingHorizontal: 16,
-        paddingTop: 20,
-        borderWidth: 1,
-        borderColor: "#E5E5EA",
-        borderRadius: 10,
+        paddingTop: 16,
+        marginTop: 10,
+        marginHorizontal: -16, 
     },
     cardHeader: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 8,
         marginBottom: 16,
     },
     cardTitle: {
         fontSize: 16,
-        fontFamily: "GTWalsheimPro-Medium", 
+        fontFamily: "GTWalsheimPro-Medium",
         color: "#8E8E93",
+        marginLeft: 8,
     },
     searchWrapper: {
         flexDirection: "row",

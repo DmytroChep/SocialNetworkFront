@@ -89,6 +89,7 @@ export interface IUser {
 	authorName?: string;
 	userName?: string;
 	birthDate?: string | Date | null;
+	sign?: string | null;
 	signatureImage?: string | null;
 	currentAvatar?: IAvatar | null;
 	avatars?: IAvatar[];

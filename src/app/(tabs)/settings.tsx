@@ -16,6 +16,7 @@ import {
   getUserAvatar,
   getUserDisplayName,
   getUserHandle,
+  getUserSignature,
 } from "../../shared/lib/model-helpers";
 import { Button } from "../../shared/ui/button";
 import { CodeConfirmationModal } from "../../shared/ui/codeConfirmationModal";
@@ -77,6 +78,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user && !isAnyEditing && !isUpdating && !isAvatarUpdating) {
+      const signature = getUserSignature(user);
       const formatBirthDateLocal = (dateVal: any) => {
         if (!dateVal) return '';
         try {
@@ -94,7 +96,8 @@ export default function ProfileScreen() {
         email: user.email || '',
         birthDate: formatBirthDateLocal(user.birthDate),
         usePseudonym: !!user.authorName,
-        useSignature: !!user.signatureImage,
+        useSignature: !!signature,
+        signature: signature || '',
         password: '',
         confirmPassword: '',
         avatar: user.currentAvatar?.image || '',

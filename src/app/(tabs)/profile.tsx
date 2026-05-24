@@ -199,10 +199,9 @@ export default function UserProfile() {
 	const handleUpdatePost = useCallback((_updatedPost: IPost) => {}, []);
 	const handleDeletePost = useCallback((_postId: number) => {}, []);
 
-	const returnToUsersPage = (tab: "requests" | "recommendations" | "all") => {
+	const returnToUsersPage = () => {
 		router.replace({
 			pathname: "/friends",
-			params: { tab },
 		});
 	};
 
@@ -213,7 +212,7 @@ export default function UserProfile() {
 			senderId: currentUserId,
 			receiverId: profileUserId,
 		}).unwrap();
-		returnToUsersPage("recommendations");
+		returnToUsersPage();
 	};
 
 	const acceptRequest = async (requestId: number) => {
@@ -222,12 +221,12 @@ export default function UserProfile() {
 
 	const rejectRequest = async (requestId: number) => {
 		await updateFriendshipStatus({ requestId, status: "BLACKLISTED" }).unwrap();
-		returnToUsersPage("requests");
+		returnToUsersPage();
 	};
 
 	const removeFriend = async (friendshipId: number) => {
 		await deleteFriendship(friendshipId).unwrap();
-		returnToUsersPage("all");
+		returnToUsersPage();
 	};
 
 	const deleteFromRecommendations = async () => {
@@ -246,7 +245,7 @@ export default function UserProfile() {
 			}).unwrap();
 		}
 
-		returnToUsersPage("recommendations");
+		returnToUsersPage();
 	};
 
 	const openChat = () => {
@@ -255,6 +254,7 @@ export default function UserProfile() {
 			params: {
 				userId: String(profileUserId),
 				name: displayName,
+				avatar: avatarUrl || DEFAULT_AVATAR,
 			},
 		});
 	};
@@ -330,7 +330,7 @@ export default function UserProfile() {
 					disabled={isActionLoading}
 					onPress={sendFriendRequest}
 					style={styles.btnPrimary}
-					title="Додати"
+					title="Підтвердити"
 					titleStyle={styles.btnTextWhite}
 				/>
 				<Button
@@ -383,9 +383,7 @@ export default function UserProfile() {
 			>
 				<View style={styles.profileCard}>
 					<TouchableOpacity style={styles.backBtn}>
-						<ICONS.ArrowIcon
-							onPress={() => router.replace("/friends")}
-						/>
+						<ICONS.ArrowIcon onPress={() => router.replace("/friends")} />
 					</TouchableOpacity>
 
 					<View style={styles.firstSectionProfileView}>

@@ -55,7 +55,7 @@ export const styles = StyleSheet.create({
         borderColor: "#E5E5EA",     // Світло-сірий колір рамки за макетом
         borderRadius: 12,
         paddingHorizontal: 12,
-        height: 40,
+        height: 44,
         marginBottom: 16,
     },
     searchIcon: {
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
     },
     chatItem: {
         flexDirection: "row",
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 10,
         alignItems: "center",
         borderRadius: 14,
