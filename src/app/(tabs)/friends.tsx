@@ -458,6 +458,7 @@ export default function Friends() {
 			params: {
 				userId: String(cardUser.id),
 				name: cardUser.name,
+				avatar: cardUser.avatar,
 			},
 		});
 	};

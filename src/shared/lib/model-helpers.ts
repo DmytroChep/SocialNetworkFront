@@ -4,6 +4,7 @@ import type { IAlbum, IUser } from "../context/types";
 
 const mediaBaseUrl = `http://${ip}:8000`;
 export const DEFAULT_AVATAR_URL = `${mediaBaseUrl}/media/avatars/default_avatar.png`;
+const signatureMediaPath = "/media/signatures";
 
 export function toMediaUrl(value?: string | null): string | undefined {
 	if (!value) return undefined;
@@ -19,6 +20,23 @@ export function toMediaUrl(value?: string | null): string | undefined {
 	return value.startsWith("/")
 		? `${mediaBaseUrl}${value}`
 		: `${mediaBaseUrl}/${value}`;
+}
+
+export function toSignatureMediaUrl(value?: string | null): string | undefined {
+	if (!value) return undefined;
+	if (
+		value.startsWith("http://") ||
+		value.startsWith("https://") ||
+		value.startsWith("file://") ||
+		value.startsWith("data:")
+	) {
+		return value;
+	}
+
+	const fileName = value.split("?")[0]?.split("#")[0]?.split("/").filter(Boolean).pop();
+	if (!fileName) return undefined;
+
+	return `${mediaBaseUrl}${signatureMediaPath}/${fileName}`;
 }
 
 export function getUserHandle(user?: IUser | null): string {
@@ -54,7 +72,9 @@ export function getUserAvatar(user?: IUser | null): string | undefined {
 }
 
 export function getUserSignature(user?: IUser | null): string | undefined {
-	return toMediaUrl(user?.profile?.signature || user?.signatureImage);
+	return toSignatureMediaUrl(
+		user?.profile?.signature || user?.signatureImage || (user as any)?.sign,
+	);
 }
 
 export function getUserBirthDate(

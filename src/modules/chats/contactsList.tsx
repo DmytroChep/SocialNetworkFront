@@ -1,71 +1,135 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, Image, ScrollView, TouchableOpacity } from "react-native";
-import { ICONS } from "../../shared/icons";
+import { useMemo, useState } from "react";
+import {
+	Image,
+	ScrollView,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
+} from "react-native";
+import { useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
-import { toMediaUrl } from "../../shared/lib/model-helpers";
+import { ICONS } from "../../shared/icons";
+import { DEFAULT_AVATAR_URL, toMediaUrl } from "../../shared/lib/model-helpers";
+import type {
+	IFriendshipProfile,
+	IProfileFriend,
+} from "../friends/types/Friendship.type";
 import { styles } from "./contactList.styles"; // Імпорт винесених стилей
 
-interface ContactType {
-    id: string;
-    name: string;
-    avatar: string;
+export interface ContactType {
+	id: number;
+	name: string;
+	avatar: string;
 }
 
-export function ContactsList() {
-    const { user } = useUserContext();
-    const [searchQuery, setSearchQuery] = useState<string>("");
+interface ContactsListProps {
+	contacts?: ContactType[];
+	onContactPress?: (contact: ContactType) => void;
+}
 
-    const friends: ContactType[] = (user as any)?.friends || [
-        { id: "1", name: "Jane Cooper", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330" },
-        { id: "2", name: "Cameron Williamson", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e" },
-        { id: "3", name: "Leslie Alexander", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80" },
-        { id: "4", name: "Robert Fox", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d" },
-        { id: "5", name: "Jacob Jones", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6" },
-        { id: "6", name: "Brooklyn Simmons", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9" },
-        { id: "7", name: "Brooklyn Simmons", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9" },
-    ];
+const getProfileUserId = (profile?: IFriendshipProfile) =>
+	profile?.user?.id ?? profile?.user_id;
 
-    const filteredContacts = friends.filter((contact: ContactType) =>
-        contact.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+const getFriendProfile = (
+	friendship: IProfileFriend,
+	currentUserId?: number,
+	currentProfileId?: number,
+) => {
+	if (friendship.from_profile_id === currentProfileId)
+		return friendship.to_profile;
+	if (friendship.to_profile_id === currentProfileId)
+		return friendship.from_profile;
+	if (getProfileUserId(friendship.from_profile) === currentUserId)
+		return friendship.to_profile;
 
-    return (
-        <View style={styles.cardContainer}>
-            <View style={styles.cardHeader}>
-                <ICONS.people width={20} height={20} stroke="#8E8E93" />
-                <Text style={styles.cardTitle}>Контакти</Text>
-            </View>
+	return friendship.from_profile;
+};
 
-            <View style={styles.searchWrapper}>
-                <ICONS.search width={18} height={18} stroke="#8E8E93" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Пошук"
-                    placeholderTextColor="#8E8E93"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoCapitalize="none"
-                />
-            </View>
+const profileToContact = (profile: IFriendshipProfile): ContactType => {
+	const fullName = [profile.user?.first_name, profile.user?.last_name]
+		.filter(Boolean)
+		.join(" ")
+		.trim();
 
-            <ScrollView 
-                showsVerticalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollPadding}
-            >
-                {filteredContacts.length === 0 ? (
-                    <Text style={styles.noResultsText}>Нікого не знайдено</Text>
-                ) : (
-                    filteredContacts.map((contact) => (
-                        <TouchableOpacity key={contact.id} style={styles.contactItem}>
-                            <Image
-                                source={{ uri: toMediaUrl?.(contact.avatar) || contact.avatar }}
-                                style={styles.avatar}
-                            />
-                            <Text style={styles.contactName}>{contact.name}</Text>
-                        </TouchableOpacity>
-                    ))
-                )}
-            </ScrollView>
-        </View>
-    );
+	return {
+		id: getProfileUserId(profile) ?? profile.id,
+		name:
+			profile.pseudonym || fullName || profile.user?.username || "Користувач",
+		avatar: toMediaUrl(profile.avatar) || DEFAULT_AVATAR_URL,
+	};
+};
+
+export function ContactsList({ contacts, onContactPress }: ContactsListProps) {
+	const { user } = useUserContext();
+	const { data: friendships } = useGetUserFriendshipsQuery(user?.id as number, {
+		skip: !user?.id || Boolean(contacts),
+	});
+	const [searchQuery, setSearchQuery] = useState<string>("");
+
+	const friends = useMemo<ContactType[]>(() => {
+		if (contacts) return contacts;
+		if (!friendships?.friends || !user) return [];
+
+		return friendships.friends.map((friendship) => {
+			const friendProfile = getFriendProfile(
+				friendship,
+				user.id,
+				user.profile?.id,
+			);
+
+			return profileToContact(friendProfile);
+		});
+	}, [contacts, friendships?.friends, user]);
+
+	const filteredContacts = friends.filter((contact: ContactType) =>
+		contact.name.toLowerCase().includes(searchQuery.toLowerCase()),
+	);
+
+	return (
+		<View style={styles.cardContainer}>
+			<View style={styles.cardHeader}>
+				<ICONS.people />
+				<Text style={styles.cardTitle}>Контакти</Text>
+			</View>
+
+			<View style={styles.searchWrapper}>
+				<ICONS.search
+				
+					style={styles.searchIcon}
+				/>
+				<TextInput
+					style={styles.searchInput}
+					placeholder="Пошук"
+					placeholderTextColor="#8E8E93"
+					value={searchQuery}
+					onChangeText={setSearchQuery}
+					autoCapitalize="none"
+				/>
+			</View>
+
+			<ScrollView
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={styles.scrollPadding}
+			>
+				{filteredContacts.length === 0 ? (
+					<Text style={styles.noResultsText}>Нікого не знайдено</Text>
+				) : (
+					filteredContacts.map((contact) => (
+						<TouchableOpacity
+							key={contact.id}
+							style={styles.contactItem}
+							onPress={() => onContactPress?.(contact)}
+						>
+							<Image
+								source={{ uri: toMediaUrl(contact.avatar) || contact.avatar }}
+								style={styles.avatar}
+							/>
+							<Text style={styles.contactName}>{contact.name}</Text>
+						</TouchableOpacity>
+					))
+				)}
+			</ScrollView>
+		</View>
+	);
 }

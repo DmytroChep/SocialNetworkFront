@@ -1,0 +1,308 @@
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  SectionList,
+  StyleSheet,
+  Image,
+  ScrollView,
+} from 'react-native';
+import Modal from 'react-native-modal';
+import * as ImagePicker from 'expo-image-picker';
+import { styles } from './createGroupModal-styles';
+import { COLORS } from '../../../../shared/constants';
+import { IUser } from '../../../../shared/context/types';
+import { useGetAllUsersQuery } from '../../../../shared/api/baseApi';
+import { toMediaUrl } from '../../../../shared/lib/model-helpers';
+
+
+
+interface CreateGroupPayload {
+  groupName: string;
+  groupPhoto: string | null;
+  participants: IUser[];
+}
+
+interface AvatarProps {
+  uri?: string;
+  initials: string;
+  size?: number;
+}
+
+interface StepSelectUsersProps {
+  selectedUsers: IUser[];
+  onToggle: (user: IUser) => void;
+  onCancel: () => void;
+  onNext: () => void;
+}
+
+interface StepGroupDetailsProps {
+  selectedUsers: IUser[];
+  onRemoveUser: (id: IUser['id']) => void;
+  onBack: () => void;
+  onCreate: (payload: Omit<CreateGroupPayload, 'participants'>) => void;
+}
+
+interface CreateGroupModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  onCreate?: (payload: CreateGroupPayload) => void;
+}
+
+
+export const getInitials = (name = ''): string =>
+  name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+
+export const Avatar: React.FC<AvatarProps> = ({ uri, initials, size = 44 }) => {
+  const circleStyle = { width: size, height: size, borderRadius: size / 2 };
+
+  if (uri) {
+    return <Image source={{ uri }} style={[styles.avatar, circleStyle]} />;
+  }
+  return (
+    <View style={[styles.avatar, styles.avatarFallback, circleStyle]}>
+      <Text style={[styles.avatarText, { fontSize: size * 0.36 }]}>{initials}</Text>
+    </View>
+  );
+};
+
+
+export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
+  selectedUsers,
+  onToggle,
+  onCancel,
+  onNext,
+}) => {
+  const [search, setSearch] = useState('');
+  const { data: users = [] } = useGetAllUsersQuery();
+
+  const sections = useMemo(() => {
+    const query = search.toLowerCase();
+    const filtered = users.filter((u: IUser) =>
+      u.username.toLowerCase().includes(query)
+    );
+    const grouped = filtered.reduce<Record<string, IUser[]>>((acc, user) => {
+      const letter = user.username[0].toUpperCase();
+      if (!acc[letter]) acc[letter] = [];
+      acc[letter].push(user);
+      return acc;
+    }, {});
+    return Object.keys(grouped)
+      .sort()
+      .map(letter => ({ title: letter, data: grouped[letter] }));
+  }, [users, search]);
+
+  const isSelected = (user: IUser): boolean =>
+    selectedUsers.some(u => u.id === user.id);
+
+  return (
+    <>
+      <View style={styles.searchWrapper}>
+        <Text style={styles.searchIcon}>🔍</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Пошук"
+          placeholderTextColor={COLORS.blue50}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+
+      <Text style={styles.selectedCount}>Вибрано: {selectedUsers.length}</Text>
+
+      <SectionList
+        sections={sections}
+        keyExtractor={item => String(item.id)}
+        style={styles.list}
+        showsVerticalScrollIndicator
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionHeader}>{section.title}</Text>
+        )}
+        renderItem={({ item }) => {
+          const selected = isSelected(item);
+          return (
+            <TouchableOpacity style={styles.userRow} onPress={() => onToggle(item)}>
+              <Avatar uri={toMediaUrl(item.avatar)} initials={getInitials(item.username)} />
+              <Text style={styles.userName}>{item.username}</Text>
+              <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
+                {selected && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+      />
+
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.outlineButton} onPress={onCancel}>
+          <Text style={styles.outlineButtonText}>Скасувати</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.primaryButton, !selectedUsers.length && styles.primaryButtonDisabled]}
+          onPress={onNext}
+          disabled={!selectedUsers.length}
+        >
+          <Text style={styles.primaryButtonText}>Далі</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+};
+
+
+export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
+  selectedUsers,
+  onRemoveUser,
+  onBack,
+  onCreate,
+}) => {
+  const [groupName, setGroupName] = useState('');
+  const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
+
+  const pickFromGallery = async (): Promise<void> => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setGroupPhoto(result.assets[0].uri);
+  };
+
+  const takePhoto = async (): Promise<void> => {
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled) setGroupPhoto(result.assets[0].uri);
+  };
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <Text style={styles.fieldLabel}>Назва</Text>
+      <TextInput
+        style={styles.nameInput}
+        placeholder="Введіть назву"
+        placeholderTextColor={COLORS.blue50}
+        value={groupName}
+        onChangeText={setGroupName}
+      />
+
+      <View style={styles.groupAvatarWrapper}>
+        {groupPhoto ? (
+          <Image source={{ uri: groupPhoto }} style={styles.groupAvatar} />
+        ) : (
+          <View style={styles.groupAvatar}>
+            <Text style={styles.groupAvatarText}>NG</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.photoActions}>
+        <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+          <Text style={styles.photoButtonText}>＋  Додайте фото</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
+          <Text style={styles.photoButtonText}>🖼  Оберіть фото</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.participantsLabel}>Учасники</Text>
+      {selectedUsers.map(user => (
+        <View key={user.id} style={styles.participantRow}>
+          <Avatar uri={toMediaUrl(user.avatar)} initials={getInitials(user.username)} />
+          <Text style={styles.participantName}>{user.username}</Text>
+          <TouchableOpacity
+            onPress={() => onRemoveUser(user.id)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.trashIcon}>🗑</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      <View style={[styles.footer, { marginTop: 24 }]}>
+        <TouchableOpacity style={styles.outlineButton} onPress={onBack}>
+          <Text style={styles.outlineButtonText}>Назад</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.primaryButton, !groupName.trim() && styles.primaryButtonDisabled]}
+          onPress={() => onCreate({ groupName, groupPhoto })}
+          disabled={!groupName.trim()}
+        >
+          <Text style={styles.primaryButtonText}>Створити групу</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+
+export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
+  isVisible,
+  onClose,
+  onCreate,
+}) => {
+  const [step, setStep] = useState(1);
+  const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
+
+  const toggleUser = (user: IUser): void => {
+    setSelectedUsers(prev =>
+      prev.some(u => u.id === user.id)
+        ? prev.filter(u => u.id !== user.id)
+        : [...prev, user]
+    );
+  };
+
+  const removeUser = (userId: IUser['id']): void => {
+    setSelectedUsers(prev => prev.filter(u => u.id !== userId));
+  };
+
+  const handleClose = (): void => {
+    setStep(1);
+    setSelectedUsers([]);
+    onClose();
+  };
+
+  const handleCreate = (details: Omit<CreateGroupPayload, 'participants'>): void => {
+    onCreate?.({ ...details, participants: selectedUsers });
+    handleClose();
+  };
+
+  return (
+    <Modal
+      isVisible={isVisible}
+      onBackdropPress={handleClose}
+      style={styles.modal}
+      avoidKeyboard
+      useNativeDriverForBackdrop
+    >
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+          <Text style={styles.closeIcon}>×</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.title}>Нова група</Text>
+
+        {step === 1 ? (
+          <StepSelectUsers
+            selectedUsers={selectedUsers}
+            onToggle={toggleUser}
+            onCancel={handleClose}
+            onNext={() => setStep(2)}
+          />
+        ) : (
+          <StepGroupDetails
+            selectedUsers={selectedUsers}
+            onRemoveUser={removeUser}
+            onBack={() => setStep(1)}
+            onCreate={handleCreate}
+          />
+        )}
+      </View>
+    </Modal>
+  );
+};

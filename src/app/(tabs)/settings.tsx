@@ -16,6 +16,7 @@ import {
   getUserAvatar,
   getUserDisplayName,
   getUserHandle,
+  getUserSignature,
 } from "../../shared/lib/model-helpers";
 import { Button } from "../../shared/ui/button";
 import { CodeConfirmationModal } from "../../shared/ui/codeConfirmationModal";
@@ -45,6 +46,7 @@ export default function ProfileScreen() {
   const signatureRef = useRef<SignatureViewRef>(null);
   const isAnyEditing = isEditingCard || isEditingInfo || isEditingPassword || isEditingSignature;
 
+  // Отримуємо дані користувача
   const { data: user, isLoading: isUserLoading } = useMeQuery(undefined, { 
     pollingInterval: isAnyEditing ? 0 : 3000 
   });
@@ -54,6 +56,7 @@ export default function ProfileScreen() {
   const [sendCode, { isLoading: isSendingCode }] = useLazySendCodeVerifyQuery();
 
   const { handleSubmit, control, reset, getValues, watch, setValue } = useForm<SettingsFormInputs>({
+    // Використовуємо as any, щоб уникнути конфліктів типів Yup та Hook Form
     resolver: yupResolver(settingsValidator) as any,
     defaultValues: {
       authorName: "",
@@ -75,9 +78,11 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user && !isAnyEditing && !isUpdating && !isAvatarUpdating) {
+      const signature = getUserSignature(user);
       const formatBirthDateLocal = (dateVal: any) => {
         if (!dateVal) return '';
         try {
+          // Обробка і ISO рядка, і Timestamp числа
           const d = new Date(isNaN(Number(dateVal)) ? dateVal : Number(dateVal));
           return d.toISOString().split('T')[0];
         } catch (e) {
@@ -91,7 +96,8 @@ export default function ProfileScreen() {
         email: user.email || '',
         birthDate: formatBirthDateLocal(user.birthDate),
         usePseudonym: !!user.authorName,
-        useSignature: !!user.signatureImage,
+        useSignature: !!signature,
+        signature: signature || '',
         password: '',
         confirmPassword: '',
         avatar: user.currentAvatar?.image || '',
@@ -114,6 +120,7 @@ export default function ProfileScreen() {
     if (!user?.id) return;
 
     try {
+      // 1. Оновлення аватара
       if (localAvatar && localAvatar.startsWith('file://')) {
         const base64 = await FileSystem.readAsStringAsync(localAvatar, {
           encoding: 'base64', 
@@ -121,6 +128,7 @@ export default function ProfileScreen() {
         await updateAvatar({ userId: user.id, image: `data:image/jpeg;base64,${base64}` }).unwrap();
       }
 
+      // 2. Підготовка дати
       let finalDate: string | null = null;
       if (data.birthDate && data.birthDate.trim().length >= 10) {
         const dateObj = new Date(`${data.birthDate}T00:00:00Z`);
@@ -129,6 +137,7 @@ export default function ProfileScreen() {
         }
       }
 
+      // 3. Оновлення профілю (as any для ігнорування несумісності Prisma типів)
       await updateUser({
         userId: user.id,
         body: {

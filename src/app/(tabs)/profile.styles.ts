@@ -121,20 +121,19 @@ export const styles = StyleSheet.create({
 	},
 	btnPrimary: {
 		flex: 1,
-		backgroundColor: "#4A374B", // Темний колір з фото
-		borderRadius: 20,
-		height: 45,
+		backgroundColor: COLORS.plum,
+		borderRadius: 12345,
+		paddingHorizontal: 1,
 	},
 	btnSecondary: {
 		flex: 1,
 		backgroundColor: "#FFFFFF",
-		borderRadius: 20,
-		height: 45,
+		borderRadius: 12345,
 		borderWidth: 1,
-		borderColor: "#E5E5EA",
+		borderColor: COLORS.plum,
 	},
 	btnTextWhite: { color: "#FFF", fontWeight: "600" },
-	btnTextDark: { color: "#000", fontWeight: "600" },
+	btnTextDark: { color: COLORS.plum, fontWeight: "600" },
 
 	sectionContainer: {
 		marginTop: 20,
