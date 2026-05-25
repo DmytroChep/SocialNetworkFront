@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { 
     View, 
-    Text, 
-    StyleSheet, 
+    Text,
     Pressable 
 } from "react-native";
 import Modal from 'react-native-modal';
