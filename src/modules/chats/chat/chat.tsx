@@ -28,6 +28,7 @@ interface Message {
     time: string;
     isMe: boolean;
     senderName?: string;
+    date: string;
 }
 
 export interface ChatPeer {
@@ -73,10 +74,10 @@ export default function Chat({ peer, onBack }: ChatProps) {
     const peerAvatar = toMediaUrl(activePeer.avatar) || DEFAULT_AVATAR_URL;
 
     const [messages, setMessages] = useState<Message[]>([
-        { id: "1", text: "Чудово!", time: "10:30", isMe: false },
-        { id: "2", text: "Привіт! Як справи ?", time: "10:30", isMe: false },
-        { id: "3", text: "Привіт!", time: "10:01", isMe: true },
-    ]);
+    { id: "1", text: "Чудово!", time: "10:30", date: "25 квітня 2025", isMe: false },
+    { id: "2", text: "Привіт! Як справи ?", time: "10:30", date: "25 квітня 2025", isMe: false },
+    { id: "3", text: "Привіт!", time: "10:01", date: "24 квітня 2025", isMe: true },
+]);
 
     const handleSendMessage = () => {
         if (!messageText.trim()) return;
@@ -88,6 +89,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
                 hour: "2-digit",
                 minute: "2-digit",
             }),
+            date: getCurrentFormattedDate(),
             isMe: true,
         };
 
@@ -102,6 +104,14 @@ export default function Chat({ peer, onBack }: ChatProps) {
         }
 
         router.back();
+    };
+
+    const getCurrentFormattedDate = (): string => {
+        return new Date().toLocaleDateString("uk-UA", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
     };
 
     return (
@@ -158,13 +168,20 @@ export default function Chat({ peer, onBack }: ChatProps) {
                         const showNewMessagesSeparator = index === 1;
                         const senderName = item.senderName || activePeer.name;
 
+                        const nextMessage = messages[index + 1];
+                        const showDateSeparator = !nextMessage || nextMessage.date !== item.date;
+
                         return (
                             <View>
-                                <View
-                                    style={
-                                        item.isMe ? styles.myMessageRow : styles.otherMessageRow
-                                    }
-                                >
+                                {showDateSeparator && (
+                                    <View style={styles.dateSeparatorContainer}>
+                                        <View style={styles.dateBadge}>
+                                            <Text style={styles.dateDateText}>{item.date}</Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                <View style={item.isMe ? styles.myMessageRow : styles.otherMessageRow}>
                                     {!item.isMe && (
                                         <Image
                                             source={{ uri: peerAvatar }}
@@ -455,4 +472,18 @@ const styles = StyleSheet.create({
     sendActionButtonDisabled: {
         backgroundColor: COLORS.plum,
     },
+    dateSeparatorContainer: {
+        alignItems: "center",
+        marginVertical: 16,
+    },
+    dateBadge: {
+        backgroundColor: "#F2F2F7",
+        paddingHorizontal: 14,
+        paddingVertical: 5,
+        borderRadius: 10,
+    },
+    dateDateText: {
+        fontSize: 12,
+        color: "#8E8E93",         
+        fontFamily: FONTS["GTWalsheimPro-Medium"],
 });
