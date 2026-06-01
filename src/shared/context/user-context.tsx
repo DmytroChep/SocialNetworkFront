@@ -29,51 +29,68 @@ export function UserContextProvider(props: IUserContextProviderProps) {
 
     const [token, setTokenState] = useState<string | null>(null);
     const [user, setUser] = useState<IUser | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+
+    const [isStorageLoading, setIsStorageLoading] = useState(true);
 
     useEffect(() => {
         AsyncStorage.getItem("token").then((stored) => {
             setTokenState(stored);
-            setIsLoading(false);
+            setIsStorageLoading(false);
         });
     }, []);
-
-    useEffect(() => {
-        if (isLoading) return;
-        if (token) {
-            AsyncStorage.setItem("token", token);
-        } else {
-            AsyncStorage.removeItem("token");
-        }
-    }, [token, isLoading]);
 
     const setToken = useCallback((newToken: string | null) => {
         setTokenState(newToken);
         setUser(null);
+
+        if (newToken) {
+            AsyncStorage.setItem("token", newToken);
+        } else {
+            AsyncStorage.removeItem("token");
+        }
     }, []);
 
     const logout = useCallback(() => {
         setTokenState(null);
         setUser(null);
+        AsyncStorage.removeItem("token");
     }, []);
 
-    const { data: me, error } = useMeQuery(undefined, {
-        skip: !token || isLoading,
-        pollingInterval: 2500
+    const {
+        data: me,
+        error,
+        isLoading: isMeLoading,
+    } = useMeQuery(undefined, {
+        skip: !token || isStorageLoading,
     });
 
     useEffect(() => {
-        if (me) setUser(me);
-        if (error) logout();
-    }, [me, error, logout]);
+        if (me) {
+            setUser(me);
+        }
+
+        if (error) {
+            logout();
+        }
+    }, [me, error]);
+
+    const isLoading =
+        isStorageLoading || (!!token && isMeLoading);
 
     return (
-        <UserContext.Provider value={{ token, user, isLoading, setToken, logout }}>
+        <UserContext.Provider
+            value={{
+                token,
+                user,
+                isLoading,
+                setToken,
+                logout,
+            }}
+        >
             {children}
         </UserContext.Provider>
     );
 }
-
 export function useUserContext() {
     const context = useContext(UserContext);
     if (!context) throw new Error("useUserContext must be used within UserContextProvider");

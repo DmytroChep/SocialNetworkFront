@@ -1,0 +1,146 @@
+import { StyleSheet, Platform } from "react-native";
+
+export const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 28,
+    width: "90%",
+    maxHeight: "80%",
+    padding: 24,
+    position: "relative",
+  },
+  closeButton: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    padding: 4,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#111",
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 16,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    color: "#000",
+  },
+  selectedCount: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 16,
+    fontWeight: "500",
+  },
+  list: {
+    maxHeight: 300,
+  },
+  loaderContainer: {
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyContainer: {
+    height: 150,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#888",
+    fontSize: 16,
+  },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#000",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  userItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F5F5F5",
+  },
+  userInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 14,
+  },
+  avatarText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  userName: {
+    fontSize: 16,
+    color: "#111",
+    fontWeight: "500",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 24,
+    alignItems: "center",
+  },
+  cancelButton: {
+    borderWidth: 1,
+    borderColor: "#4A334A",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    marginRight: 12,
+  },
+  cancelButtonText: {
+    color: "#4A334A",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  nextButton: {
+    backgroundColor: "#4A334A",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 26,
+  },
+  disabledButton: {
+    backgroundColor: "#A397A3",
+    opacity: 0.7,
+  },
+  nextButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+});

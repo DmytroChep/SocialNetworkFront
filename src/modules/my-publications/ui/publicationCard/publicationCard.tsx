@@ -46,11 +46,25 @@ const getOriginalImageValue = (post: IPost, imageUrl: string) => {
     return existingImage?.original_image || existingImage?.url || imageUrl;
 };
 
+const normalizeTag = (value: string) => value.replace(/^#+/, "").trim().toLowerCase();
+
+const buildPostTags = (postId: number, tags: string[] = []) =>
+    Array.from(new Set(tags.map(normalizeTag).filter(Boolean))).map((tag, index) => ({
+        id: -index - 1,
+        post_id: postId,
+        tag_id: -index - 1,
+        tag: {
+            id: -index - 1,
+            name: tag,
+        },
+    }));
+
 const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
     ...post,
     title: formData.title,
     content: formData.content,
     topic: formData.topic,
+    tags: buildPostTags(post.id, formData.tags),
     links: formData.links?.map((link: { value: string }, index: number) => ({
         id: post.links?.[index]?.id ?? -index - 1,
         post_id: post.id,
@@ -155,6 +169,7 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
             content: formData.content,
             topic: formData.topic,
             author_id: userId || getPostAuthorId(currentPost),
+            hashtags: formData.tags || [],
             links: formData.links?.map((link: { value: string }) => link.value).filter(Boolean) || [],
         };
         const localUpdatedPost = buildLocalUpdatedPost(currentPost, formData);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { 
     Modal, View, Text, TextInput, TouchableOpacity, 
     ScrollView, Image 
@@ -10,7 +10,11 @@ import { RoundButton } from "../../../../shared/ui/RoundButton";
 import { ICONS } from "../../../../shared/icons";
 import { Input } from "../../../../shared/ui/input";
 import { COLORS } from "../../../../shared/constants";
-import { useCreatePostMutation } from "../../../../shared/api/baseApi";
+import {
+    useCreateHashtagMutation,
+    useCreatePostMutation,
+    useGetAllHashtagsQuery,
+} from "../../../../shared/api/baseApi";
 import { useUserContext } from "../../../../shared/context/user-context";
 import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
 
@@ -23,12 +27,30 @@ interface IPostForm {
     images: string[];
 }
 
+type HashtagOption = {
+    id?: number;
+    name?: string;
+    title?: string;
+};
+
+const FALLBACK_TAGS = ["відпочинок", "натхнення", "життя", "природа"];
+
+const normalizeTag = (value: string) => value.replace(/^#+/, "").trim().toLowerCase();
+
+const getHashtagName = (tag: HashtagOption) =>
+    normalizeTag(tag.name || tag.title || "");
+
+const uniqueTags = (tags: string[]) =>
+    Array.from(new Set(tags.map(normalizeTag).filter(Boolean)));
+
 export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, onClose: () => void }) => {
-    const [baseTags, setBaseTags] = useState<string[]>([]);
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
+    const [localTags, setLocalTags] = useState<string[]>([]);
 
     const [createPost] = useCreatePostMutation();
+    const [createHashtag] = useCreateHashtagMutation();
+    const { data: hashtags = [] } = useGetAllHashtagsQuery();
     const { user } = useUserContext();
 
     const { control, handleSubmit, reset, setValue, watch } = useForm<IPostForm>({
@@ -46,18 +68,13 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
     const currentContent = watch("content");
     const selectedImages = watch("images");
 
-    useEffect(() => {
-        const loadTags = async () => {
-            try {
-                const response = await fetch("YOUR_API_URL/hashtags");
-                const tags = await response.json();
-                setBaseTags(tags.map((t: any) => t.title || t.name));
-            } catch (err) {
-                setBaseTags(["відпочинок", "натхнення", "життя", "природа", "читання", "спокій", "гармонія", "музика", "фільми", "подорожі"]);
-            }
-        };
-        loadTags();
-    }, []);
+    const baseTags = useMemo(() => {
+        const apiTags = uniqueTags((hashtags as HashtagOption[]).map(getHashtagName));
+        return uniqueTags([
+            ...(apiTags.length > 0 ? apiTags : FALLBACK_TAGS),
+            ...localTags,
+        ]);
+    }, [hashtags, localTags]);
 
     const handleTagPress = (tag: string) => {
         const currentTags = watch("hashtags") || [];
@@ -69,15 +86,20 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
         }
     };
 
-    const addNewCustomTag = () => {
-        if (newTag.trim()) {
-            const cleanTag = newTag.replace("#", "").trim();
-            if (!baseTags.includes(cleanTag)) {
-                setBaseTags([...baseTags, cleanTag]);
-            }
-            setNewTag("");
-            setIsAddingTag(false);
+    const addNewCustomTag = async () => {
+        const cleanTag = normalizeTag(newTag);
+        if (!cleanTag) return;
+
+        try {
+            await createHashtag({ name: cleanTag }).unwrap();
+        } catch {
+            // If the tag already exists, selecting it locally is still fine.
         }
+
+        setLocalTags((current) => uniqueTags([...current, cleanTag]));
+        setValue("hashtags", uniqueTags([...(watch("hashtags") || []), cleanTag]));
+        setNewTag("");
+        setIsAddingTag(false);
     };
 
     const pickImage = async () => {
@@ -99,7 +121,7 @@ export const CreatePostModal = ({ isVisible, onClose }: { isVisible: boolean, on
             author_id: user?.id ? Number(user.id) : 2,
             content: data.content || "",
             topic: data.topic || null,
-            hashtags: data.hashtags,
+            hashtags: uniqueTags(data.hashtags),
             links: data.links?.map((link) => link.value).filter(Boolean) || [],
             images: data.images?.map((url) => ({ original_image: url })) || [],
         };

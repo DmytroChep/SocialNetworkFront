@@ -92,6 +92,11 @@ export const styles = StyleSheet.create({
         fontSize: 15,
         fontFamily: "GTWalsheimPro-Medium",
     },
+    avatarImage: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+    },
     content: {
         flex: 1,
         marginLeft: 12,

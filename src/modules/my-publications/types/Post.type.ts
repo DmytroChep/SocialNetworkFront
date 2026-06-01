@@ -88,6 +88,7 @@ export interface IPostCreation {
     topic?: string | null;
 
     tags?: string[];
+    hashtags?: string[];
     links?: string[];
     images?: Array<{ original_image: string }>;
 }

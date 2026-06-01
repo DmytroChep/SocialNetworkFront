@@ -16,6 +16,15 @@ import type {
   IUpdateFriendRequestPayload,
   IUserFriendships,
 } from "../../modules/friends/types/Friendship.type";
+import type {
+  IChat,
+  IChatMessagesPaginationParams,
+  IChatsPaginationParams,
+  ICreatePersonalChatPayload,
+  IMarkChatAsReadResponse,
+  IPaginatedChatsResponse,
+  IPaginatedMessagesResponse,
+} from "../../modules/chats/types/chat";
 
 
 export const baseApi = createApi({
@@ -30,7 +39,7 @@ export const baseApi = createApi({
             return headers;
         },
     }),
-  tagTypes: ['Posts', 'User', 'Friendship'],
+  tagTypes: ['Posts', 'User', 'Friendship', 'Chats', 'Messages', 'Hashtags'],
   endpoints: (builder) => ({
     login: builder.mutation<string, IAuthUser>({
       query: (body) => ({
@@ -50,7 +59,8 @@ export const baseApi = createApi({
       query: () => ({
         url: "user/me",
       }),
-      providesTags: ['User'],
+      providesTags: (result) =>
+        result ? [{ type: 'User' as const, id: result.id }] : [{ type: 'User' as const, id: 'LIST' }],
     }),
     update: builder.mutation<IPartialUser | string, { userId: number; body: IPartialUser }>({
       query: ({ userId, body }) => ({
@@ -58,7 +68,7 @@ export const baseApi = createApi({
         method: "PATCH",
         body,
       }),
-      invalidatesTags: ['User'],
+      invalidatesTags: (result, error, arg) => [{ type: 'User' as const, id: arg.userId }],
     }),
     sendCodeVerify: builder.query<string, {gmail: string}>({
       query: ({gmail}) => ({
@@ -89,6 +99,7 @@ export const baseApi = createApi({
         method: "POST",
         body,
       }),
+      invalidatesTags: ['User'],
     }),
     getAlbumById: builder.query<IAlbum, number>({
       query: (id) => ({
@@ -106,17 +117,28 @@ export const baseApi = createApi({
         method: "PATCH",
         body,
       }),
+      invalidatesTags: ['User'],
     }),
     deleteAlbum: builder.mutation<void, number>({
       query: (id) => ({
         url: `album/${id}`,
         method: "DELETE",
       }),
+      invalidatesTags: ['User'],
     }),
     getAllHashtags: builder.query<ITag[], void>({
       query: () => ({
         url: "hashtags",
       }),
+      providesTags: ['Hashtags'],
+    }),
+    createHashtag: builder.mutation<ITag, { name: string }>({
+      query: (body) => ({
+        url: "hashtag",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ['Hashtags'],
     }),
     addAlbumImages: builder.mutation<IAlbum, { albumId: number; name: string; userId: number; images: { image: string }[] }>({
       query: ({ albumId, images, userId, name }) => ({
@@ -124,12 +146,14 @@ export const baseApi = createApi({
         method: "POST",
         body: { images, name, user_id: userId },
       }),
+      invalidatesTags: ['User'],
     }),
     deleteAlbumImage: builder.mutation<void, number>({
       query: (imageId) => ({
         url: `album/images/${imageId}`,
         method: "DELETE",
       }),
+      invalidatesTags: ['User'],
     }),
     replaceAlbumImages: builder.mutation<IAlbum, { albumId: number; name: string; userId: number; images: { image: string }[] }>({
       query: ({ albumId, images }) => ({
@@ -137,6 +161,7 @@ export const baseApi = createApi({
         method: "PATCH",
         body: { images},
       }),
+      invalidatesTags: ['User'],
     }),
     createPost: builder.mutation<IPost, IPostCreation>({
       query: (newPost) => ({
@@ -144,6 +169,7 @@ export const baseApi = createApi({
         method: "POST",
         body: newPost,
       }),
+      invalidatesTags: ['Posts', 'Hashtags'],
     }),
     getAllPosts: builder.query<IPaginatedPostsResponse, IPostsPaginationParams | void>({
       query: (params) => ({
@@ -198,6 +224,7 @@ export const baseApi = createApi({
         method: "PATCH",
         body: post,
       }),
+      invalidatesTags: ['Posts', 'Hashtags'],
     }),
 
     replacePostImages: builder.mutation<IPost, { postId: number; images: Array<{ original_image: string }> }>({
@@ -228,6 +255,45 @@ export const baseApi = createApi({
     getUserFriendships: builder.query<IUserFriendships, number>({
       query: (userId) => `/friendship/user/${userId}`,
       providesTags: ['Friendship'],
+    }),
+
+    getPersonalChats: builder.query<IPaginatedChatsResponse, IChatsPaginationParams | void>({
+      query: (params) => ({
+        url: 'chats',
+        params: {
+          take: params?.take ?? 30,
+          ...(params?.cursorId ? { cursorId: params.cursorId } : {}),
+        },
+      }),
+      providesTags: ['Chats'],
+    }),
+
+    createPersonalChat: builder.mutation<IChat, ICreatePersonalChatPayload>({
+      query: (body) => ({
+        url: 'chats',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Chats'],
+    }),
+
+    getChatMessages: builder.query<IPaginatedMessagesResponse, IChatMessagesPaginationParams>({
+      query: ({ chatId, limit, cursorId }) => ({
+        url: `chats/${chatId}/messages`,
+        params: {
+          limit: limit ?? 30,
+          ...(cursorId ? { cursorId } : {}),
+        },
+      }),
+      providesTags: (_result, _error, arg) => [{ type: 'Messages', id: arg.chatId }],
+    }),
+
+    markChatAsRead: builder.mutation<IMarkChatAsReadResponse, number>({
+      query: (chatId) => ({
+        url: `chats/${chatId}/read`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Chats'],
     }),
 
     createFriendshipRequest: builder.mutation<unknown, ICreateFriendRequestPayload>({
@@ -273,6 +339,7 @@ export const {
   useUpdateAlbumMutation,
   useDeleteAlbumMutation,
   useGetAllHashtagsQuery,
+  useCreateHashtagMutation,
   useAddAlbumImagesMutation,
   useDeleteAlbumImageMutation,
   useReplaceAlbumImagesMutation,
@@ -291,6 +358,11 @@ export const {
   useGetAllUsersQuery, 
   useGetUserByIdQuery,
   useGetUserFriendshipsQuery, 
+  useGetPersonalChatsQuery,
+  useCreatePersonalChatMutation,
+  useGetChatMessagesQuery,
+  useLazyGetChatMessagesQuery,
+  useMarkChatAsReadMutation,
   useCreateFriendshipRequestMutation,
   useUpdateFriendshipStatusMutation,
   useDeleteFriendshipMutation

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
     Modal, 
     View, 
@@ -16,8 +16,12 @@ import { COLORS } from '../../../../../shared/constants';
 import { IPost } from '../../../types/Post.type';
 import { Input } from '../../../../../shared/ui/input';
 import { RoundButton } from '../../../../../shared/ui/RoundButton';
-import { getPostContent, getPostImages, getPostLinks } from '../../../../../shared/lib/model-helpers';
+import { getPostContent, getPostImages, getPostLinks, getPostTags } from '../../../../../shared/lib/model-helpers';
 import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from '../../../../../shared/lib/image-upload';
+import {
+    useCreateHashtagMutation,
+    useGetAllHashtagsQuery,
+} from '../../../../../shared/api/baseApi';
 
 interface EditPostModalProps {
     isVisible: boolean;
@@ -26,10 +30,28 @@ interface EditPostModalProps {
     onSubmitAction: (data: any) => void;
 }
 
+type HashtagOption = {
+    id?: number;
+    name?: string;
+    title?: string;
+};
+
+const FALLBACK_TAGS = ["відпочинок", "натхнення", "життя", "природа"];
+
+const normalizeTag = (value: string) => value.replace(/^#+/, "").trim().toLowerCase();
+
+const getHashtagName = (tag: HashtagOption) =>
+    normalizeTag(tag.name || tag.title || "");
+
+const uniqueTags = (tags: string[]) =>
+    Array.from(new Set(tags.map(normalizeTag).filter(Boolean)));
+
 export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: EditPostModalProps) {
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState("");
-    const [baseTags, setBaseTags] = useState(["відпочинок", "натхнення", "життя", "природа"]);
+    const [localTags, setLocalTags] = useState<string[]>([]);
+    const [createHashtag] = useCreateHashtagMutation();
+    const { data: hashtags = [] } = useGetAllHashtagsQuery();
 
     const { control, handleSubmit, reset, setValue, watch } = useForm({
         defaultValues: {
@@ -44,6 +66,14 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
 
     const { fields, append, remove } = useFieldArray({ control, name: "links" });
     const selectedImages = watch("images");
+    const selectedTags = watch("tags") || [];
+    const baseTags = useMemo(() => {
+        const apiTags = uniqueTags((hashtags as HashtagOption[]).map(getHashtagName));
+        return uniqueTags([
+            ...(apiTags.length > 0 ? apiTags : FALLBACK_TAGS),
+            ...localTags,
+        ]);
+    }, [hashtags, localTags]);
 
     useEffect(() => {
         if (isVisible) {
@@ -55,10 +85,11 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
                     links: getPostLinks(post).length
                         ? getPostLinks(post).map((link) => ({ value: link }))
                         : [{ value: "" }],
-                    images: getPostImages(post).map((image) => image.url)
+                    images: getPostImages(post).map((image) => image.url),
+                    tags: getPostTags(post),
                 });
             } else {
-                reset({ title: "", topic: "", content: "", links: [{ value: "" }], images: [] });
+                reset({ title: "", topic: "", content: "", links: [{ value: "" }], images: [], tags: [] });
             }
         }
     }, [post, isVisible, reset]);
@@ -86,13 +117,20 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
         }
     };
 
-    const addNewCustomTag = () => {
-        if (newTag.trim()) {
-            setBaseTags([...baseTags, newTag.trim()]);
-            handleTagPress(newTag.trim());
-            setNewTag("");
-            setIsAddingTag(false);
+    const addNewCustomTag = async () => {
+        const cleanTag = normalizeTag(newTag);
+        if (!cleanTag) return;
+
+        try {
+            await createHashtag({ name: cleanTag }).unwrap();
+        } catch {
+            // Existing tags are selected locally below.
         }
+
+        setLocalTags((current) => uniqueTags([...current, cleanTag]));
+        setValue("tags", uniqueTags([...(watch("tags") || []), cleanTag]));
+        setNewTag("");
+        setIsAddingTag(false);
     };
 
     const onSubmit = async (data: any) => {
@@ -127,8 +165,18 @@ export function EditPostModal({ isVisible, onClose, post, onSubmitAction }: Edit
                         <View style={styles.tagContainer}>
                             <View style={styles.tagList}>
                                 {baseTags.map((tag, i) => (
-                                    <TouchableOpacity key={i} style={styles.tag} onPress={() => handleTagPress(tag)}>
-                                        <Text style={styles.tagText}>#{tag}</Text>
+                                    <TouchableOpacity
+                                        key={i}
+                                        style={[
+                                            styles.tag,
+                                            selectedTags.includes(tag) && { backgroundColor: COLORS.plum, borderColor: COLORS.plum },
+                                        ]}
+                                        onPress={() => handleTagPress(tag)}
+                                    >
+                                        <Text style={[
+                                            styles.tagText,
+                                            selectedTags.includes(tag) && { color: '#fff' },
+                                        ]}>#{tag}</Text>
                                     </TouchableOpacity>
                                 ))}
                                 <TouchableOpacity style={styles.addCircle} onPress={() => setIsAddingTag(!isAddingTag)}>
