@@ -96,7 +96,7 @@ const getProfileUserId = (profile?: IFriendshipProfile) =>
 	profile?.user?.id ?? profile?.user_id;
 
 const isBlacklistedRequest = (request: IFriendRequest) =>
-	request.status === "BLACKLISTED";
+	request.status === "blacklisted";
 
 const isVisibleRequest = (request: IFriendRequest) =>
 	!isBlacklistedRequest(request);
@@ -489,13 +489,13 @@ export default function Friends() {
 	};
 
 	const acceptRequest = async (requestId: number) => {
-		await updateFriendshipStatus({ requestId, status: "ACCEPTED" }).unwrap();
+		await updateFriendshipStatus({ requestId, status: "accepted" }).unwrap();
 	};
 
 	const deleteRequest = async (request: IFriendRequest) => {
 		await updateFriendshipStatus({
 			requestId: request.id,
-			status: "BLACKLISTED",
+			status: "blacklisted",
 		}).unwrap();
 	};
 
@@ -509,7 +509,7 @@ export default function Friends() {
 		await createFriendshipRequest({
 			senderId: currentUserId,
 			receiverId: userId,
-			status: "BLACKLISTED",
+			status: "blacklisted",
 		}).unwrap();
 	};
 

@@ -1,9 +1,5 @@
-import React, { useState } from "react";
-import { 
-    View, 
-    Text,
-    Pressable 
-} from "react-native";
+import React from "react";
+import { View, Text, Pressable } from "react-native";
 import Modal from 'react-native-modal';
 import { ICONS } from "../../../../shared/icons";
 import { styles } from "./chatPopUp.styles";
@@ -14,10 +10,12 @@ interface ChatPopUpProps {
     onMediaPress?: () => void;
     onEditPress?: () => void;
     onDeletePress?: () => void;
-    position?: { top: number; right: number };
+    // position can be specified by left or right coordinate
+    position?: { top: number; right?: number; left?: number };
+    isGroup?: boolean;
 }
 
-export default function ChatPopUp({ isVisible, onClose, onMediaPress, onEditPress, onDeletePress, position }: ChatPopUpProps) {
+export default function ChatPopUp({ isVisible, onClose, onMediaPress, onEditPress, onDeletePress, position, isGroup }: ChatPopUpProps) {
     return (
         <Modal
             isVisible={isVisible}
@@ -25,38 +23,61 @@ export default function ChatPopUp({ isVisible, onClose, onMediaPress, onEditPres
             animationOut="fadeOut"
             onBackdropPress={onClose}
             onBackButtonPress={onClose}
+            backdropOpacity={0}
             style={styles.modal}
         >
-            <View style={[styles.menuContainer, position ? { top: position.top, right: position.right } : { alignSelf: 'center', top: '30%' }]}>
-                <View style={styles.header}>
-                    <ICONS.dots color="#666" />
-                </View>
+            <View
+                style={[
+                    styles.menuContainer,
+                    position
+                        ? { top: position.top, ...(position.left !== undefined ? { left: position.left } : { right: position.right }) }
+                        : { alignSelf: 'center', top: '30%' },
+                ]}
+            >
+                {isGroup && (
+                    <View style={styles.header}>
+                        <ICONS.dots color="#666" />
+                    </View>
+                )}
 
-                <Pressable 
-                    style={styles.menuItem} 
-                    onPress={() => { onMediaPress?.(); onClose(); }}
+                <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                        onMediaPress?.();
+                        onClose();
+                    }}
                 >
                     <ICONS.image />
                     <Text style={styles.menuText}>Медіа</Text>
                 </Pressable>
 
-                <Pressable 
-                    style={styles.menuItem} 
-                    onPress={() => { onEditPress?.(); onClose(); }}
-                >
-                    <ICONS.edit />
-                    <Text style={styles.menuText}>Редагувати групу</Text>
-                </Pressable>
+                {isGroup && (
+                    <>
+                        <Pressable
+                            style={styles.menuItem}
+                            onPress={() => {
+                                onEditPress?.();
+                                onClose();
+                            }}
+                        >
+                            <ICONS.edit />
+                            <Text style={styles.menuText}>Редагувати групу</Text>
+                        </Pressable>
 
-                <View style={styles.separator} />
+                        <View style={styles.separator} />
 
-                <Pressable 
-                    style={styles.menuItem} 
-                    onPress={() => { onDeletePress?.(); onClose(); }}
-                >
-                    <ICONS.trash />
-                    <Text style={styles.menuText}>Видалити чат</Text>
-                </Pressable>
+                        <Pressable
+                            style={styles.menuItem}
+                            onPress={() => {
+                                onDeletePress?.();
+                                onClose();
+                            }}
+                        >
+                            <ICONS.trash />
+                            <Text style={styles.menuText}>Видалити чат</Text>
+                        </Pressable>
+                    </>
+                )}
             </View>
         </Modal>
     );

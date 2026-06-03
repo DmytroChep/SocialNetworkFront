@@ -62,7 +62,7 @@ const getProfileUserId = (profile?: IFriendshipProfile) =>
 	profile?.user?.id ?? profile?.user_id;
 
 const isBlacklistedRequest = (request: IFriendRequest) =>
-	request.status === "BLACKLISTED";
+	request.status === "blacklisted";
 
 const getFriendProfile = (
 	friendship: IProfileFriend,
@@ -216,11 +216,11 @@ export default function UserProfile() {
 	};
 
 	const acceptRequest = async (requestId: number) => {
-		await updateFriendshipStatus({ requestId, status: "ACCEPTED" }).unwrap();
+		await updateFriendshipStatus({ requestId, status: "accepted" }).unwrap();
 	};
 
 	const rejectRequest = async (requestId: number) => {
-		await updateFriendshipStatus({ requestId, status: "BLACKLISTED" }).unwrap();
+		await updateFriendshipStatus({ requestId, status: "blacklisted" }).unwrap();
 		returnToUsersPage();
 	};
 
@@ -235,13 +235,13 @@ export default function UserProfile() {
 		if (relation.type === "incoming" || relation.type === "outgoing") {
 			await updateFriendshipStatus({
 				requestId: relation.requestId,
-				status: "BLACKLISTED",
+				status: "blacklisted",
 			}).unwrap();
 		} else if (relation.type === "none") {
 			await createFriendshipRequest({
 				senderId: currentUserId,
 				receiverId: profileUserId,
-				status: "BLACKLISTED",
+				status: "blacklisted",
 			}).unwrap();
 		}
 

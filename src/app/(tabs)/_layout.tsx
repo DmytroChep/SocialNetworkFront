@@ -4,10 +4,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ICONS } from "../../shared/icons";
 import { Header } from "../../shared/ui/Header";
 import { COLORS } from "../../shared/constants";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useUserContext } from "../../shared/context/user-context";
-import { useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
+
 import { CreatePostModal } from "../../modules/my-publications/ui/plus/createPostModal";
+import { CreateGroupChatModal } from "../../modules/chats/createGroupChat";
+import { CreateGroupDetailsModal } from "../../modules/chats/CreateGroupDetailsModal";
+import { useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
+import { toMediaUrl, DEFAULT_AVATAR_URL } from "../../shared/lib/model-helpers";
+import type { IFriendshipProfile, IProfileFriend } from "../../modules/friends/types/Friendship.type";
+import type { IUser } from "../../shared/context/types";
+import {
+    GroupCreationProvider,
+    useGroupCreation,
+} from "../../shared/context/group-creation-context";
 
 export const styles = StyleSheet.create({
     activeInner: {
@@ -21,14 +31,15 @@ export const styles = StyleSheet.create({
         paddingHorizontal: 4,
     },
     tabIndicator: {
-        width: 36,
         height: 3,
         borderRadius: 2,
         backgroundColor: COLORS.darkBlue,
         marginBottom: 6,
+        alignSelf: "stretch",
     },
     tabIconWrapper: {
         position: "relative",
+        alignItems: "center"
     },
     tabBadge: {
         position: "absolute",
@@ -83,13 +94,96 @@ export default function TabsLayout() {
     const { user } = useUserContext();
     const currentUserId = user?.id;
 
-    const { data: friendshipsResponse } = useGetUserFriendshipsQuery(currentUserId as number, {
-        skip: !currentUserId,
-    });
+    const ChatsHeader = () => {
+        const { openStep1 } = useGroupCreation();
+        return (
+            <Header
+                hiddenButtons={{ plus: true, settings: false, exit: true }}
+                onPlusPress={() => openStep1()}
+            />
+        );
+    };
 
-    const bottomUnreadCount = (friendshipsResponse?.friends || []).reduce((acc: number, _f: any, idx: number) => {
-        return acc + ((idx + 1) % 3 === 0 ? 1 : 0);
-    }, 0);
+    const GroupCreationModals = () => {
+        const { step, contacts, selectedUsers, close, back, removeUser, openStep2 } = useGroupCreation();
+        const CreateGroupChatModalAny: any = CreateGroupChatModal;
+
+        const { data: friendshipsResponse, isLoading: isFriendshipsLoading } = useGetUserFriendshipsQuery(
+            (user as any)?.id as number,
+            { skip: !(user as any)?.id },
+        );
+
+        const currentUserId = (user as any)?.id;
+        const currentProfileId = (user as any)?.profile?.id;
+
+        const getProfileUserId = (profile?: IFriendshipProfile) => profile?.user?.id ?? profile?.user_id;
+
+        const profileName = (profile: IFriendshipProfile, fallbackUser?: IUser) => {
+            const fullName = [
+                profile.user?.first_name ?? fallbackUser?.first_name,
+                profile.user?.last_name ?? fallbackUser?.last_name,
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+
+            return (
+                profile.pseudonym ||
+                fallbackUser?.profile?.pseudonym ||
+                fullName ||
+                profile.user?.username ||
+                fallbackUser?.username ||
+                "Користувач"
+            );
+        };
+
+        const getFriendProfile = (
+            friendship: IProfileFriend,
+            currentUserId?: number,
+            currentProfileId?: number,
+        ) => {
+            if (friendship.from_profile_id === currentProfileId) return friendship.to_profile;
+            if (friendship.to_profile_id === currentProfileId) return friendship.from_profile;
+            if (getProfileUserId(friendship.from_profile) === currentUserId) return friendship.to_profile;
+            return friendship.from_profile;
+        };
+
+        const derivedFriends = (friendshipsResponse?.friends ?? []).map((friendship) => {
+            const friendProfile = getFriendProfile(friendship, currentUserId, currentProfileId);
+
+            return {
+                id: friendProfile.user?.id ?? friendProfile.user_id,
+                name: profileName(friendProfile),
+                avatar: toMediaUrl(friendProfile.avatar) || DEFAULT_AVATAR_URL,
+                avatarColor: "#5C465A",
+            };
+        });
+
+        const contactsToUse = contacts ?? derivedFriends;
+
+        return (
+            <>
+                {React.createElement(CreateGroupChatModal as any, {
+                    visible: step === 1,
+                    contacts: contactsToUse,
+                    isLoading: isFriendshipsLoading,
+                    onClose: close,
+                    onNext: (users: any) => openStep2(users as any),
+                })}
+
+                <CreateGroupDetailsModal
+                    visible={step === 2}
+                    selectedUsers={selectedUsers}
+                    onClose={close}
+                    onBack={back}
+                    onRemoveUser={removeUser}
+                    onCreateGroup={() => {
+                        close();
+                    }}
+                />
+            </>
+        );
+    };
 
     return (
         <SafeAreaView
@@ -100,12 +194,13 @@ export default function TabsLayout() {
                 width: "100%",
             }}
         >
+            <GroupCreationProvider>
             <Tabs
                 screenOptions={{
                     header: () => (
-                        <Header 
-                            hiddenButtons={{ settings: true, exit: true }} 
-                            onPlusPress={() => setIsPostModalVisible(true)} 
+                        <Header
+                            hiddenButtons={{ settings: true, exit: true }}
+                            onPlusPress={() => setIsPostModalVisible(true)}
                         />
                     ),
                     tabBarStyle: styles.footer,
@@ -159,11 +254,7 @@ export default function TabsLayout() {
                     name="chats"
                     options={{
                         title: "Чати",
-                        header: () => (
-                            <Header
-                                hiddenButtons={{ plus: true, settings: false, exit: true }}
-                            />
-                        ),
+                        header: () => <ChatsHeader />,
                         tabBarIcon: () => <ICONS.chat />,
                         tabBarButton: (props) => <TabButton {...props} route="chats" />,
                     }}
@@ -204,10 +295,13 @@ export default function TabsLayout() {
                 />
             </Tabs>
 
+            <GroupCreationModals />
+
             <CreatePostModal 
                 isVisible={isPostModalVisible} 
                 onClose={() => setIsPostModalVisible(false)} 
             />
+            </GroupCreationProvider>
         </SafeAreaView>
     );
 }

@@ -8,15 +8,17 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Modal from 'react-native-modal';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { styles } from './createGroupModal-styles';
 import { COLORS } from '../../../../shared/constants';
 import { IUser } from '../../../../shared/context/types';
-import { useGetAllUsersQuery } from '../../../../shared/api/baseApi';
+import { useGetAllUsersQuery, useCreateGroupMutation } from '../../../../shared/api/baseApi';
 import { toMediaUrl } from '../../../../shared/lib/model-helpers';
-
 
 
 interface CreateGroupPayload {
@@ -43,6 +45,7 @@ interface StepGroupDetailsProps {
   onRemoveUser: (id: IUser['id']) => void;
   onBack: () => void;
   onCreate: (payload: Omit<CreateGroupPayload, 'participants'>) => void;
+  isLoading?: boolean;
 }
 
 interface CreateGroupModalProps {
@@ -157,6 +160,7 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
   onRemoveUser,
   onBack,
   onCreate,
+  isLoading = false,
 }) => {
   const [groupName, setGroupName] = useState('');
   const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
@@ -189,6 +193,7 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
         placeholderTextColor={COLORS.blue50}
         value={groupName}
         onChangeText={setGroupName}
+        editable={!isLoading}
       />
 
       <View style={styles.groupAvatarWrapper}>
@@ -202,10 +207,10 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
       </View>
 
       <View style={styles.photoActions}>
-        <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+        <TouchableOpacity style={styles.photoButton} onPress={takePhoto} disabled={isLoading}>
           <Text style={styles.photoButtonText}>＋  Додайте фото</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
+        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery} disabled={isLoading}>
           <Text style={styles.photoButtonText}>🖼  Оберіть фото</Text>
         </TouchableOpacity>
       </View>
@@ -217,6 +222,7 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
           <Text style={styles.participantName}>{user.username}</Text>
           <TouchableOpacity
             onPress={() => onRemoveUser(user.id)}
+            disabled={isLoading}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.trashIcon}>🗑</Text>
@@ -225,15 +231,19 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
       ))}
 
       <View style={[styles.footer, { marginTop: 24 }]}>
-        <TouchableOpacity style={styles.outlineButton} onPress={onBack}>
+        <TouchableOpacity style={styles.outlineButton} onPress={onBack} disabled={isLoading}>
           <Text style={styles.outlineButtonText}>Назад</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.primaryButton, !groupName.trim() && styles.primaryButtonDisabled]}
+          style={[styles.primaryButton, (!groupName.trim() || isLoading) && styles.primaryButtonDisabled]}
           onPress={() => onCreate({ groupName, groupPhoto })}
-          disabled={!groupName.trim()}
+          disabled={!groupName.trim() || isLoading}
         >
-          <Text style={styles.primaryButtonText}>Створити групу</Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color={COLORS.blue50} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Створити групу</Text>
+          )}
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -246,8 +256,12 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   onClose,
   onCreate,
 }) => {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
+  
+
+  const [createGroup, { isLoading }] = useCreateGroupMutation();
 
   const toggleUser = (user: IUser): void => {
     setSelectedUsers(prev =>
@@ -267,21 +281,48 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     onClose();
   };
 
-  const handleCreate = (details: Omit<CreateGroupPayload, 'participants'>): void => {
-    onCreate?.({ ...details, participants: selectedUsers });
-    handleClose();
+  const handleCreate = async (details: Omit<CreateGroupPayload, 'participants'>): Promise<void> => {
+    try {
+      const userIds = selectedUsers.map(user => Number(user.id));
+
+      const newChat = await createGroup({
+        name: details.groupName,
+        userIds: userIds,
+      }).unwrap();
+
+      onCreate?.({ ...details, participants: selectedUsers });
+      
+      handleClose();
+
+      router.push({
+        pathname: "/chats/chat",
+        params: { 
+          id: newChat.id.toString(), 
+          name: newChat.name, 
+          isGroup: "true" 
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Помилка створення групи через RTK Query мутацію:", error);
+      Alert.alert("Помилка", "Не вдалося створити групу. Спробуйте ще раз.");
+    }
   };
 
   return (
     <Modal
       isVisible={isVisible}
-      onBackdropPress={handleClose}
+      onBackdropPress={isLoading ? undefined : handleClose}
       style={styles.modal}
       avoidKeyboard
       useNativeDriverForBackdrop
     >
       <View style={styles.container}>
-        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+        <TouchableOpacity 
+          style={styles.closeButton} 
+          onPress={handleClose}
+          disabled={isLoading}
+        >
           <Text style={styles.closeIcon}>×</Text>
         </TouchableOpacity>
 
@@ -300,6 +341,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             onRemoveUser={removeUser}
             onBack={() => setStep(1)}
             onCreate={handleCreate}
+            isLoading={isLoading}
           />
         )}
       </View>
