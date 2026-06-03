@@ -93,14 +93,14 @@ const mergeMessages = (messages: IChatMessage[]) => {
 };
 
 const isSameDay = (dateStr1: string, dateStr2: string): boolean => {
-  const d1 = new Date(dateStr1);
-  const d2 = new Date(dateStr2);
-  
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
+    const d1 = new Date(dateStr1);
+    const d2 = new Date(dateStr2);
+    
+    return (
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate()
+    );
 };
 
 export default function Chat({ peer, onBack }: ChatProps) {
@@ -855,6 +855,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 4,
         borderRadius: 10,
-        overflow: "hidden", // Чтобы borderRadius работал на iOS для Text
+        overflow: "hidden",
     },
 });

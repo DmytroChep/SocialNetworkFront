@@ -321,6 +321,24 @@ export const baseApi = createApi({
       }),
       invalidatesTags: ['Friendship'],
     }),
+
+    createGroup: builder.mutation<IChat, { name: string; userIds: number[] }>({
+      query: (body) => ({
+        url: "group/create",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ['Chats'],
+    }),
+
+    removeMember: builder.mutation<{ message: string }, { chatId: number; userId: number }>({
+      query: (body) => ({
+        url: "group/remove-member",
+        method: "DELETE",
+        body,
+      }),
+      invalidatesTags: ['Chats'],
+    }),
   }),
 });
 
@@ -365,5 +383,7 @@ export const {
   useMarkChatAsReadMutation,
   useCreateFriendshipRequestMutation,
   useUpdateFriendshipStatusMutation,
-  useDeleteFriendshipMutation
+  useDeleteFriendshipMutation,
+  useCreateGroupMutation,
+  useRemoveMemberMutation
 } = baseApi;

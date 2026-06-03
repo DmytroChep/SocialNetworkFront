@@ -8,17 +8,18 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import Modal from 'react-native-modal';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { styles } from './createGroupModal-styles';
 import { COLORS } from '../../../../shared/constants';
 import { IUser } from '../../../../shared/context/types';
-import { useGetAllUsersQuery } from '../../../../shared/api/baseApi';
+import { useGetAllUsersQuery, useCreateGroupMutation } from '../../../../shared/api/baseApi';
 import { toMediaUrl } from '../../../../shared/lib/model-helpers';
 
-
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface CreateGroupPayload {
   groupName: string;
@@ -44,6 +45,7 @@ interface StepGroupDetailsProps {
   onRemoveUser: (id: IUser['id']) => void;
   onBack: () => void;
   onCreate: (payload: Omit<CreateGroupPayload, 'participants'>) => void;
+  isLoading?: boolean;
 }
 
 interface CreateGroupModalProps {
@@ -52,12 +54,10 @@ interface CreateGroupModalProps {
   onCreate?: (payload: CreateGroupPayload) => void;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 export const getInitials = (name = ''): string =>
   name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
-// ─── Avatar ──────────────────────────────────────────────────────────────────
 
 export const Avatar: React.FC<AvatarProps> = ({ uri, initials, size = 44 }) => {
   const circleStyle = { width: size, height: size, borderRadius: size / 2 };
@@ -72,7 +72,6 @@ export const Avatar: React.FC<AvatarProps> = ({ uri, initials, size = 44 }) => {
   );
 };
 
-// ─── Step 1: Select participants ──────────────────────────────────────────────
 
 export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
   selectedUsers,
@@ -104,7 +103,6 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
 
   return (
     <>
-      {/* Search */}
       <View style={styles.searchWrapper}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
@@ -116,10 +114,8 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
         />
       </View>
 
-      {/* Selected count */}
       <Text style={styles.selectedCount}>Вибрано: {selectedUsers.length}</Text>
 
-      {/* User list */}
       <SectionList
         sections={sections}
         keyExtractor={item => String(item.id)}
@@ -142,7 +138,6 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
         }}
       />
 
-      {/* Footer */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.outlineButton} onPress={onCancel}>
           <Text style={styles.outlineButtonText}>Скасувати</Text>
@@ -159,16 +154,15 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
   );
 };
 
-// ─── Step 2: Group details ────────────────────────────────────────────────────
 
 export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
   selectedUsers,
   onRemoveUser,
   onBack,
   onCreate,
+  isLoading = false,
 }) => {
   const [groupName, setGroupName] = useState('');
-  // ✅ Fix #2: explicit string | null — resolves SetStateAction<null> error
   const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
 
   const pickFromGallery = async (): Promise<void> => {
@@ -192,7 +186,6 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Group name input */}
       <Text style={styles.fieldLabel}>Назва</Text>
       <TextInput
         style={styles.nameInput}
@@ -200,9 +193,9 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
         placeholderTextColor={COLORS.blue50}
         value={groupName}
         onChangeText={setGroupName}
+        editable={!isLoading}
       />
 
-      {/* Group avatar */}
       <View style={styles.groupAvatarWrapper}>
         {groupPhoto ? (
           <Image source={{ uri: groupPhoto }} style={styles.groupAvatar} />
@@ -213,17 +206,15 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
         )}
       </View>
 
-      {/* Photo actions */}
       <View style={styles.photoActions}>
-        <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+        <TouchableOpacity style={styles.photoButton} onPress={takePhoto} disabled={isLoading}>
           <Text style={styles.photoButtonText}>＋  Додайте фото</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery}>
+        <TouchableOpacity style={styles.photoButton} onPress={pickFromGallery} disabled={isLoading}>
           <Text style={styles.photoButtonText}>🖼  Оберіть фото</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Participants */}
       <Text style={styles.participantsLabel}>Учасники</Text>
       {selectedUsers.map(user => (
         <View key={user.id} style={styles.participantRow}>
@@ -231,6 +222,7 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
           <Text style={styles.participantName}>{user.username}</Text>
           <TouchableOpacity
             onPress={() => onRemoveUser(user.id)}
+            disabled={isLoading}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.trashIcon}>🗑</Text>
@@ -238,33 +230,38 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
         </View>
       ))}
 
-      {/* Footer */}
       <View style={[styles.footer, { marginTop: 24 }]}>
-        <TouchableOpacity style={styles.outlineButton} onPress={onBack}>
+        <TouchableOpacity style={styles.outlineButton} onPress={onBack} disabled={isLoading}>
           <Text style={styles.outlineButtonText}>Назад</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.primaryButton, !groupName.trim() && styles.primaryButtonDisabled]}
+          style={[styles.primaryButton, (!groupName.trim() || isLoading) && styles.primaryButtonDisabled]}
           onPress={() => onCreate({ groupName, groupPhoto })}
-          disabled={!groupName.trim()}
+          disabled={!groupName.trim() || isLoading}
         >
-          <Text style={styles.primaryButtonText}>Створити групу</Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color={COLORS.blue50} />
+          ) : (
+            <Text style={styles.primaryButtonText}>Створити групу</Text>
+          )}
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 };
 
-// ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   isVisible,
   onClose,
   onCreate,
 }) => {
+  const router = useRouter();
   const [step, setStep] = useState(1);
-  // ✅ Fix #1: explicit User[] — resolves implicit 'any' on selectedUsers prop
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
+  
+
+  const [createGroup, { isLoading }] = useCreateGroupMutation();
 
   const toggleUser = (user: IUser): void => {
     setSelectedUsers(prev =>
@@ -284,26 +281,51 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     onClose();
   };
 
-  const handleCreate = (details: Omit<CreateGroupPayload, 'participants'>): void => {
-    onCreate?.({ ...details, participants: selectedUsers });
-    handleClose();
+  const handleCreate = async (details: Omit<CreateGroupPayload, 'participants'>): Promise<void> => {
+    try {
+      const userIds = selectedUsers.map(user => Number(user.id));
+
+      const newChat = await createGroup({
+        name: details.groupName,
+        userIds: userIds,
+      }).unwrap();
+
+      onCreate?.({ ...details, participants: selectedUsers });
+      
+      handleClose();
+
+      router.push({
+        pathname: "/chats/chat",
+        params: { 
+          id: newChat.id.toString(), 
+          name: newChat.name, 
+          isGroup: "true" 
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Помилка створення групи через RTK Query мутацію:", error);
+      Alert.alert("Помилка", "Не вдалося створити групу. Спробуйте ще раз.");
+    }
   };
 
   return (
     <Modal
       isVisible={isVisible}
-      onBackdropPress={handleClose}
+      onBackdropPress={isLoading ? undefined : handleClose}
       style={styles.modal}
       avoidKeyboard
       useNativeDriverForBackdrop
     >
       <View style={styles.container}>
-        {/* Close button */}
-        <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+        <TouchableOpacity 
+          style={styles.closeButton} 
+          onPress={handleClose}
+          disabled={isLoading}
+        >
           <Text style={styles.closeIcon}>×</Text>
         </TouchableOpacity>
 
-        {/* Title */}
         <Text style={styles.title}>Нова група</Text>
 
         {step === 1 ? (
@@ -319,6 +341,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             onRemoveUser={removeUser}
             onBack={() => setStep(1)}
             onCreate={handleCreate}
+            isLoading={isLoading}
           />
         )}
       </View>
