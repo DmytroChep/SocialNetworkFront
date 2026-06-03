@@ -174,7 +174,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
                         return (
                             <View>
                                 {showDateSeparator && (
-                                    <View style={styles.dateSeparatorContainer}>
+                                    <View style={styles.dateSeparatorContainerSep}>
                                         <View style={styles.dateBadge}>
                                             <Text style={styles.dateDateText}>{item.date}</Text>
                                         </View>
@@ -472,18 +472,13 @@ const styles = StyleSheet.create({
     sendActionButtonDisabled: {
         backgroundColor: COLORS.plum,
     },
-    dateSeparatorContainer: {
+    dateSeparatorContainerSep: {
         alignItems: "center",
         marginVertical: 16,
-    },
-    dateBadge: {
-        backgroundColor: "#F2F2F7",
-        paddingHorizontal: 14,
-        paddingVertical: 5,
-        borderRadius: 10,
     },
     dateDateText: {
         fontSize: 12,
         color: "#8E8E93",         
         fontFamily: FONTS["GTWalsheimPro-Medium"],
+    },
 });
