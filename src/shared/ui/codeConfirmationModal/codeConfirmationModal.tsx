@@ -34,16 +34,17 @@ export function CodeConfirmationModal(props: CodeConfirmationModalProps) {
         const fullCode = codeValues.join("");
         if (fullCode.length === 6) {
             try {
-                const response = await checkIsCodeExists({ code: Number(fullCode) }).unwrap();
-                
+                // CodeConfirmationModal.tsx
+                const response = await checkIsCodeExists({ 
+                    code: fullCode, 
+                    email: email  // props.email
+                }).unwrap();
                 if (response) {
-                    if (onConfirm) {
-                        // Якщо ми в налаштуваннях профілю, викликаємо функцію оновлення пароля
-                        await onConfirm();
-                    } else {
-                        // Якщо це реєстрація, просто переходимо на головну
-                        router.replace("(tabs)/main");
-                    }
+                        if (onConfirm) {
+                            await onConfirm(); // тепер onConfirm є і для реєстрації, і для паролю
+                        } else {
+                            router.replace("(tabs)/main");
+                        }
                 } else {
                     setLocalError("Невірний код");
                 }

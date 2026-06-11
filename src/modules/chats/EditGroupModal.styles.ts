@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from "react-native";
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   overlay: {
@@ -9,26 +9,84 @@ export const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: "#fff",
-    borderRadius: 28,
+    borderRadius: 24,
     width: "90%",
-    maxHeight: "80%",
-    padding: 24,
+    maxHeight: "88%",
+    padding: 22,
     position: "relative",
   },
   closeButton: {
     position: "absolute",
-    top: 20,
-    right: 20,
+    top: 18,
+    right: 18,
     zIndex: 10,
     padding: 4,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "bold",
+    fontSize: 26,
+    fontWeight: "700",
     textAlign: "center",
     color: "#111",
     marginBottom: 20,
-    marginTop: 10,
+    marginTop: 8,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111",
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 48,
+    fontSize: 16,
+    color: "#000",
+    marginBottom: 18,
+  },
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  groupAvatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "#5C465A",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  groupAvatarImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginBottom: 12,
+  },
+  groupAvatarText: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+  photoButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 16,
+  },
+  photoButton: {
+    paddingVertical: 4,
+  },
+  photoButtonText: {
+    fontSize: 15,
+    color: "#4A334A",
+    fontWeight: "600",
+  },
+  removePhotoText: {
+    fontSize: 15,
+    color: "#FF3B30",
+    fontWeight: "600",
   },
   searchContainer: {
     flexDirection: "row",
@@ -37,57 +95,27 @@ export const styles = StyleSheet.create({
     borderColor: "#E0E0E0",
     borderRadius: 14,
     paddingHorizontal: 12,
-    height: 48,
-    marginBottom: 16,
+    height: 44,
+    marginBottom: 10,
   },
   searchIcon: {
     marginRight: 8,
   },
-  input: {
+  searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#000",
+    paddingVertical: 0,
   },
-  selectedCount: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 16,
-    fontWeight: "500",
-  },
-  list: {
-    maxHeight: 300,
-  },
-  loaderContainer: {
-    height: 200,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyContainer: {
-    height: 150,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyText: {
-    color: "#888",
-    fontSize: 16,
-  },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#000",
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  sectionSeparator: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5EA',
+  usersList: {
+    maxHeight: 220,
+    marginBottom: 12,
   },
   userItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderBottomWidth: 1,
     borderBottomColor: "#F5F5F5",
   },
@@ -95,6 +123,7 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    marginRight: 12,
   },
   avatar: {
     width: 40,
@@ -102,7 +131,7 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: 12,
   },
   avatarText: {
     color: "#fff",
@@ -110,15 +139,26 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
   },
   userName: {
+    flex: 1,
     fontSize: 16,
     color: "#111",
     fontWeight: "500",
   },
+  emptyText: {
+    textAlign: "center",
+    color: "#8E8E93",
+    paddingVertical: 18,
+  },
+  errorText: {
+    color: "#FF3B30",
+    fontSize: 13,
+    marginBottom: 8,
+    textAlign: "center",
+  },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginTop: 24,
-    alignItems: "center",
+    gap: 12,
   },
   cancelButton: {
     borderWidth: 1,
@@ -126,24 +166,25 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 22,
-    marginRight: 12,
   },
   cancelButtonText: {
     color: "#4A334A",
     fontSize: 15,
     fontWeight: "600",
   },
-  nextButton: {
+  saveButton: {
+    minWidth: 112,
     backgroundColor: "#4A334A",
     borderRadius: 20,
     paddingVertical: 10,
-    paddingHorizontal: 26,
+    paddingHorizontal: 22,
+    alignItems: "center",
   },
   disabledButton: {
     backgroundColor: "#A397A3",
     opacity: 0.7,
   },
-  nextButtonText: {
+  saveButtonText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "600",

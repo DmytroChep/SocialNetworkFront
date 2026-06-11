@@ -151,6 +151,12 @@ export const styles = StyleSheet.create({
     backgroundColor: "#A397A3",
     opacity: 0.7,
   },
+  errorText: {
+    color: "#FF3B30",
+    fontSize: 13,
+    marginBottom: 8,
+    textAlign: "center",
+  },
   createButtonText: {
     color: "#fff",
     fontSize: 15,

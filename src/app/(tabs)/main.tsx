@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router"; // Додано
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	ActivityIndicator,
@@ -21,6 +21,7 @@ import {
 	getUserHandle,
 } from "../../shared/lib/model-helpers";
 import { FirstEnterModal } from "../../shared/ui/first-enter-modal/firstEnterModal";
+import { COLORS } from "../../shared/constants/colors"
 
 const POSTS_LIMIT = 5;
 
@@ -38,7 +39,7 @@ function needsFirstEnterProfile(
 
 export default function Main() {
 	const { user } = useUserContext();
-	const router = useRouter(); // Ініціалізуємо роутер
+	const router = useRouter();
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [posts, setPosts] = useState<IPost[]>([]);
@@ -55,7 +56,7 @@ export default function Main() {
 		isLoading: false,
 	});
 
-	// Функція для переходу на профіль автора поста
+
 	const handleNavigateToProfile = useCallback(
 		(
 			author: IPost["author"] & {
@@ -195,7 +196,7 @@ export default function Main() {
 
 	return (
 		<SafeAreaView
-			style={{ flex: 1, backgroundColor: "#FFF", gap: 6 }}
+			style={{ flex: 1, backgroundColor: COLORS.plum50, gap: 6, paddingVertical: 8 }}
 			edges={["left", "right"]}
 		>
 			<FirstEnterModal
@@ -203,6 +204,7 @@ export default function Main() {
 				onClose={() => setModalVisible(false)}
 			/>
 			<FlatList
+				style = {{ paddingVertical: 8 }}
 				data={posts}
 				keyExtractor={(item) => item.id.toString()}
 				ItemSeparatorComponent={() => <View style={{ height: 9 }} />}
@@ -213,7 +215,7 @@ export default function Main() {
 						onDelete={handleDeletePost}
 						onUpdate={handleUpdatePost}
 						onToggleLikeLocal={handleToggleLikeLocal}
-						onProfilePress={() => handleNavigateToProfile(item.author)} // Новий пропс
+						onProfilePress={() => handleNavigateToProfile(item.author)}
 					/>
 				)}
 				onEndReached={() => loadPosts()}

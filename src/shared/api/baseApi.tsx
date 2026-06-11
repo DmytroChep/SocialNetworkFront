@@ -20,10 +20,12 @@ import type {
   IChat,
   IChatMessagesPaginationParams,
   IChatsPaginationParams,
+  ICreateGroupChatPayload,
   ICreatePersonalChatPayload,
   IMarkChatAsReadResponse,
   IPaginatedChatsResponse,
   IPaginatedMessagesResponse,
+  IUpdateGroupChatPayload,
 } from "../../modules/chats/types/chat";
 
 
@@ -33,6 +35,9 @@ export const baseApi = createApi({
         baseUrl: `http://${ip}:8000/`,
         prepareHeaders: async (headers) => {
             const token = await AsyncStorage.getItem("token");
+        try {
+          console.log('DEBUG baseApi.prepareHeaders tokenPresent:', Boolean(token), 'tokenMask:', token ? `***${String(token).slice(-8)}` : null);
+        } catch (e) {}
             if (token) {
                 headers.set("Authorization", `Bearer ${token}`);
             }
@@ -75,10 +80,11 @@ export const baseApi = createApi({
         url: `user/sendCode?gmail=${gmail}`,
       }),
     }),
-    checkIsCodeExists: builder.query<string, {code: number}>({
-      query: ({code}) => ({
-        url: `user/isCodeExists?code=${code}`,
-      }),
+    // baseApi.ts
+    checkIsCodeExists: builder.query<boolean, {code: string, email: string}>({
+        query: ({code, email}) => ({
+            url: `user/isCodeExists?code=${code}&email=${email}`,
+        }),
     }),
     updateAvatar: builder.mutation<{user_id: number, image: string, id: number}, {userId: number, image: string}>({
       query: ({ userId, image }) => ({
@@ -277,6 +283,35 @@ export const baseApi = createApi({
       invalidatesTags: ['Chats'],
     }),
 
+    createGroupChat: builder.mutation<IChat, ICreateGroupChatPayload>({
+      query: (body) => ({
+        url: 'group-chat/create',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Chats'],
+    }),
+
+    updateGroupChat: builder.mutation<IChat, IUpdateGroupChatPayload>({
+      query: ({ chatId, ...body }) => ({
+        url: `group-chat/${chatId}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: (_result, _error, arg) => [
+        'Chats',
+        { type: 'Messages', id: arg.chatId },
+      ],
+    }),
+
+    deleteGroupChat: builder.mutation<{ chatId: number; participantIds: Array<number | string> }, number>({
+      query: (chatId) => ({
+        url: `group-chat/${chatId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Chats'],
+    }),
+
     getChatMessages: builder.query<IPaginatedMessagesResponse, IChatMessagesPaginationParams>({
       query: ({ chatId, limit, cursorId }) => ({
         url: `chats/${chatId}/messages`,
@@ -293,7 +328,10 @@ export const baseApi = createApi({
         url: `chats/${chatId}/read`,
         method: 'POST',
       }),
-      invalidatesTags: ['Chats'],
+      invalidatesTags: (_result, _error, arg) => [
+        'Chats',
+        { type: 'Messages' as const, id: arg },
+      ],
     }),
 
     createFriendshipRequest: builder.mutation<unknown, ICreateFriendRequestPayload>({
@@ -360,6 +398,9 @@ export const {
   useGetUserFriendshipsQuery, 
   useGetPersonalChatsQuery,
   useCreatePersonalChatMutation,
+  useCreateGroupChatMutation,
+  useUpdateGroupChatMutation,
+  useDeleteGroupChatMutation,
   useGetChatMessagesQuery,
   useLazyGetChatMessagesQuery,
   useMarkChatAsReadMutation,

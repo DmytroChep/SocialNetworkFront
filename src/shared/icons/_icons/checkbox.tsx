@@ -1,25 +1,26 @@
 import Svg, { Path, type SvgProps } from "react-native-svg"
+import { COLORS } from "../../constants"
 
 export function CheckboxIcon(props: SvgProps) {
   return (
     <Svg
-      width={20}
-      height={20}
-      viewBox="0 0 20 20"
+      width={17}
+      height={17}
+      viewBox="0 0 17 17"
       fill="none"
       {...props}
     >
       <Path
-        d="M13.75 6.875l-5.25 6.25-2.25-2.5"
-        stroke="#543C52"
+        d="M12.25 5.375L7 11.625l-2.25-2.5"
+        stroke={COLORS.plum}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeOpacity={1}
       />
       <Path
-        d="M15.625 2.5H4.375C3.339 2.5 2.5 3.34 2.5 4.375v11.25c0 1.035.84 1.875 1.875 1.875h11.25c1.035 0 1.875-.84 1.875-1.875V4.375c0-1.036-.84-1.875-1.875-1.875z"
-        stroke="#543C52"
+        d="M14.125 1H2.875C1.839 1 1 1.84 1 2.875v11.25C1 15.161 1.84 16 2.875 16h11.25C15.161 16 16 15.16 16 14.125V2.875C16 1.839 15.16 1 14.125 1z"
+        stroke={COLORS.plum}
         strokeWidth={2}
         strokeLinejoin="round"
         strokeOpacity={1}

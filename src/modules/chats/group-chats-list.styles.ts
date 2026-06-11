@@ -121,5 +121,25 @@ export const styles = StyleSheet.create({
         fontSize: 14,
         color: "#8E8E93",
         fontFamily: "GTWalsheimPro-Regular",
+        flex: 1,
+        marginRight: 8,
+    },
+    messageRow: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    unreadBadge: {
+        backgroundColor: "#4A314D",
+        minWidth: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 5,
+    },
+    unreadBadgeText: {
+        color: "#FFF",
+        fontSize: 11,
+        fontFamily: "GTWalsheimPro-Medium",
     },
 });

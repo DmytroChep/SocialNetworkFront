@@ -10,7 +10,7 @@ import { useUserContext } from "../../shared/context/user-context";
 import { CreatePostModal } from "../../modules/my-publications/ui/plus/createPostModal";
 import { CreateGroupChatModal } from "../../modules/chats/createGroupChat";
 import { CreateGroupDetailsModal } from "../../modules/chats/CreateGroupDetailsModal";
-import { useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
+import { useCreateGroupChatMutation, useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
 import { toMediaUrl, DEFAULT_AVATAR_URL } from "../../shared/lib/model-helpers";
 import type { IFriendshipProfile, IProfileFriend } from "../../modules/friends/types/Friendship.type";
 import type { IUser } from "../../shared/context/types";
@@ -35,7 +35,7 @@ export const styles = StyleSheet.create({
         borderRadius: 2,
         backgroundColor: COLORS.darkBlue,
         marginBottom: 6,
-        alignSelf: "stretch",
+        width: 70
     },
     tabIconWrapper: {
         position: "relative",
@@ -106,7 +106,18 @@ export default function TabsLayout() {
 
     const GroupCreationModals = () => {
         const { step, contacts, selectedUsers, close, back, removeUser, openStep2 } = useGroupCreation();
-        const CreateGroupChatModalAny: any = CreateGroupChatModal;
+        const [createGroupChat, { isLoading: isCreatingGroup }] = useCreateGroupChatMutation();
+        const [createGroupError, setCreateGroupError] = useState<string | null>(null);
+
+        const closeGroupCreation = () => {
+            setCreateGroupError(null);
+            close();
+        };
+
+        const backToParticipants = () => {
+            setCreateGroupError(null);
+            back();
+        };
 
         const { data: friendshipsResponse, isLoading: isFriendshipsLoading } = useGetUserFriendshipsQuery(
             (user as any)?.id as number,
@@ -167,18 +178,38 @@ export default function TabsLayout() {
                     visible: step === 1,
                     contacts: contactsToUse,
                     isLoading: isFriendshipsLoading,
-                    onClose: close,
-                    onNext: (users: any) => openStep2(users as any),
+                    onClose: closeGroupCreation,
+                    onNext: (users: any) => {
+                        setCreateGroupError(null);
+                        openStep2(users as any);
+                    },
                 })}
 
                 <CreateGroupDetailsModal
                     visible={step === 2}
                     selectedUsers={selectedUsers}
-                    onClose={close}
-                    onBack={back}
+                    onClose={closeGroupCreation}
+                    onBack={backToParticipants}
                     onRemoveUser={removeUser}
-                    onCreateGroup={() => {
-                        close();
+                    isCreating={isCreatingGroup}
+                    errorText={createGroupError}
+                    onCreateGroup={async (groupName, participantsIds, avatar) => {
+                        setCreateGroupError(null);
+                        try {
+                            await createGroupChat({
+                                name: groupName,
+                                userIds: participantsIds,
+                                avatar,
+                            }).unwrap();
+                            closeGroupCreation();
+                        } catch (error: any) {
+                            setCreateGroupError(
+                                (typeof error?.data === "string"
+                                    ? error.data
+                                    : error?.data?.message) ||
+                                    "Не вдалося створити групу",
+                            );
+                        }
                     }}
                 />
             </>

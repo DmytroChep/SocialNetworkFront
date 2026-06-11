@@ -11,6 +11,7 @@ export interface IChatMessage {
 	id: number;
 	text: string;
 	created_at: string;
+	updated_at?: string;
 	chat_id: number;
 	sender_id: number;
 	sender: IUser;
@@ -20,7 +21,7 @@ export interface IChatMessage {
 export interface IChatMessageImage {
 	id: number;
 	image: string;
-	message_id: number;
+	message_id?: number;
 }
 
 export interface IChat {
@@ -28,6 +29,7 @@ export interface IChat {
 	name?: string | null;
 	is_group: boolean;
 	avatar?: string | null;
+	admin_id?: number | string | null;
 	users: IChatMember[];
 	messages?: IChatMessage[];
 	lastMessage?: IChatMessage | null;
@@ -59,6 +61,19 @@ export interface IPaginatedMessagesResponse {
 
 export interface ICreatePersonalChatPayload {
 	participantId: number;
+}
+
+export interface ICreateGroupChatPayload {
+	name: string;
+	userIds: number[];
+	avatar?: string | null;
+}
+
+export interface IUpdateGroupChatPayload {
+	chatId: number;
+	name: string;
+	userIds: number[];
+	avatar?: string | null;
 }
 
 export interface IMarkChatAsReadResponse {

@@ -41,33 +41,43 @@ export function RegistrationForm() {
   const { setToken } = useUserContext();
   const [email, setEmail] = useState<string>("")
 
-  const onSubmit = async (data: RegistrationForm) => {
+  const [formData, setFormData] = useState<Omit<RegistrationForm, 'passwordConfirm'> & { username: string } | null>(null);
+
+const onSubmit = async (data: RegistrationForm) => {
     setServerError(null);
     try {
-      const { passwordConfirm, ...body } = data;
-      const username = body.email.split("@")[0].replace(/[^\w.-]/g, "");
-      
-      setEmail(data.email); 
-
-      const result = await registerUser({ ...body, username }).unwrap();
-      
-      if (result && typeof result === 'string' && result.split(".").length > 0) {
-        setToken(result);
-
-        console.log("Отправка кода на:", data.email);
-        await sendCode({ gmail: data.email }).unwrap(); 
+        const { passwordConfirm, ...body } = data;
+        const username = body.email.split("@")[0].replace(/[^\w.-]/g, "");
+        
+        setEmail(data.email);
+        setFormData({ ...body, username });
+        
+        console.log("Відправляємо код на:", data.email);
+        const codeResult = await sendCode({ gmail: data.email });
+        console.log("Результат sendCode:", codeResult);
+        
+        // не використовуй .unwrap() — він кидає помилку на будь-який non-2xx
+        // і навіть інколи на рядкові відповіді
+        if (codeResult.error) {
+            console.log("Помилка sendCode:", codeResult.error);
+            setServerError("Помилка при відправці коду");
+            return;
+        }
         
         setStep(2);
-      } else {
-        setServerError("Невірна відповідь сервера");
-      }
     } catch (error: any) {
-      const errorMessage = error?.data?.message || error?.message || "Помилка при реєстрації";
-      setServerError(errorMessage);
+        console.log("catch error:", error);
+        setServerError(error?.data?.message || error?.message || "Помилка при відправці коду");
     }
+};
+  const handleConfirmRegistration = async () => {
+      if (!formData) return;
+      const result = await registerUser(formData).unwrap();
+      if (result && typeof result === 'string') {
+          setToken(result);
+          router.replace("(tabs)/main");
+      }
   };
-
-
 
   return (
     step == 1 ? 
@@ -141,6 +151,11 @@ export function RegistrationForm() {
       
       {isLoading && <ActivityIndicator style={{ marginTop: 10 }} color="#000" />}
     </View>
-    : <CodeConfirmationModal title="Підтвердження пошти" email={email} setStep={setStep}/>
+    : <CodeConfirmationModal 
+    title="Підтвердження пошти" 
+    email={email} 
+    setStep={setStep}
+    onConfirm={handleConfirmRegistration}
+  />
   );
 }

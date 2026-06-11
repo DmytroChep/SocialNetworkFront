@@ -38,10 +38,10 @@ export interface IUserFriendships {
 }
 
 export type FriendRequestStatus =
-	| "accepted"
-	| "rejected"
-	| "pending"
-	| "blacklisted";
+	| "ACCEPTED"
+	| "REJECTED"
+	| "PENDING"
+	| "BLACKLISTED";
 
 export interface ICreateFriendRequestPayload {
 	senderId: number;

@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from "react-native";
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
   overlay: {
@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 28,
     width: "90%",
-    maxHeight: "80%",
+    maxHeight: "85%",
     padding: 24,
     position: "relative",
   },
@@ -23,73 +23,104 @@ export const styles = StyleSheet.create({
     padding: 4,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#111",
+    color: "#0F0C1B",
     marginBottom: 20,
     marginTop: 10,
   },
-  searchContainer: {
+  inputLabel: {
+    fontSize: 14,
+    color: "#111",
+    fontWeight: "500",
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E0E0E0",
     borderRadius: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     height: 48,
-    marginBottom: 16,
-  },
-  searchIcon: {
-    marginRight: 8,
+    marginBottom: 20,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: "#000",
   },
-  selectedCount: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 16,
-    fontWeight: "500",
+  avatarSection: {
+    alignItems: "center",
+    marginBottom: 20,
   },
-  list: {
-    maxHeight: 300,
-  },
-  loaderContainer: {
-    height: 200,
+  groupAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
+    marginBottom: 14,
   },
-  emptyContainer: {
-    height: 150,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyText: {
-    color: "#888",
-    fontSize: 16,
-  },
-  sectionHeader: {
-    fontSize: 14,
+  groupAvatarText: {
+    color: "#fff",
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#000",
-    marginTop: 12,
-    marginBottom: 8,
   },
-  sectionSeparator: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5EA',
+  photoActionsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 16,
+  },
+  photoActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionIcon: {
+    marginRight: 6,
+  },
+  photoActionText: {
+    fontSize: 14,
+    color: "#4A334A",
+    fontWeight: "600",
+  },
+  participantsBox: {
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: 240,
+  },
+  participantsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  participantsTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111",
+  },
+  addParticipantBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  addParticipantText: {
+    fontSize: 14,
+    color: "#4A334A",
+    fontWeight: "600",
+  },
+  participantsList: {
+    flexGrow: 0,
   },
   userItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
+    paddingVertical: 8,
   },
   userInfo: {
     flexDirection: "row",
@@ -97,20 +128,20 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    marginRight: 12,
   },
   avatarText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
   },
   userName: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#111",
     fontWeight: "500",
   },
@@ -120,30 +151,30 @@ export const styles = StyleSheet.create({
     marginTop: 24,
     alignItems: "center",
   },
-  cancelButton: {
+  backButton: {
     borderWidth: 1,
     borderColor: "#4A334A",
-    borderRadius: 20,
+    borderRadius: 24,
     paddingVertical: 10,
-    paddingHorizontal: 22,
+    paddingHorizontal: 24,
     marginRight: 12,
   },
-  cancelButtonText: {
+  backButtonText: {
     color: "#4A334A",
     fontSize: 15,
     fontWeight: "600",
   },
-  nextButton: {
+  saveButton: {
     backgroundColor: "#4A334A",
-    borderRadius: 20,
+    borderRadius: 24,
     paddingVertical: 10,
-    paddingHorizontal: 26,
+    paddingHorizontal: 24,
   },
   disabledButton: {
     backgroundColor: "#A397A3",
     opacity: 0.7,
   },
-  nextButtonText: {
+  saveButtonText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "600",

@@ -62,8 +62,16 @@ export default function MessageList({ friendships, users, currentUserId, current
                         </View>
                         <View style={styles.msgRow}>
                             <Text style={styles.lastMsg} numberOfLines={1}>{item.lastMessage}</Text>
-                            {item.unreadCount > 0 && (
-                                <View style={styles.badge}><Text style={styles.badgeText}>{item.unreadCount}</Text></View>
+                            
+                            {item.unreadCount > 0 ? (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{item.unreadCount}</Text>
+                                </View>
+                            ) : (
+                                <View style={styles.statusIcons}>
+                                    <ICONS.tick size={16} color="#4A314D" />
+                                    <ICONS.tick size={16} color="#4A314D" style={{ marginLeft: -8 }} />
+                                </View>
                             )}
                         </View>
                     </View>

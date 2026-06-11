@@ -83,7 +83,7 @@ export default function ProfileScreen() {
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const initialized = useRef(false);
-  const signatureRef = useRef<SignatureViewRef>(null);
+  const signatureRef = useRef<SignatureViewRef | null>(null);
 
   const { data: user, isLoading: isUserLoading, refetch } = useMeQuery();
 
@@ -441,7 +441,7 @@ interface SignatureCardProps {
   control: any;
   watch: any;
   user: any;
-  signatureRef: React.RefObject<SignatureViewRef>;
+  signatureRef: React.RefObject<SignatureViewRef | null>;
   scrollEnabled: boolean;
   setScrollEnabled: (enabled: boolean) => void;
   onSignature: (sig: string) => void;

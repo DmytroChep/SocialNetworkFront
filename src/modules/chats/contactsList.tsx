@@ -62,9 +62,15 @@ const profileToContact = (profile: IFriendshipProfile): ContactType => {
 
 export function ContactsList({ contacts, onContactPress }: ContactsListProps) {
 	const { user } = useUserContext();
-	const { data: friendships } = useGetUserFriendshipsQuery(user?.id as number, {
+	const { data: friendships, error: friendshipsError } = useGetUserFriendshipsQuery(user?.id as number, {
 		skip: !user?.id || Boolean(contacts),
 	});
+
+	if (typeof friendshipsError !== 'undefined') {
+		try {
+			console.log('DEBUG ContactsList friendshipsError:', friendshipsError);
+		} catch (e) {}
+	}
 	const [searchQuery, setSearchQuery] = useState<string>("");
 
 	const friends = useMemo<ContactType[]>(() => {

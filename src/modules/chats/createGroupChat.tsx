@@ -151,7 +151,7 @@ export const CreateGroupChatModal: React.FC<CreateGroupChatModalProps> = ({
               style={styles.modalContainer}
             >
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                <ICONS.exit width={20} height={20} color="#4A334A" />
+                <ICONS.cross width={20} height={20} color="#4A334A" />
               </TouchableOpacity>
 
               <Text style={styles.title}>Нова група</Text>
@@ -183,7 +183,10 @@ export const CreateGroupChatModal: React.FC<CreateGroupChatModalProps> = ({
                   keyExtractor={(item) => item.id}
                   stickySectionHeadersEnabled={false}
                   renderSectionHeader={({ section: { title } }) => (
-                    <Text style={styles.sectionHeader}>{title}</Text>
+                    <>
+                      <Text style={styles.sectionHeader}>{title}</Text>
+                      <View style={styles.sectionSeparator} />
+                    </>
                   )}
                   renderItem={({ item }) => {
                     const isSelected = selectedUsers.includes(item.id);
@@ -205,9 +208,9 @@ export const CreateGroupChatModal: React.FC<CreateGroupChatModalProps> = ({
                         </View>
 
                         {isSelected ? (
-                          <ICONS.checkbox width={24} height={24} color="#4A334A" />
+                          <ICONS.checkbox width={20} height={20} color="#4A334A" />
                         ) : (
-                          <ICONS.checkboxOutline width={24} height={24} color="#4A334A"/>
+                          <ICONS.checkboxOutline width={20} height={20} color="#4A334A"/>
                         )}
                       </TouchableOpacity>
                     );

@@ -13,9 +13,12 @@ interface ChatPopUpProps {
     // position can be specified by left or right coordinate
     position?: { top: number; right?: number; left?: number };
     isGroup?: boolean;
+    canManageGroup?: boolean;
 }
 
-export default function ChatPopUp({ isVisible, onClose, onMediaPress, onEditPress, onDeletePress, position, isGroup }: ChatPopUpProps) {
+export default function ChatPopUp({ isVisible, onClose, onMediaPress, onEditPress, onDeletePress, position, isGroup, canManageGroup }: ChatPopUpProps) {
+    const showGroupManagement = Boolean(isGroup && canManageGroup);
+
     return (
         <Modal
             isVisible={isVisible}
@@ -51,7 +54,7 @@ export default function ChatPopUp({ isVisible, onClose, onMediaPress, onEditPres
                     <Text style={styles.menuText}>Медіа</Text>
                 </Pressable>
 
-                {isGroup && (
+                {showGroupManagement && (
                     <>
                         <Pressable
                             style={styles.menuItem}

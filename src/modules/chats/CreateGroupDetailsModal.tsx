@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   View,
@@ -10,16 +10,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { styles } from "./CreateGroupDetailsModal.styles";
 import { ICONS } from "../../shared/icons";
-
-const MOCK_SELECTED = [
-  { id: "1", name: "Тимофій", avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200" },
-  { id: "2", name: "Кирило", avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=200" },
-  { id: "3", name: "Вася", avatar: "" },
-];
+import { chatImageAssetToDataUri } from "../../shared/lib/image-upload";
 
 interface SelectedUser {
   id: string;
@@ -31,9 +27,11 @@ interface CreateGroupDetailsModalProps {
   visible?: boolean;
   onClose: () => void;
   onBack: () => void;
-  onCreateGroup: (groupName: string, participantsIds: number[]) => void;
+  onCreateGroup: (groupName: string, participantsIds: number[], avatar?: string | null) => void;
   selectedUsers: SelectedUser[];
   onRemoveUser: (userId: string) => void;
+  isCreating?: boolean;
+  errorText?: string | null;
 }
 
 export function CreateGroupDetailsModal({
@@ -43,9 +41,18 @@ export function CreateGroupDetailsModal({
   onCreateGroup,
   selectedUsers,
   onRemoveUser,
+  isCreating = false,
+  errorText,
 }: CreateGroupDetailsModalProps) {
   const [groupName, setGroupName] = useState("");
   const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setGroupName("");
+      setGroupAvatar(null);
+    }
+  }, [visible]);
 
   const pickImage = async () => {
     try {
@@ -58,15 +65,19 @@ export function CreateGroupDetailsModal({
         quality: 0.7,
       });
 
-      const asAny = result as any;
-      const uri = asAny?.uri ?? (asAny?.assets && asAny.assets[0] && asAny.assets[0].uri);
-      if (uri) setGroupAvatar(uri);
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset) return;
+
+      const dataUri = await chatImageAssetToDataUri(asset);
+      setGroupAvatar(dataUri ?? asset.uri);
     } catch (e) {
       // ignore
     }
   };
 
-  const displayUsers = selectedUsers.length > 0 ? selectedUsers : MOCK_SELECTED;
+  const displayUsers = selectedUsers;
 
   const getGroupInitials = (name: string) => {
     if (!name.trim()) return "NG";
@@ -79,10 +90,9 @@ export function CreateGroupDetailsModal({
   };
 
   const handleCreate = () => {
-    if (!groupName.trim()) return;
+    if (!groupName.trim() || displayUsers.length === 0 || isCreating) return;
     const ids = displayUsers.map((u) => Number(u.id));
-    onCreateGroup(groupName, ids);
-    setGroupName("");
+    onCreateGroup(groupName.trim(), ids, groupAvatar);
   };
 
   return (
@@ -152,6 +162,8 @@ export function CreateGroupDetailsModal({
                 ))}
               </ScrollView>
 
+              {errorText && <Text style={styles.errorText}>{errorText}</Text>}
+
               <View style={styles.buttonRow}>
                 <TouchableOpacity style={styles.backButton} onPress={onBack}>
                   <Text style={styles.backButtonText}>Назад</Text>
@@ -160,12 +172,16 @@ export function CreateGroupDetailsModal({
                 <TouchableOpacity
                   style={[
                     styles.createButton,
-                    (!groupName.trim() || displayUsers.length === 0) && styles.disabledButton,
+                    (!groupName.trim() || displayUsers.length === 0 || isCreating) && styles.disabledButton,
                   ]}
                   onPress={handleCreate}
-                  disabled={!groupName.trim() || displayUsers.length === 0}
+                  disabled={!groupName.trim() || displayUsers.length === 0 || isCreating}
                 >
-                  <Text style={styles.createButtonText}>Створити групу</Text>
+                  {isCreating ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Створити групу</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </KeyboardAvoidingView>
