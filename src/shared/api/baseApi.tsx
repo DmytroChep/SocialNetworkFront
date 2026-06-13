@@ -44,7 +44,7 @@ export const baseApi = createApi({
             return headers;
         },
     }),
-  tagTypes: ['Posts', 'User', 'Friendship', 'Chats', 'Messages', 'Hashtags'],
+  tagTypes: ['Posts', 'User', 'Friendship', 'Chats', 'Messages', 'Hashtags', 'UserStatus'],
   endpoints: (builder) => ({
     login: builder.mutation<string, IAuthUser>({
       query: (body) => ({
@@ -359,6 +359,20 @@ export const baseApi = createApi({
       }),
       invalidatesTags: ['Friendship'],
     }),
+
+    getUserStatus: builder.query<{ status: string }, number>({
+      query: (userId) => `/user/${userId}/status`,
+      providesTags: (result, error, userId) => [{ type: 'UserStatus', id: userId }],
+    }),
+
+    updateUserStatus: builder.mutation<void, { userId: number; status: string }>({
+      query: ({ userId, status }) => ({
+        url: `/user/${userId}/status`,
+        method: 'PATCH',
+        body: { status: status.toUpperCase() },
+      }),
+      invalidatesTags: (result, error, { userId }) => [{ type: 'UserStatus', id: userId }],
+    }),
   }),
 });
 
@@ -406,5 +420,6 @@ export const {
   useMarkChatAsReadMutation,
   useCreateFriendshipRequestMutation,
   useUpdateFriendshipStatusMutation,
-  useDeleteFriendshipMutation
+  useDeleteFriendshipMutation,
+  
 } = baseApi;

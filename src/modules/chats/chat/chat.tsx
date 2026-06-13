@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -10,41 +10,48 @@ import {
     Keyboard,
     KeyboardAvoidingView,
     Platform,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
-    StatusBar,
-    Animated,
 } from "react-native";
+import { useDispatch } from "react-redux";
 import {
+    baseApi,
     useCreatePersonalChatMutation,
     useDeleteGroupChatMutation,
     useLazyGetChatMessagesQuery,
     useMarkChatAsReadMutation,
     useUpdateGroupChatMutation,
-    baseApi,
 } from "../../../shared/api/baseApi";
-import { useDispatch } from "react-redux";
 import { COLORS } from "../../../shared/constants";
 import { FONTS } from "../../../shared/constants/fonts";
 import { useSocketContext } from "../../../shared/context/socket-context";
 import { useUserContext } from "../../../shared/context/user-context";
 import { ICONS } from "../../../shared/icons";
 import {
+    CHAT_IMAGE_PICKER_OPTIONS,
+    chatImageAssetsToDataUris,
+} from "../../../shared/lib/image-upload";
+import {
     DEFAULT_AVATAR_URL,
     getUserAvatar,
     getUserDisplayName,
     toMediaUrl,
 } from "../../../shared/lib/model-helpers";
-import {
-    CHAT_IMAGE_PICKER_OPTIONS,
-    chatImageAssetsToDataUris,
-} from "../../../shared/lib/image-upload";
-import type { IChat, IChatMember, IChatMessage } from "../types/chat";
 import { EditGroupModal, type GroupEditUser } from "../EditGroupModal";
+import type { IChat, IChatMember, IChatMessage } from "../types/chat";
 import ChatPopUp from "./chatPopUp/chatPopUp";
+import MessageItem, {
+    formatMessageTime,
+    isMessageUnread,
+    isReadByPeerCheck,
+    isSameDay,
+} from "./MessageItem";
+
+// ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface ChatPeer {
     id: number | string;
@@ -67,7 +74,22 @@ type SocketAck<T> =
     | { status: "ok"; data?: T }
     | { status: "error"; message?: string };
 
-const getInitials = (name: string) => {
+// ─── Pure helpers (outside component — never recreated) ────────────────────
+
+const normalizeMessage = (m: any): IChatMessage => ({
+    ...m,
+    id: Number(m.id),
+    chat_id: Number(m.chat_id),
+    sender_id: Number(m.sender_id),
+    sender: m.sender ? { ...m.sender, id: Number(m.sender.id) } : m.sender,
+    images: (m.images ?? []).map((img: any) => ({
+        ...img,
+        id: Number(img.id),
+        message_id: img.message_id ? Number(img.message_id) : undefined,
+    })),
+});
+
+const getInitials = (name: string): string => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     const initials =
         parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : name.slice(0, 2);
@@ -84,19 +106,10 @@ const toNumberId = (value: unknown): number | null => {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
-const formatMessageTime = (value?: string) => {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleTimeString("uk-UA", {
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-};
-
-const mergeMessages = (messages: IChatMessage[]) => {
+const mergeMessages = (messages: IChatMessage[]): IChatMessage[] => {
+    const normalized = messages.map(normalizeMessage);
     const map = new Map<number, IChatMessage>();
-    for (const message of messages) {
+    for (const message of normalized) {
         map.set(message.id, message);
     }
     return Array.from(map.values()).sort((a, b) => {
@@ -106,15 +119,10 @@ const mergeMessages = (messages: IChatMessage[]) => {
     });
 };
 
-const isSameDay = (dateStr1: string, dateStr2: string): boolean => {
-    const d1 = new Date(dateStr1);
-    const d2 = new Date(dateStr2);
-    return (
-        d1.getFullYear() === d2.getFullYear() &&
-        d1.getMonth() === d2.getMonth() &&
-        d1.getDate() === d2.getDate()
-    );
-};
+// Stable keyExtractor outside component — never recreated
+const keyExtractor = (item: IChatMessage) => item.id.toString();
+
+// ─── Component ─────────────────────────────────────────────────────────────
 
 export default function Chat({ peer, onBack }: ChatProps) {
     const router = useRouter();
@@ -126,6 +134,9 @@ export default function Chat({ peer, onBack }: ChatProps) {
     }>();
     const { user, token } = useUserContext();
     const { socket, isConnected } = useSocketContext();
+    const dispatch = useDispatch();
+
+    // ── State ──────────────────────────────────────────────────────────────
 
     const [messageText, setMessageText] = useState("");
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -134,7 +145,6 @@ export default function Chat({ peer, onBack }: ChatProps) {
     const [isEditGroupVisible, setIsEditGroupVisible] = useState(false);
     const [groupActionError, setGroupActionError] = useState<string | null>(null);
     const [groupOverride, setGroupOverride] = useState<Partial<ChatPeer>>({});
-    const moreRef = useRef<any>(null);
     const [menuPosition, setMenuPosition] = useState<{
         top: number;
         left?: number;
@@ -142,16 +152,32 @@ export default function Chat({ peer, onBack }: ChatProps) {
     } | null>(null);
     const [chatId, setChatId] = useState<number | null>(
         peer?.chatId ??
-            (isPositiveNumber(Number(params.chatId))
-                ? Number(params.chatId)
-                : null),
+            (isPositiveNumber(Number(params.chatId)) ? Number(params.chatId) : null),
     );
     const [messages, setMessages] = useState<IChatMessage[]>([]);
-    const [nextCursor, setNextCursor] = useState<number | null>(null);
-    const [hasMore, setHasMore] = useState(false);
-    const [isInitialMessagesLoading, setIsInitialMessagesLoading] =
-        useState(false);
+    const [isInitialMessagesLoading, setIsInitialMessagesLoading] = useState(false);
     const [errorText, setErrorText] = useState<string | null>(null);
+    const [firstUnreadId, setFirstUnreadId] = useState<number | null>(null);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+    // ── Refs ───────────────────────────────────────────────────────────────
+
+    const moreRef = useRef<any>(null);
+    const isSendingRef = useRef(false);
+    const isFetchingMoreRef = useRef(false);
+    const flatListRef = useRef<FlatList<IChatMessage> | null>(null);
+    const hasAutoscrolledRef = useRef(false);
+    const scrollOffsetY = useRef(0);
+    // Sync refs for stable callbacks — avoids stale closures without deps churn
+    const nextCursorRef = useRef<number | null>(null);
+    const hasMoreRef = useRef(false);
+    const firstUnreadSetRef = useRef(false);
+    const unreadDismissedRef = useRef(false);
+    const handleNewMessageRef = useRef<((payload: any) => void) | null>(null);
+    const handleMessagesReadRef = useRef<((payload: any) => void) | null>(null);
+    const markCurrentChatAsReadRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
+    // ── RTK Query ─────────────────────────────────────────────────────────
 
     const [createPersonalChat, { isLoading: isCreatingChat }] =
         useCreatePersonalChatMutation();
@@ -162,34 +188,9 @@ export default function Chat({ peer, onBack }: ChatProps) {
     const [loadMessagesPage, { isFetching: isFetchingMore }] =
         useLazyGetChatMessagesQuery();
     const [markChatAsRead] = useMarkChatAsReadMutation();
-    const dispatch = useDispatch();
 
-    const isSendingRef = useRef(false);
-    const flatListRef = useRef<FlatList<IChatMessage> | null>(null);
-    const hasAutoscrolledRef = useRef(false);
-    const scrollOffsetY = useRef(0);
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
-    const markReadFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const firstUnreadSetRef = useRef(false);
-    const suppressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [firstUnreadId, setFirstUnreadId] = useState<number | null>(null);
-    const unreadDismissedRef = useRef(false);
+    // ── Derived / memoized values ──────────────────────────────────────────
 
-    const isMessageUnread = (m: IChatMessage | undefined | null) => {
-    if (!m) return false;
-    if (m.sender_id === user?.id) return false;
-    console.log('[UNREAD CHECK]', m.id, JSON.stringify({
-        is_read: (m as any).is_read,
-        isRead: (m as any).isRead,
-        read_at: (m as any).read_at,
-        readAt: (m as any).readAt,
-    }));
-    if ("is_read" in m) return !Boolean((m as any).is_read);
-    if ("isRead" in m) return !Boolean((m as any).isRead);
-    if ("read_at" in m) return !Boolean((m as any).read_at);
-    if ("readAt" in m) return !Boolean((m as any).readAt);
-    return false;
-};
     const activePeer = useMemo<ChatPeer>(
         () => ({
             id: peer?.id ?? params.id ?? "unknown",
@@ -205,11 +206,21 @@ export default function Chat({ peer, onBack }: ChatProps) {
         }),
         [groupOverride, params.avatar, params.id, params.name, peer],
     );
-    const peerAvatar = toMediaUrl(activePeer.avatar) || DEFAULT_AVATAR_URL;
-    const isGroupAdmin = Boolean(
-        activePeer.isGroup &&
-            (activePeer.isAdmin ||
-                (user?.id && toNumberId(activePeer.adminId) === user.id)),
+
+    const peerAvatar = useMemo(
+        () => toMediaUrl(activePeer.avatar) || DEFAULT_AVATAR_URL,
+        [activePeer.avatar],
+    );
+
+    const isGroupAdmin = useMemo(
+        () =>
+            Boolean(
+                activePeer.isGroup &&
+                    (activePeer.isAdmin ||
+                        (user?.id &&
+                            toNumberId(activePeer.adminId) === Number(user.id))),
+            ),
+        [activePeer.isGroup, activePeer.isAdmin, activePeer.adminId, user?.id],
     );
 
     const groupEditUsers = useMemo<GroupEditUser[]>(() => {
@@ -220,12 +231,11 @@ export default function Chat({ peer, onBack }: ChatProps) {
         activePeer.users?.forEach((member) => {
             const id = toNumberId(member.user_id);
             if (!id) return;
-            const name = getUserDisplayName(member.user) || member.user?.username || "Користувач";
-            map.set(String(id), {
-                id,
-                name,
-                avatar: getUserAvatar(member.user),
-            });
+            const name =
+                getUserDisplayName(member.user) ||
+                member.user?.username ||
+                "Користувач";
+            map.set(String(id), { id, name, avatar: getUserAvatar(member.user) });
         });
         return Array.from(map.values());
     }, [activePeer.editContacts, activePeer.users]);
@@ -238,224 +248,331 @@ export default function Chat({ peer, onBack }: ChatProps) {
         [activePeer.users, user?.id],
     );
 
-    const applyUpdatedGroup = useCallback((chat: IChat) => {
-        setGroupOverride({
-            id: chat.id,
-            chatId: chat.id,
-            name: chat.name || "Група",
-            avatar: toMediaUrl(chat.avatar) || chat.avatar || null,
-            isGroup: true,
-            adminId: chat.admin_id,
-            isAdmin: user?.id ? toNumberId(chat.admin_id) === user.id : false,
-            users: chat.users,
-            editContacts: peer?.editContacts,
-        });
-    }, [peer?.editContacts, user?.id]);
+    const isSendDisabled =
+        (!messageText.trim() && selectedImages.length === 0) || !isConnected;
 
+    const isLoadingChat = isCreatingChat || isInitialMessagesLoading;
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    const scrollToBottom = useCallback((animated = true) => {
+        const list = flatListRef.current as any;
+        if (!list) return;
+        const attempt = () => {
+            try {
+                if (typeof list.scrollToOffset === "function") {
+                    list.scrollToOffset({ offset: 0, animated });
+                    return;
+                }
+                if (typeof list.scrollToIndex === "function") {
+                    list.scrollToIndex({ index: 0, animated });
+                    return;
+                }
+                if (typeof list.scrollToEnd === "function") {
+                    list.scrollToEnd({ animated });
+                    return;
+                }
+            } catch (_) {}
+        };
+        requestAnimationFrame(attempt);
+        setTimeout(attempt, 120);
+    }, []);
+
+    const applyUpdatedGroup = useCallback(
+        (chat: IChat) => {
+            setGroupOverride({
+                id: chat.id,
+                chatId: chat.id,
+                name: chat.name || "Група",
+                avatar: toMediaUrl(chat.avatar) || chat.avatar || null,
+                isGroup: true,
+                adminId: chat.admin_id,
+                isAdmin: user?.id
+                    ? toNumberId(chat.admin_id) === user.id
+                    : false,
+                users: chat.users,
+                editContacts: peer?.editContacts,
+            });
+        },
+        [peer?.editContacts, user?.id],
+    );
+
+    const handleBack = useCallback(() => {
+        if (onBack) { onBack(); return; }
+        router.back();
+    }, [onBack, router]);
+
+    // ── markChatAsRead ────────────────────────────────────────────────────
+
+    const markCurrentChatAsRead = useCallback(async () => {
+        if (!chatId) return;
+        try {
+            unreadDismissedRef.current = true;
+            setFirstUnreadId(null);
+            setMessages((current) =>
+                current.map((m) =>
+                    m.sender_id !== user?.id ? ({ ...m, is_read: true } as any) : m,
+                ),
+            );
+            await markChatAsRead(chatId).unwrap();
+            try {
+                const page = await loadMessagesPage(
+                    { chatId, limit: 30 },
+                    false,
+                ).unwrap();
+                setMessages((current) =>
+                    mergeMessages([...page.messages, ...current]),
+                );
+                nextCursorRef.current = page.nextCursor;
+                hasMoreRef.current = page.hasMore;
+                setErrorText(null);
+            } catch (_) {}
+            try {
+                dispatch(
+                    baseApi.util.invalidateTags([
+                        { type: "Messages", id: chatId },
+                        "Chats",
+                    ] as any),
+                );
+            } catch (_) {}
+            socket?.emit("messages:read", { chatId: Number(chatId) });
+        } catch (_) {}
+    }, [chatId, markChatAsRead, socket, user?.id, loadMessagesPage, dispatch]);
+
+    // Keep ref in sync
+    useEffect(() => {
+        markCurrentChatAsReadRef.current = markCurrentChatAsRead;
+    }, [markCurrentChatAsRead]);
+
+    // ── Socket callbacks ───────────────────────────────────────────────────
+
+    const handleNewMessageCallback = useCallback(
+        (payload: { chatId: number | string; message: any }) => {
+            if (!chatId || Number(payload.chatId) !== Number(chatId)) return;
+            const msgSenderId = Number(payload.message.sender_id);
+            const currentUserId = Number(user?.id);
+            if (msgSenderId === currentUserId) return; // own message arrives via ACK
+            const message = normalizeMessage(payload.message);
+            if (Number(message.sender_id) !== Number(user?.id)) {
+                (message as any).is_read = true;
+            }
+            setMessages((current) => {
+                const filtered = current.filter(
+                    (m) =>
+                        !(
+                            m.id < 0 &&
+                            m.sender_id === message.sender_id &&
+                            m.text === message.text
+                        ),
+                );
+                return mergeMessages([message, ...filtered]);
+            });
+            setErrorText(null);
+            scrollToBottom(true);
+            markCurrentChatAsReadRef.current();
+        },
+        [chatId, user?.id, scrollToBottom],
+    );
+
+    const handleMessagesReadCallback = useCallback(
+        (payload: {
+            chatId: number | string;
+            readerId?: string;
+            messageIds?: number[];
+            readAt?: string;
+        }) => {
+            if (!chatId || Number(payload.chatId) !== Number(chatId)) return;
+            if (payload.readerId && Number(payload.readerId) !== user?.id) {
+                setMessages((current) =>
+                    current.map((m) =>
+                        m.sender_id === user?.id
+                            ? ({ ...m, is_read: true } as any)
+                            : m,
+                    ),
+                );
+            }
+        },
+        [chatId, user?.id],
+    );
+
+    // Keep handler refs in sync (stable socket listeners)
+    useEffect(() => {
+        handleNewMessageRef.current = handleNewMessageCallback;
+    }, [handleNewMessageCallback]);
+
+    useEffect(() => {
+        handleMessagesReadRef.current = handleMessagesReadCallback;
+    }, [handleMessagesReadCallback]);
+
+    // ── Effects ────────────────────────────────────────────────────────────
+
+    // Reset unread state when chatId changes
+    useEffect(() => {
+        unreadDismissedRef.current = false;
+        firstUnreadSetRef.current = false;
+        hasAutoscrolledRef.current = false;
+        setFirstUnreadId(null);
+    }, [chatId]);
+
+    // Reset group override when peer changes
     useEffect(() => {
         setGroupOverride({});
         setGroupActionError(null);
         setIsEditGroupVisible(false);
     }, [peer?.chatId, params.chatId]);
 
-    const markCurrentChatAsRead = useCallback(async () => {
-    if (!chatId) return;
-    try {
-        unreadDismissedRef.current = true;
-        setFirstUnreadId(null);
-        setMessages((current) =>
-            current.map((m) =>
-                m.sender_id !== user?.id ? ({ ...m, is_read: true } as any) : m,
-            ),
+    // Keyboard listeners
+    useEffect(() => {
+        const showWill = Keyboard.addListener("keyboardWillShow", (e) =>
+            setKeyboardHeight(e.endCoordinates.height),
         );
-        await markChatAsRead(chatId).unwrap();
-        try {
-            const page = await loadMessagesPage({ chatId, limit: 30 }, false).unwrap();
-            setMessages((current) => mergeMessages([...page.messages, ...current]));
-            setNextCursor(page.nextCursor);
-            setHasMore(page.hasMore);
-            setErrorText(null);
-        } catch (e) {}
-        try {
-            dispatch(baseApi.util.invalidateTags([{ type: 'Messages', id: chatId }, 'Chats'] as any));
-        } catch (e) {}
-        socket?.emit("messages:read", { chatId });
-    } catch {}
-}, [chatId, markChatAsRead, socket, user?.id, loadMessagesPage, dispatch]);
+        const hideWill = Keyboard.addListener("keyboardWillHide", () =>
+            setKeyboardHeight(0),
+        );
+        const showDid = Keyboard.addListener("keyboardDidShow", (e) =>
+            setKeyboardHeight(e.endCoordinates.height),
+        );
+        const hideDid = Keyboard.addListener("keyboardDidHide", () =>
+            setKeyboardHeight(0),
+        );
+        return () => {
+            showWill.remove();
+            hideWill.remove();
+            showDid.remove();
+            hideDid.remove();
+        };
+    }, []);
 
-
-const markCurrentChatAsReadRef = useRef(markCurrentChatAsRead);
-useEffect(() => {
-    markCurrentChatAsReadRef.current = markCurrentChatAsRead;
-}, [markCurrentChatAsRead]);
-
-useEffect(() => {
-    console.log('[CHATID EFFECT] chatId changed:', chatId);
-    unreadDismissedRef.current = false;
-    firstUnreadSetRef.current = false;
-    hasAutoscrolledRef.current = false;
-    setFirstUnreadId(null);
-}, [chatId]);
-useEffect(() => {
-    console.log('[MESSAGES EFFECT] messages.length:', messages.length, 
-        'dismissed:', unreadDismissedRef.current, 
-        'firstUnreadSet:', firstUnreadSetRef.current);
-    if (unreadDismissedRef.current || firstUnreadSetRef.current) return;
-    if (messages.length === 0) return;
-    const oldestUnread = [...messages].reverse().find((m) => isMessageUnread(m));
-    console.log('[MESSAGES EFFECT] oldestUnread:', oldestUnread?.id ?? null);
-    if (oldestUnread) {
-        setFirstUnreadId(oldestUnread.id);
-        firstUnreadSetRef.current = true;
-    }
-}, [messages]);
-
-useEffect(() => {
-    if (!firstUnreadId || messages.length === 0 || hasAutoscrolledRef.current) return;
-    hasAutoscrolledRef.current = true;
-    const t = setTimeout(() => {
-        setTimeout(() => {
-            markCurrentChatAsReadRef.current();
-        }, 600);
-    }, 120);
-    return () => clearTimeout(t);
-}, [firstUnreadId, messages]);
-
-useEffect(() => {
-    setMessages([]);
-    setNextCursor(null);
-    setHasMore(false);
-    hasAutoscrolledRef.current = false;
-    if (!chatId) return;
-    let isMounted = true;
-    setIsInitialMessagesLoading(true);
-    let markReadTimeout: ReturnType<typeof setTimeout> | null = null;
-    loadMessagesPage({ chatId, limit: 30 }, false)
-        .unwrap()
-        .then((page) => {
-            if (!isMounted) return;
-            setNextCursor(page.nextCursor);
-            setHasMore(page.hasMore);
-            setErrorText(null);
-            setMessages((current) => mergeMessages([...page.messages, ...current]));
-            
-            // ← СЮДИ
-            console.log('[LOAD] page.messages count:', page.messages.length);
-            console.log('[LOAD] has unread:', page.messages.some((m) => isMessageUnread(m)));
-            console.log('[LOAD] sample message:', JSON.stringify(page.messages[0]));
-            console.log('[LOAD] full message fields:', Object.keys(page.messages[0]));
-            
-            if (page.messages.some((m) => isMessageUnread(m))) {
-                markReadTimeout = setTimeout(() => {
-                    if (unreadDismissedRef.current) return;
-                    markCurrentChatAsReadRef.current();
-                }, 800);
-            }
-        })
-        .catch(() => {
-            if (!isMounted) return;
-            setErrorText("Не вдалося завантажити повідомлення");
-        })
-        .finally(() => {
-            if (!isMounted) return;
-            setIsInitialMessagesLoading(false);
-        });
-    return () => {
-        isMounted = false;
-        if (markReadTimeout) clearTimeout(markReadTimeout);
-    };
-}, [chatId, loadMessagesPage, user?.id]);
-
-useEffect(() => {
-    if (!socket || !chatId) return;
-
-    const handleNewMessage = (payload: { chatId: number | string; message: IChatMessage }) => {
-        if (Number(payload.chatId) !== chatId) return;
-        setMessages((current) => {
-            const filtered = current.filter(
-                (m) => !(m.id < 0 && m.sender_id === payload.message.sender_id && m.text === payload.message.text)
-            );
-            return mergeMessages([payload.message, ...filtered]);
-        });
-        setErrorText(null);
-        if (payload.message.sender_id !== user?.id) {
-            markCurrentChatAsReadRef.current();
+    // Set firstUnreadId on initial messages load
+    useEffect(() => {
+        if (unreadDismissedRef.current || firstUnreadSetRef.current) return;
+        if (messages.length === 0) return;
+        const oldestUnread = [...messages]
+            .reverse()
+            .find((m) => isMessageUnread(m, user?.id));
+        if (oldestUnread) {
+            setFirstUnreadId(oldestUnread.id);
+            firstUnreadSetRef.current = true;
         }
-    };
+    }, [messages, user?.id]);
 
-    const handleMessagesRead = (payload: { 
-    chatId: number | string; 
-    readerId?: string;
-    messageIds?: number[]; 
-    readAt?: string 
-}) => {
-    if (Number(payload.chatId) !== chatId) return;
-    // Якщо читає хтось інший — позначаємо наші повідомлення як прочитані
-    if (payload.readerId && Number(payload.readerId) !== user?.id) {
-        setMessages((current) =>
-            current.map((m) => {
-                if (m.sender_id === user?.id) {
-                    return { ...m, is_read: true } as any;
+    // Auto-scroll & mark as read after finding first unread
+    useEffect(() => {
+        if (!firstUnreadId || messages.length === 0 || hasAutoscrolledRef.current)
+            return;
+        hasAutoscrolledRef.current = true;
+        const t = setTimeout(() => {
+            setTimeout(() => markCurrentChatAsReadRef.current(), 600);
+        }, 120);
+        return () => clearTimeout(t);
+    }, [firstUnreadId, messages]);
+
+    // Load initial messages when chatId changes
+    useEffect(() => {
+        setMessages([]);
+        nextCursorRef.current = null;
+        hasMoreRef.current = false;
+        hasAutoscrolledRef.current = false;
+        if (!chatId) return;
+
+        let isMounted = true;
+        setIsInitialMessagesLoading(true);
+        let markReadTimeout: ReturnType<typeof setTimeout> | null = null;
+
+        loadMessagesPage({ chatId, limit: 30 }, false)
+            .unwrap()
+            .then((page) => {
+                if (!isMounted) return;
+                nextCursorRef.current = page.nextCursor;
+                hasMoreRef.current = page.hasMore;
+                setErrorText(null);
+                setMessages((current) =>
+                    mergeMessages([...page.messages, ...current]),
+                );
+                if (page.messages.some((m) => isMessageUnread(m, user?.id))) {
+                    markReadTimeout = setTimeout(() => {
+                        if (unreadDismissedRef.current) return;
+                        markCurrentChatAsReadRef.current();
+                    }, 800);
                 }
-                return m;
             })
+            .catch(() => {
+                if (!isMounted) return;
+                setErrorText("Не вдалося завантажити повідомлення");
+            })
+            .finally(() => {
+                if (!isMounted) return;
+                setIsInitialMessagesLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+            if (markReadTimeout) clearTimeout(markReadTimeout);
+        };
+    }, [chatId, loadMessagesPage, user?.id]);
+
+    // Socket join/leave + stable listeners via ref
+    useEffect(() => {
+        if (!socket || !chatId) return;
+
+        socket.emit(
+            "chat:join",
+            { chatId: Number(chatId) },
+            (response?: SocketAck<void>) => {
+                if (response?.status === "error") {
+                    setErrorText(
+                        response.message || "Не вдалося приєднатися до чату",
+                    );
+                }
+            },
         );
-    }
-};
 
-    socket.emit("chat:join", { chatId }, (response?: SocketAck<void>) => {
-        if (response?.status === "error") {
-            setErrorText(response.message || "Не вдалося приєднатися до чату");
-        }
-    });
+        const listener1 = (payload: any) =>
+            handleNewMessageRef.current?.(payload);
+        const listener2 = (payload: any) =>
+            handleMessagesReadRef.current?.(payload);
 
-    socket.on("message:new", handleNewMessage);
-    socket.on("messages:read", handleMessagesRead);
+        socket.on("message:new", listener1);
+        socket.on("messages:read", listener2);
 
-    return () => {
-        socket.emit("chat:leave", { chatId });
-        socket.off("message:new", handleNewMessage);
-        socket.off("messages:read", handleMessagesRead);
-    };
-}, [socket, chatId, user?.id]);
+        return () => {
+            socket.emit("chat:leave", { chatId: Number(chatId) });
+            socket.off("message:new", listener1);
+            socket.off("messages:read", listener2);
+        };
+    }, [socket, chatId]);
+
+    // ── Handlers ───────────────────────────────────────────────────────────
+
+    // Stable: uses refs for cursor/hasMore — no dependency churn
     const handleLoadMore = useCallback(async () => {
-        if (!chatId || !hasMore || !nextCursor || isFetchingMore) return;
+        if (
+            !chatId ||
+            !hasMoreRef.current ||
+            !nextCursorRef.current ||
+            isFetchingMoreRef.current
+        )
+            return;
+        isFetchingMoreRef.current = true;
         try {
             const page = await loadMessagesPage({
                 chatId,
                 limit: 30,
-                cursorId: nextCursor,
+                cursorId: nextCursorRef.current,
             }).unwrap();
-            setMessages((current) => mergeMessages([...page.messages, ...current]));
-            setNextCursor(page.nextCursor);
-            setHasMore(page.hasMore);
+            setMessages((current) =>
+                mergeMessages([...page.messages, ...current]),
+            );
+            nextCursorRef.current = page.nextCursor;
+            hasMoreRef.current = page.hasMore;
         } catch {
             setErrorText("Не вдалося завантажити попередні повідомлення");
+        } finally {
+            isFetchingMoreRef.current = false;
         }
-    }, [chatId, hasMore, isFetchingMore, loadMessagesPage, nextCursor]);
+    }, [chatId, loadMessagesPage]);
 
-    useEffect(() => {
-        const showSubscription = Keyboard.addListener('keyboardWillShow', (e) => {
-            setKeyboardHeight(e.endCoordinates.height);
-        });
-        const hideSubscription = Keyboard.addListener('keyboardWillHide', () => {
-            setKeyboardHeight(0);
-        });
-        const showSubscriptionAndroid = Keyboard.addListener('keyboardDidShow', (e) => {
-            setKeyboardHeight(e.endCoordinates.height);
-        });
-        const hideSubscriptionAndroid = Keyboard.addListener('keyboardDidHide', () => {
-            setKeyboardHeight(0);
-        });
-        return () => {
-            showSubscription.remove();
-            hideSubscription.remove();
-            showSubscriptionAndroid.remove();
-            hideSubscriptionAndroid.remove();
-        };
-    }, []);
-
-    const handlePickImages = async () => {
+    const handlePickImages = useCallback(async () => {
         if (!chatId || !isConnected || isPickingImages) {
             if (!isConnected) setErrorText("Немає з'єднання з чатом");
             return;
@@ -473,136 +590,161 @@ useEffect(() => {
                 setErrorText("Не вдалося прочитати зображення");
                 return;
             }
-            setSelectedImages((current) => [...current, ...images].slice(0, 6));
+            setSelectedImages((current) =>
+                [...current, ...images].slice(0, 6),
+            );
             setErrorText(null);
         } catch {
             setErrorText("Не вдалося вибрати зображення");
         } finally {
             setIsPickingImages(false);
         }
-    };
+    }, [chatId, isConnected, isPickingImages]);
 
-    const removeSelectedImage = (index: number) => {
+    const removeSelectedImage = useCallback((index: number) => {
         setSelectedImages((current) =>
-            current.filter((_, imageIndex) => imageIndex !== index),
+            current.filter((_, i) => i !== index),
         );
-    };
+    }, []);
 
-    const handleSendMessage = () => {
-    const text = messageText.trim();
-    if (
-        (!text && selectedImages.length === 0) ||
-        !chatId ||
-        !socket ||
-        !isConnected ||
-        isSendingRef.current
-    ) {
-        return;
-    }
+    const handleSendMessage = useCallback(async () => {
+        const text = messageText.trim();
+        if (
+            (!text && selectedImages.length === 0) ||
+            !socket ||
+            !isConnected ||
+            isSendingRef.current
+        )
+            return;
 
-    isSendingRef.current = true;
-    const tempId = -Date.now();
-    const optimisticMessage: IChatMessage = {
-        id: tempId,
-        chat_id: chatId,
-        sender_id: user!.id,
-        text,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        sender: user as any,
-        images: selectedImages.map((image, index) => ({
-            id: -(index + 1),
-            message_id: tempId,
-            image,
-        })),
-    };
-    const imagesToSend = selectedImages;
-    setMessages((current) => mergeMessages([optimisticMessage, ...current]));
-    setMessageText("");
-    setSelectedImages([]);
-    setErrorText(null);
+        let activeChatId = chatId;
 
-    isSendingRef.current = false; // ← ОДРАЗУ після setMessages, не чекаємо ack
-
-   const timeout = setTimeout(() => {
-    setMessages((current) => {
-        const stillExists = current.some((message) => message.id === tempId);
-        if (!stillExists) return current; // вже замінилось реальним — нічого не робимо
-        return current.filter((message) => message.id !== tempId);
-    });
-    setMessages((current) => {
-        const stillHadOptimistic = current.some((m) => m.id === tempId);
-        if (stillHadOptimistic) {
-            setMessageText(text);
-            setSelectedImages(imagesToSend);
-            setErrorText("Не вдалося відправити повідомлення");
-        }
-        return current;
-    });
-}, 15000);
-
-    socket.emit(
-        "message:send",
-        { chatId, text, images: imagesToSend },
-        (response?: SocketAck<IChatMessage>) => {
-            console.log('[SEND ACK received at]', Date.now(), 'response:', response?.status);
-            clearTimeout(timeout);
-            if (!response || response.status === "error") {
-                setMessages((current) =>
-                    current.filter((message) => message.id !== tempId),
-                );
-                setMessageText(text);
-                setSelectedImages(imagesToSend);
-                setErrorText(
-                    response?.message || "Не вдалося відправити повідомлення",
-                );
+        if (!activeChatId) {
+            const peerId = toNumberId(activePeer.id);
+            if (!peerId) return;
+            try {
+                const newChat = await createPersonalChat({
+                    participantId: peerId,
+                }).unwrap();
+                activeChatId = newChat.id;
+                setChatId(newChat.id);
+            } catch {
+                setErrorText("Не вдалося створити чат");
                 return;
             }
-            if (response.data) {
-                setMessages((current) => {
-                    const withoutOptimistic = current.filter(
-                        (message) => message.id !== tempId,
+        }
+
+        if (!activeChatId) return;
+
+        isSendingRef.current = true;
+        const tempId = -Date.now();
+        const optimisticMessage: IChatMessage = {
+            id: tempId,
+            chat_id: activeChatId,
+            sender_id: user!.id,
+            text,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            sender: user as any,
+            images: selectedImages.map((image, index) => ({
+                id: -(index + 1),
+                message_id: tempId,
+                image,
+            })),
+        };
+
+        const imagesToSend = selectedImages;
+        setMessages((current) => mergeMessages([optimisticMessage, ...current]));
+        setMessageText("");
+        setSelectedImages([]);
+        setErrorText(null);
+        scrollToBottom(true);
+
+        isSendingRef.current = false;
+
+        const timeout = setTimeout(() => {
+            setMessages((current) => {
+                if (!current.some((m) => m.id === tempId)) return current;
+                return current.filter((m) => m.id !== tempId);
+            });
+            // Restore input only if message was still in list (i.e. not confirmed)
+            setMessages((current) => {
+                const stillHadOptimistic = current.some((m) => m.id === tempId);
+                if (stillHadOptimistic) {
+                    setMessageText(text);
+                    setSelectedImages(imagesToSend);
+                    setErrorText("Не вдалося відправити повідомлення");
+                }
+                return current;
+            });
+        }, 15000);
+
+        socket.emit(
+            "message:send",
+            { chatId: activeChatId, text, images: imagesToSend },
+            (response?: SocketAck<IChatMessage>) => {
+                clearTimeout(timeout);
+                if (!response || response.status === "error") {
+                    setMessages((current) =>
+                        current.filter((m) => m.id !== tempId),
                     );
-                    return mergeMessages([response.data!, ...withoutOptimistic]);
-                });
+                    setMessageText(text);
+                    setSelectedImages(imagesToSend);
+                    setErrorText(
+                        response?.message || "Не вдалося відправити повідомлення",
+                    );
+                    return;
+                }
+                if (response.data) {
+                    const normalized = normalizeMessage(response.data);
+                    setMessages((current) => {
+                        const withoutOptimistic = current.filter(
+                            (m) => m.id !== tempId,
+                        );
+                        return mergeMessages([normalized, ...withoutOptimistic]);
+                    });
+                }
+            },
+        );
+    }, [
+        messageText,
+        selectedImages,
+        socket,
+        isConnected,
+        chatId,
+        activePeer.id,
+        user,
+        createPersonalChat,
+        scrollToBottom,
+    ]);
+
+    const handleUpdateGroup = useCallback(
+        async (payload: {
+            name: string;
+            userIds: number[];
+            avatar?: string | null;
+        }) => {
+            if (!chatId || !isGroupAdmin) return;
+            try {
+                const updatedChat = await updateGroupChat({
+                    chatId,
+                    ...payload,
+                }).unwrap();
+                applyUpdatedGroup(updatedChat);
+                setGroupActionError(null);
+                setIsEditGroupVisible(false);
+            } catch (error: any) {
+                setGroupActionError(
+                    (typeof error?.data === "string"
+                        ? error.data
+                        : error?.data?.message) || "Не вдалося оновити групу",
+                );
             }
         },
+        [chatId, isGroupAdmin, updateGroupChat, applyUpdatedGroup],
     );
-};
 
-    const handleBack = () => {
-        if (onBack) {
-            onBack();
-            return;
-        }
-        router.back();
-    };
-
-    const handleUpdateGroup = async (payload: {
-        name: string;
-        userIds: number[];
-        avatar?: string | null;
-    }) => {
-        if (!chatId || !isGroupAdmin) return;
-        try {
-            const updatedChat = await updateGroupChat({
-                chatId,
-                ...payload,
-            }).unwrap();
-            applyUpdatedGroup(updatedChat);
-            setGroupActionError(null);
-            setIsEditGroupVisible(false);
-        } catch (error: any) {
-            setGroupActionError(
-                (typeof error?.data === "string"
-                    ? error.data
-                    : error?.data?.message) ||
-                    "Не вдалося оновити групу",
-            );
-        }
-    };
-
-    const handleDeleteGroup = () => {
+    const handleDeleteGroup = useCallback(() => {
         if (!chatId || !isGroupAdmin || isDeletingGroup) return;
         Alert.alert(
             "Видалити групу?",
@@ -629,31 +771,87 @@ useEffect(() => {
                 },
             ],
         );
-    };
+    }, [chatId, isGroupAdmin, isDeletingGroup, deleteGroupChat, handleBack]);
 
-    const isLoadingChat = isCreatingChat || isInitialMessagesLoading;
-    const isSendDisabled =
-        (!messageText.trim() && selectedImages.length === 0) ||
-        !chatId ||
-        !isConnected;
+    const handleMorePress = useCallback(() => {
+        moreRef.current?.measureInWindow(
+            (x: number, y: number, w: number, h: number) => {
+                const MENU_WIDTH = 220;
+                const statusBarHeight =
+                    Platform.OS === "android" ? StatusBar.currentHeight || 0 : 0;
+                const top = y + h + 8 - statusBarHeight;
+                const left = Math.max(8, Math.round(x + w - MENU_WIDTH));
+                setMenuPosition({ top, left });
+                setIsMenuVisible(true);
+            },
+        );
+    }, []);
+
+    const handleCloseMenu = useCallback(() => {
+        setIsMenuVisible(false);
+        setMenuPosition(null);
+    }, []);
+
+    const handleEditPress = useCallback(
+        () => setIsEditGroupVisible(true),
+        [],
+    );
+
+    const handleCloseEdit = useCallback(
+        () => setIsEditGroupVisible(false),
+        [],
+    );
+
+    // ── renderItem (memoized, delegates to memo'd MessageItem) ─────────────
+
+    const renderItem = useCallback(
+        ({ item, index }: { item: IChatMessage; index: number }) => {
+            const isMe = Number(item.sender_id) === Number(user?.id);
+            const nextItem = messages[index + 1];
+            const isNewDay =
+                !nextItem ||
+                !isSameDay(item.created_at, nextItem.created_at);
+
+            return (
+                <MessageItem
+                    item={item}
+                    isMe={isMe}
+                    isFirstUnread={item.id === firstUnreadId}
+                    isReadByPeer={isReadByPeerCheck(item, isMe)}
+                    senderName={
+                        getUserDisplayName(item.sender) || activePeer.name
+                    }
+                    senderAvatar={getUserAvatar(item.sender) || peerAvatar}
+                    isNewDay={isNewDay}
+                    formattedDate={new Date(item.created_at).toLocaleDateString(
+                        "uk-UA",
+                        { day: "numeric", month: "long", year: "numeric" },
+                    )}
+                />
+            );
+        },
+        [messages, user?.id, firstUnreadId, activePeer.name, peerAvatar],
+    );
+
+    // ── Render ─────────────────────────────────────────────────────────────
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}
-            style={[styles.chatFlexWrapper, keyboardHeight > 0 && { paddingBottom: keyboardHeight }]}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 80}
+            style={[
+                styles.chatFlexWrapper,
+                keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+            ]}
         >
             <View style={styles.chatCard}>
+                {/* ── Header ── */}
                 <View style={styles.chatInnerHeader}>
                     <TouchableOpacity
                         onPress={handleBack}
                         style={styles.backButton}
                     >
-                        <Ionicons
-                            name="chevron-back"
-                            size={22}
-                            color="#8E8E93"
-                        />
+                        <Ionicons name="chevron-back" size={22} color="#8E8E93" />
                     </TouchableOpacity>
 
                     <View style={styles.chatAvatar}>
@@ -679,54 +877,37 @@ useEffect(() => {
                     </View>
 
                     <View
-                        ref={(el) => {
-                            moreRef.current = el;
-                        }}
+                        ref={(el) => { moreRef.current = el; }}
                         collapsable={false}
                     >
                         <TouchableOpacity
                             style={styles.moreButton}
-                            onPress={() => {
-                                moreRef.current?.measureInWindow(
-                                    (
-                                        x: number,
-                                        y: number,
-                                        w: number,
-                                        h: number,
-                                    ) => {
-                                        const MENU_WIDTH = 220;
-                                        const statusBarHeight =
-                                            Platform.OS === "android"
-                                                ? StatusBar.currentHeight || 0
-                                                : 0;
-                                        const top =
-                                            y + h + 8 - statusBarHeight;
-                                        const left = Math.max(
-                                            8,
-                                            Math.round(x + w - MENU_WIDTH),
-                                        );
-                                        setMenuPosition({ top, left });
-                                        setIsMenuVisible(true);
-                                    },
-                                );
-                            }}
+                            onPress={handleMorePress}
                         >
                             <ICONS.dots />
                         </TouchableOpacity>
                     </View>
                 </View>
 
+                {/* ── Messages List ── */}
                 <FlatList
-                    maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
                     ref={flatListRef as any}
                     inverted
                     data={messages}
-                    keyExtractor={(item) => item.id.toString()}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderItem}
                     onEndReached={handleLoadMore}
                     onEndReachedThreshold={0.2}
                     keyboardShouldPersistTaps="handled"
+                    maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+                    removeClippedSubviews
+                    maxToRenderPerBatch={10}
+                    updateCellsBatchingPeriod={30}
+                    windowSize={10}
+                    initialNumToRender={20}
                     onScroll={(e) => {
-                        scrollOffsetY.current = e.nativeEvent.contentOffset.y;
+                        scrollOffsetY.current =
+                            e.nativeEvent.contentOffset.y;
                     }}
                     scrollEventThrottle={16}
                     ListFooterComponent={
@@ -747,140 +928,18 @@ useEffect(() => {
                             )}
                         </View>
                     }
-                    renderItem={({ item, index }) => {
-                        const isMe = item.sender_id === user?.id;
-                        const senderName =
-                            getUserDisplayName(item.sender) || activePeer.name;
-                        const senderAvatar =
-                            getUserAvatar(item.sender) || peerAvatar;
-                        const nextItem = messages[index + 1];
-                        const isNewDay =
-                            !nextItem ||
-                            !isSameDay(item.created_at, nextItem.created_at);
-                        const formattedDate = new Date(
-                            item.created_at,
-                        ).toLocaleDateString("uk-UA", {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                        });
-                        const isFirstUnread = item.id === firstUnreadId;
-                        const isReadByPeer =
-                            isMe &&
-                            (("is_read" in item && Boolean((item as any).is_read)) ||
-                                ("isRead" in item && Boolean((item as any).isRead)) ||
-                                ("read_at" in item && Boolean((item as any).read_at)) ||
-                                ("readAt" in item && Boolean((item as any).readAt)));
-                        return (
-                            <View>
-                                {isNewDay && (
-                                    <View style={styles.dateSeparatorContainer}>
-                                        <Text style={styles.dateSeparatorText}>
-                                            {formattedDate}
-                                        </Text>
-                                    </View>
-                                )}
-                                {isFirstUnread && (
-                                    <View style={additionalStyles.unreadDividerContainer}>
-                                        <View style={additionalStyles.unreadDividerLine} />
-                                        <Text style={additionalStyles.unreadDividerText}>
-                                            Нові повідомлення
-                                        </Text>
-                                        <View style={additionalStyles.unreadDividerLine} />
-                                    </View>
-                                )}
-                                <View
-                                    style={
-                                        isMe
-                                            ? styles.myMessageRow
-                                            : styles.otherMessageRow
-                                    }
-                                >
-                                    {!isMe && (
-                                        <Image
-                                            source={{ uri: senderAvatar }}
-                                            style={styles.messageAvatar}
-                                        />
-                                    )}
-                                    <View
-                                        style={[
-                                            styles.bubble,
-                                            isMe
-                                                ? styles.myBubble
-                                                : styles.otherBubble,
-                                        ]}
-                                    >
-                                        {!isMe && (
-                                            <Text style={styles.senderNameText}>
-                                                {senderName}
-                                            </Text>
-                                        )}
-                                        {(item.images?.length ?? 0) > 0 && (
-                                            <View
-                                                style={styles.messageImagesGrid}
-                                            >
-                                                {item.images?.map((image) => (
-                                                    <Image
-                                                        key={image.id}
-                                                        source={{
-                                                            uri:
-                                                                toMediaUrl(
-                                                                    image.image,
-                                                                ) ||
-                                                                image.image,
-                                                        }}
-                                                        style={
-                                                            styles.messageImage
-                                                        }
-                                                    />
-                                                ))}
-                                            </View>
-                                        )}
-                                        {Boolean(item.text) && (
-                                            <Text style={styles.messageText}>
-                                                {item.text}
-                                            </Text>
-                                        )}
-                                        <View style={styles.timeContainer}>
-                                            <Text style={styles.timeText}>
-                                                {formatMessageTime(
-                                                    item.created_at,
-                                                )}
-                                            </Text>
-                                            {isMe && (
-                                                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                                                    <Ionicons
-                                                        name="checkmark"
-                                                        size={14}
-                                                        color={isReadByPeer ? COLORS.plum : "#8E8E93"}
-                                                        style={styles.checkIcon}
-                                                    />
-                                                    {isReadByPeer && (
-                                                        <Ionicons
-                                                            name="checkmark"
-                                                            size={14}
-                                                            color={COLORS.plum}
-                                                            style={[styles.checkIcon, { marginLeft: -6 }]}
-                                                        />
-                                                    )}
-                                                </View>
-                                            )}
-                                        </View>
-                                    </View>
-                                </View>
-                            </View>
-                        );
-                    }}
                     contentContainerStyle={styles.messagesListContent}
                     showsVerticalScrollIndicator={false}
                 />
 
+                {/* ── Error ── */}
                 {(errorText || groupActionError) && (
                     <Text style={styles.errorText}>
                         {errorText || groupActionError}
                     </Text>
                 )}
 
+                {/* ── Selected Images Preview ── */}
                 {selectedImages.length > 0 && (
                     <View style={styles.selectedImagesRow}>
                         {selectedImages.map((image, index) => (
@@ -896,15 +955,14 @@ useEffect(() => {
                                     style={styles.removeImageButton}
                                     onPress={() => removeSelectedImage(index)}
                                 >
-                                    <Text style={styles.removeImageText}>
-                                        x
-                                    </Text>
+                                    <Text style={styles.removeImageText}>x</Text>
                                 </TouchableOpacity>
                             </View>
                         ))}
                     </View>
                 )}
 
+                {/* ── Input Row ── */}
                 <View style={styles.bottomInputRow}>
                     <View style={styles.inputFieldContainer}>
                         <TextInput
@@ -943,16 +1001,33 @@ useEffect(() => {
                 </View>
             </View>
 
+            {/* ── Modals ── */}
+            <EditGroupModal
+                visible={isEditGroupVisible}
+                initialName={activePeer.name}
+                initialAvatar={activePeer.avatar ?? null}
+                users={groupEditUsers}
+                selectedUserIds={selectedGroupUserIds}
+                currentUserId={user?.id}
+                isSubmitting={isUpdatingGroup}
+                errorText={groupActionError}
+                onClose={handleCloseEdit}
+                onSubmit={handleUpdateGroup}
+            />
+
             <ChatPopUp
                 isVisible={isMenuVisible}
-                onClose={() => {
-                    setIsMenuVisible(false);
-                    setMenuPosition(null);
-                }}
+                onClose={handleCloseMenu}
+                isGroup={Boolean(activePeer.isGroup)}
+                canManageGroup={isGroupAdmin}
+                onEditPress={handleEditPress}
+                onDeletePress={handleDeleteGroup}
             />
         </KeyboardAvoidingView>
     );
 }
+
+// ─── Styles ────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
     chatFlexWrapper: {
@@ -993,7 +1068,7 @@ const styles = StyleSheet.create({
     chatAvatarText: {
         color: "#FFFFFF",
         fontSize: 14,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
+        fontFamily: "GTWalsheimPro-Medium",
     },
     chatTitleWrapper: {
         flex: 1,
@@ -1001,12 +1076,12 @@ const styles = StyleSheet.create({
     },
     chatTitle: {
         fontSize: 16,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
+        fontFamily: "GTWalsheimPro-Medium",
         color: "#1C1C1E",
     },
     chatSubtitle: {
         fontSize: 12,
-        fontFamily: FONTS["GTWalsheimPro-Regular"],
+        fontFamily: "GTWalsheimPro-Regular",
         color: "#8E8E93",
         marginTop: 2,
     },
@@ -1029,88 +1104,15 @@ const styles = StyleSheet.create({
     },
     emptyMessagesText: {
         fontSize: 14,
-        fontFamily: FONTS["GTWalsheimPro-Regular"],
+        fontFamily: "GTWalsheimPro-Regular",
         color: "#8E8E93",
-    },
-    myMessageRow: {
-        flexDirection: "row",
-        alignSelf: "flex-end",
-        marginVertical: 6,
-        maxWidth: "75%",
-        marginRight: 16,
-    },
-    otherMessageRow: {
-        flexDirection: "row",
-        alignSelf: "flex-start",
-        marginVertical: 6,
-        maxWidth: "75%",
-        alignItems: "flex-end",
-        marginLeft: 16,
-    },
-    messageAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: "#E5E5EA",
-        marginRight: 8,
-    },
-    bubble: {
-        borderRadius: 12,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-    },
-    messageImagesGrid: {
-        gap: 6,
-        marginBottom: 6,
-    },
-    messageImage: {
-        width: 180,
-        height: 130,
-        borderRadius: 8,
-        backgroundColor: "#E5E5EA",
-    },
-    myBubble: {
-        backgroundColor: "#E5E5EA",
-        borderBottomRightRadius: 2,
-    },
-    otherBubble: {
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderColor: "#E5E5EA",
-        borderBottomLeftRadius: 2,
-    },
-    senderNameText: {
-        fontSize: 11,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
-        color: "#8E8E93",
-        marginBottom: 3,
-    },
-    messageText: {
-        fontSize: 14,
-        fontFamily: FONTS["GTWalsheimPro-Regular"],
-        color: "#1C1C1E",
-        lineHeight: 18,
-    },
-    timeContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        alignSelf: "flex-end",
-        marginTop: 4,
-    },
-    timeText: {
-        fontSize: 10,
-        color: "#8E8E93",
-        fontFamily: FONTS["GTWalsheimPro-Regular"],
-    },
-    checkIcon: {
-        marginLeft: 4,
     },
     errorText: {
         paddingHorizontal: 16,
         paddingBottom: 8,
         color: "#FF3B30",
         fontSize: 12,
-        fontFamily: FONTS["GTWalsheimPro-Regular"],
+        fontFamily: "GTWalsheimPro-Regular",
     },
     selectedImagesRow: {
         flexDirection: "row",
@@ -1144,7 +1146,7 @@ const styles = StyleSheet.create({
     removeImageText: {
         color: "#FFFFFF",
         fontSize: 12,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
+        fontFamily: "GTWalsheimPro-Medium",
         lineHeight: 14,
     },
     bottomInputRow: {
@@ -1197,106 +1199,5 @@ const styles = StyleSheet.create({
     },
     sendActionButtonDisabled: {
         opacity: 0.5,
-    },
-    dateSeparatorContainer: {
-        alignItems: "center",
-        marginVertical: 12,
-    },
-    dateSeparatorText: {
-        fontSize: 12,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
-        color: "#8E8E93",
-        backgroundColor: "#F2F2F7",
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 10,
-        overflow: "hidden",
-    },
-    unreadDividerContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginVertical: 16,
-        paddingHorizontal: 16,
-    },
-    unreadDividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: "#E5E5EA",
-    },
-    unreadDividerText: {
-        marginHorizontal: 12,
-        fontSize: 13,
-        color: "#8E8E93",
-        fontWeight: "500",
-    },
-    unreadBar: {
-        position: "absolute",
-        bottom: 70,
-        left: 16,
-        right: 16,
-        zIndex: 100,
-    },
-    unreadPill: {
-        position: 'absolute',
-        right: 16,
-        bottom: 120,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderWidth: 1,
-        borderColor: '#E5E5EA',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    unreadPillText: {
-        fontSize: 13,
-        color: COLORS.plum,
-        fontFamily: FONTS['GTWalsheimPro-Medium'],
-    },
-    unreadBarInner: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        elevation: 4,
-        borderWidth: 1,
-        borderColor: "#E5E5EA",
-    },
-    unreadBarText: {
-        fontSize: 14,
-        fontFamily: FONTS["GTWalsheimPro-Medium"],
-        color: COLORS.plum,
-        marginRight: 8,
-    },
-});
-
-const additionalStyles = StyleSheet.create({
-    unreadDividerContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginVertical: 16,
-        paddingHorizontal: 16,
-    },
-    unreadDividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: "#E5E5EA",
-    },
-    unreadDividerText: {
-        marginHorizontal: 12,
-        fontSize: 13,
-        color: "#8E8E93",
-        fontWeight: "500",
     },
 });

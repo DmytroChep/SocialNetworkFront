@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -40,6 +40,7 @@ import {
 import { useGroupCreation, type ModalUser } from "../../shared/context/group-creation-context";
 
 const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
+
 
 interface ChatListItem extends ChatPeer {
   id: number;
@@ -130,7 +131,25 @@ const chatToListItem = (
   };
 };
 
+const OnlineIndicator = ({ 
+  userId, 
+  onlineUserIds 
+}: { 
+  userId: number | undefined; 
+  onlineUserIds: Set<number>;
+}) => {
+  const isOnline = userId !== undefined && onlineUserIds.has(Number(userId));
+  return (
+    <View 
+      style={[
+        styles.onlineStatus, 
+        { backgroundColor: isOnline ? "#22C55E" : "#CDCED2" }
+      ]} 
+    />
+  );
+};
 export default function Chats() {
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
   const router = useRouter();
   const params = useLocalSearchParams<{
     userId?: string;
@@ -165,6 +184,9 @@ export default function Chats() {
 
   const [choosedTab, setChoosedTab] = useState<string>("Контакти");
   const [activeChat, setActiveChat] = useState<ChatPeer | null>(null);
+  const [personalChatsPage, setPersonalChatsPage] = useState(1);
+  const [groupChatsPage, setGroupChatsPage] = useState(1);
+  const CHATS_PAGE_SIZE = 10;
 
   useEffect(() => {
     if (!socket) return;
@@ -174,6 +196,90 @@ export default function Chats() {
       socket.off("chat:updated", handleChatUpdated);
     };
   }, [socket, refetchChats]);
+
+  // Presence listeners: keep `onlineUserIds` in sync with server
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUsersOnline = (payload: any) => {
+      const list = Array.isArray(payload)
+        ? payload
+        : payload?.users ?? payload?.userIds ?? [];
+        
+      const ids = list
+        .map((item: any) => {
+          const id = typeof item === 'object' ? (item.id ?? item.userId ?? item.user_id) : item;
+          return Number(id);
+        })
+        .filter((id: number) => !isNaN(id) && id !== 0);
+        
+      console.log('[PRESENCE] online ids:', ids); // временный лог
+      setOnlineUserIds(new Set(ids));
+    };
+
+    const handleUserOnline = (payload: any) => {
+      const id = payload?.id ?? payload?.userId ?? payload;
+      if (!id && id !== 0) return;
+      setOnlineUserIds((prev) => {
+        const s = new Set(prev);
+        s.add(Number(id));
+        return s;
+      });
+    };
+
+    const handleUserOffline = (payload: any) => {
+      const id = payload?.id ?? payload?.userId ?? payload;
+      if (!id && id !== 0) return;
+      setOnlineUserIds((prev) => {
+        const s = new Set(prev);
+        s.delete(Number(id));
+        return s;
+      });
+    };
+
+    const handlePresenceUpdate = (payload: any) => {
+      // payload could be { userId, online }
+      const id = payload?.userId ?? payload?.id;
+      if (id === undefined || id === null) return;
+      const online = Boolean(payload?.online ?? payload?.isOnline);
+      setOnlineUserIds((prev) => {
+        const s = new Set(prev);
+        if (online) s.add(Number(id));
+        else s.delete(Number(id));
+        return s;
+      });
+    };
+
+    socket.on("users:online", handleUsersOnline);
+    socket.on("user:online", handleUserOnline);
+    socket.on("user:offline", handleUserOffline);
+    socket.on("presence:update", handlePresenceUpdate);
+    socket.on("user:status", handlePresenceUpdate);
+
+      socket.onAny((event, ...args) => {
+        console.log('[SOCKET ALL]', event, JSON.stringify(args));
+      });
+
+    // Try to request current online users (server may accept a callback)
+    try {
+      socket.emit("users:online", (response: any) => {
+        handleUsersOnline(response);
+      });
+    } catch (e) {}
+    try {
+      socket.emit("presence:get", (response: any) => {
+        handleUsersOnline(response);
+      });
+    } catch (e) {}
+
+    return () => {
+      socket.off("users:online", handleUsersOnline);
+      socket.off("user:online", handleUserOnline);
+      socket.off("user:offline", handleUserOffline);
+      socket.off("presence:update", handlePresenceUpdate);
+      socket.off("user:status", handlePresenceUpdate);
+    };
+  }, [socket]);
 
   const usersById = useMemo(
     () => new Map(users.map((item) => [item.id, item])),
@@ -199,10 +305,28 @@ export default function Chats() {
     () =>
       (chatsResponse?.chats ?? [])
         .filter((chat) => !chat.is_group)
-        .map((chat) => chatToListItem(chat, currentUserId))
-        .filter(Boolean) as ChatListItem[],
+        .map((chat) => {
+          const item = chatToListItem(chat, currentUserId);
+          if (!item) return null;
+          
+          const peer = chat.users?.find((u: any) => u.user_id !== currentUserId);
+          
+          return {
+            ...item,
+            peerId: peer?.user_id,
+          };
+        })
+        .filter(Boolean) as (ChatListItem & { peerId?: number })[],
     [chatsResponse?.chats, currentUserId],
   );
+
+  const paginatedChatList = useMemo(() => {
+    const start = (personalChatsPage - 1) * CHATS_PAGE_SIZE;
+    const end = start + CHATS_PAGE_SIZE;
+    return chatList.slice(start, end);
+  }, [chatList, personalChatsPage]);
+
+  const hasMoreChats = chatList.length > personalChatsPage * CHATS_PAGE_SIZE;
 
   const groupEditContacts = useMemo(
     () =>
@@ -217,22 +341,40 @@ export default function Chats() {
   const groupChatItems = useMemo(() => {
     return (chatsResponse?.chats ?? [])
       .filter((chat) => chat.is_group)
-      .map((chat) => ({
-        id: chat.id,
-        chatId: chat.id,
-        name: chat.name || "Група",
-        avatar: toMediaUrl(chat.avatar) || DEFAULT_AVATAR,
-        adminId: chat.admin_id,
-        isAdmin: Number(chat.admin_id) === currentUserId,
-        users: chat.users,
-        editContacts: groupEditContacts,
-        lastMessage:
-          chat.lastMessage?.text ||
-          (chat.lastMessage?.images?.length ? "Фото" : "Немає повідомлень"),
-        time: formatChatTime(chat.lastMessage?.created_at),
-        unreadCount: chat.unreadCount ?? 0,
-      }));
+      .map((chat) => {
+        const isAdmin = Number(chat.admin_id) === Number(currentUserId);
+        console.log('[DEBUG GroupChatItems] chat:', {
+          chatId: chat.id,
+          name: chat.name,
+          adminId: chat.admin_id,
+          currentUserId,
+          isAdmin,
+        });
+        return {
+          id: chat.id,
+          chatId: chat.id,
+          name: chat.name || "Група",
+          avatar: toMediaUrl(chat.avatar) || DEFAULT_AVATAR,
+          adminId: chat.admin_id,
+          isAdmin,
+          users: chat.users,
+          editContacts: groupEditContacts,
+          lastMessage:
+            chat.lastMessage?.text ||
+            (chat.lastMessage?.images?.length ? "Фото" : "Немає повідомлень"),
+          time: formatChatTime(chat.lastMessage?.created_at),
+          unreadCount: chat.unreadCount ?? 0,
+        };
+      });
   }, [chatsResponse?.chats, currentUserId, groupEditContacts]);
+
+  const paginatedGroupChatItems = useMemo(() => {
+    const start = (groupChatsPage - 1) * CHATS_PAGE_SIZE;
+    const end = start + CHATS_PAGE_SIZE;
+    return groupChatItems.slice(start, end);
+  }, [groupChatItems, groupChatsPage]);
+
+  const hasMoreGroupChats = groupChatItems.length > groupChatsPage * CHATS_PAGE_SIZE;
 
   useEffect(() => {
     try {
@@ -248,6 +390,7 @@ export default function Chats() {
         socketId: socket?.id,
         tokenPresent: Boolean(token),
       });
+
     } catch (e) {
       // ignore
     }
@@ -278,26 +421,45 @@ export default function Chats() {
     });
   }, [chatList, friendsList, params.avatar, params.name, selectedUserId]);
 
-  const openChat = (peer: ChatPeer) => {
-    setChoosedTab(peer.isGroup ? "Групові чати" : "Повідомлення");
-    setActiveChat(peer);
-  };
+    const openChat = useCallback((peer: ChatPeer) => {
+      console.log('[DEBUG openChat] peer received:', {
+        id: peer.id,
+        isGroup: peer.isGroup,
+        adminId: peer.adminId,
+        isAdmin: peer.isAdmin,
+        chatId: peer.chatId,
+        name: peer.name,
+      });
+      
+      setChoosedTab(peer.isGroup ? "Групові чати" : "Повідомлення");
+      
+      // Якщо немає chatId — шукаємо існуючий чат по userId
+      if (!peer.chatId && !peer.isGroup) {
+          const existingChat = chatList.find((chat) => chat.id === peer.id);
+          if (existingChat) {
+              setActiveChat({ ...peer, chatId: existingChat.chatId });
+              return;
+          }
+      }
+      
+      setActiveChat(peer);
+  }, [chatList]);
 
-  const closeChat = () => {
+  const closeChat = useCallback(() => {
     setActiveChat(null);
     if (params.userId) {
       router.replace("/chats");
     }
     refetchChats();
-  };
+  }, [params.userId, router, refetchChats]);
 
-  const openTab = (title: string) => {
+  const openTab = useCallback((title: string) => {
     setChoosedTab(title);
     setActiveChat(null);
     if (params.userId) {
       router.replace("/chats");
     }
-  };
+  }, [params.userId, router]);
 
   const radioTabsArray = [
     { title: "Контакти", icon: <ICONS.people /> },
@@ -370,7 +532,7 @@ export default function Chats() {
 
           {!activeChat && choosedTab === "Повідомлення" && (
             <FlatList
-              data={chatList}
+              data={paginatedChatList}
               keyExtractor={(item) => item.chatId.toString()}
               showsVerticalScrollIndicator={false}
               ListHeaderComponent={
@@ -392,7 +554,19 @@ export default function Chats() {
               ListEmptyComponent={
                 <Text style={styles.emptyText}>Поки немає діалогів</Text>
               }
-              renderItem={({ item }) => (
+              ListFooterComponent={
+                hasMoreChats ? (
+                  <TouchableOpacity
+                    style={styles.loadMoreButton}
+                    onPress={() => setPersonalChatsPage(prev => prev + 1)}
+                  >
+                    <Text style={styles.loadMoreText}>Завантажити ще</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+              renderItem={({ item }) => {
+                const isOnline = item.peerId !== undefined && onlineUserIds.has(Number(item.peerId));
+                return (
                 <TouchableOpacity
                   style={styles.chatItem}
                   onPress={() => openChat(item)}
@@ -400,7 +574,10 @@ export default function Chats() {
                 >
                   <View style={styles.avatarContainer}>
                     <Image source={{ uri: item.avatar }} style={styles.avatar} />
-                    <View style={styles.onlineStatus} />
+                    <OnlineIndicator 
+                      userId={item.peerId} 
+                      onlineUserIds={onlineUserIds} 
+                    />
                   </View>
                   <View style={styles.content}>
                     <View style={styles.headerRow}>
@@ -423,7 +600,8 @@ export default function Chats() {
                     </View>
                   </View>
                 </TouchableOpacity>
-              )}
+              );
+              }}
             />
           )}
 
@@ -442,22 +620,32 @@ export default function Chats() {
                   <Text style={styles.sectionHeaderText}>Групові чати</Text>
                 </View>
               </View>
-              <GroupChatsList
-                chats={groupChatItems}
-                onChatPress={(item) =>
-                  openChat({
-                    id: item.chatId,
-                    chatId: item.chatId,
-                    name: item.name,
-                    avatar: item.avatar,
-                    isGroup: true,
-                    adminId: item.adminId,
-                    isAdmin: item.isAdmin,
-                    users: item.users,
-                    editContacts: item.editContacts,
-                  })
-                }
-              />
+              <View style={{ flex: 1 }}>
+                <GroupChatsList
+                  chats={paginatedGroupChatItems}
+                  onChatPress={(item) =>
+                    openChat({
+                      id: item.chatId,
+                      chatId: item.chatId,
+                      name: item.name,
+                      avatar: item.avatar,
+                      isGroup: true,
+                      adminId: item.adminId,
+                      isAdmin: item.isAdmin,
+                      users: item.users,
+                      editContacts: item.editContacts,
+                    })
+                  }
+                />
+                {hasMoreGroupChats && (
+                  <TouchableOpacity
+                    style={styles.loadMoreButton}
+                    onPress={() => setGroupChatsPage(prev => prev + 1)}
+                  >
+                    <Text style={styles.loadMoreText}>Завантажити ще</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -593,17 +781,6 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: "#E5E5EA",
   },
-  onlineStatus: {
-    position: "absolute",
-    bottom: 1,
-    right: 1,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    backgroundColor: "#34C759",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
   content: {
     flex: 1,
     marginLeft: 12,
@@ -676,4 +853,28 @@ const styles = StyleSheet.create({
     color: "#8E8E93",
     fontFamily: FONTS["GTWalsheimPro-Regular"],
   },
-});
+  onlineStatus: {
+    position: "absolute",
+    bottom: 2, 
+    right: 0,
+    width: 18,
+    height: 18,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+  },
+  loadMoreButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginVertical: 12,
+    backgroundColor: COLORS.darkBlue,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadMoreText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: FONTS["GTWalsheimPro-Medium"],
+  },
+})

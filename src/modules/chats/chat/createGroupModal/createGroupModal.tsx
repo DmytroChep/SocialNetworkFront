@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,12 @@ import Modal from 'react-native-modal';
 import * as ImagePicker from 'expo-image-picker';
 import { styles } from './createGroupModal-styles';
 import { COLORS } from '../../../../shared/constants';
+import { FONTS } from '../../../../shared/constants/fonts';
 import { IUser } from '../../../../shared/context/types';
 import { useGetAllUsersQuery } from '../../../../shared/api/baseApi';
 import { toMediaUrl } from '../../../../shared/lib/model-helpers';
+
+const USERS_PER_PAGE = 50;
 
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -81,9 +84,10 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
   onNext,
 }) => {
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const { data: users = [] } = useGetAllUsersQuery();
 
-  const sections = useMemo(() => {
+  const allSections = useMemo(() => {
     const query = search.toLowerCase();
     const filtered = users.filter((u: IUser) =>
       u.username.toLowerCase().includes(query)
@@ -99,8 +103,52 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
       .map(letter => ({ title: letter, data: grouped[letter] }));
   }, [users, search]);
 
-  const isSelected = (user: IUser): boolean =>
-    selectedUsers.some(u => u.id === user.id);
+  const sections = useMemo(() => {
+    const start = (currentPage - 1) * USERS_PER_PAGE;
+    let userCount = 0;
+    let startIndex = -1;
+    let endIndex = -1;
+
+    // Find which sections to include based on pagination
+    for (let i = 0; i < allSections.length; i++) {
+      const sectionUsers = allSections[i].data.length;
+      if (userCount + sectionUsers >= start && startIndex === -1) {
+        startIndex = i;
+      }
+      userCount += sectionUsers;
+      if (userCount >= start + USERS_PER_PAGE) {
+        endIndex = i;
+        break;
+      }
+    }
+
+    if (endIndex === -1) {
+      endIndex = allSections.length - 1;
+    }
+
+    return startIndex === -1 ? [] : allSections.slice(startIndex, endIndex + 1);
+  }, [allSections, currentPage]);
+
+  const totalUserCount = allSections.reduce((sum, section) => sum + section.data.length, 0);
+  const hasMoreUsers = useMemo(
+    () => totalUserCount > currentPage * USERS_PER_PAGE,
+    [totalUserCount, currentPage],
+  );
+
+  const isSelected = useCallback(
+    (user: IUser): boolean =>
+      selectedUsers.some(u => u.id === user.id),
+    [selectedUsers],
+  );
+
+  const handleSearchChange = useCallback((newText: string) => {
+    setSearch(newText);
+    setCurrentPage(1);
+  }, []);
+
+  const handleLoadMore = useCallback(() => {
+    setCurrentPage((prev) => prev + 1);
+  }, []);
 
   return (
     <>
@@ -112,7 +160,7 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
           placeholder="Пошук"
           placeholderTextColor={COLORS.blue50}
           value={search}
-          onChangeText={setSearch}
+          onChangeText={handleSearchChange}
         />
       </View>
 
@@ -125,6 +173,9 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
         keyExtractor={item => String(item.id)}
         style={styles.list}
         showsVerticalScrollIndicator
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={15}
+        updateCellsBatchingPeriod={50}
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionHeader}>{section.title}</Text>
         )}
@@ -140,6 +191,16 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
             </TouchableOpacity>
           );
         }}
+        ListFooterComponent={
+          hasMoreUsers ? (
+            <TouchableOpacity
+              style={createGroupStyles.loadMoreButton}
+              onPress={handleLoadMore}
+            >
+              <Text style={createGroupStyles.loadMoreText}>Завантажити ще</Text>
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       {/* Footer */}
@@ -171,7 +232,7 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
   // ✅ Fix #2: explicit string | null — resolves SetStateAction<null> error
   const [groupPhoto, setGroupPhoto] = useState<string | null>(null);
 
-  const pickFromGallery = async (): Promise<void> => {
+  const pickFromGallery = useCallback(async (): Promise<void> => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -179,16 +240,16 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
       quality: 0.8,
     });
     if (!result.canceled) setGroupPhoto(result.assets[0].uri);
-  };
+  }, []);
 
-  const takePhoto = async (): Promise<void> => {
+  const takePhoto = useCallback(async (): Promise<void> => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
     if (!result.canceled) setGroupPhoto(result.assets[0].uri);
-  };
+  }, []);
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
@@ -266,28 +327,28 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   // ✅ Fix #1: explicit User[] — resolves implicit 'any' on selectedUsers prop
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
 
-  const toggleUser = (user: IUser): void => {
+  const toggleUser = useCallback((user: IUser): void => {
     setSelectedUsers(prev =>
       prev.some(u => u.id === user.id)
         ? prev.filter(u => u.id !== user.id)
         : [...prev, user]
     );
-  };
+  }, []);
 
-  const removeUser = (userId: IUser['id']): void => {
+  const removeUser = useCallback((userId: IUser['id']): void => {
     setSelectedUsers(prev => prev.filter(u => u.id !== userId));
-  };
+  }, []);
 
-  const handleClose = (): void => {
+  const handleClose = useCallback((): void => {
     setStep(1);
     setSelectedUsers([]);
     onClose();
-  };
+  }, [onClose]);
 
-  const handleCreate = (details: Omit<CreateGroupPayload, 'participants'>): void => {
+  const handleCreate = useCallback((details: Omit<CreateGroupPayload, 'participants'>): void => {
     onCreate?.({ ...details, participants: selectedUsers });
     handleClose();
-  };
+  }, [selectedUsers, onCreate, handleClose]);
 
   return (
     <Modal
@@ -325,3 +386,20 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     </Modal>
   );
 };
+
+const createGroupStyles = StyleSheet.create({
+  loadMoreButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginVertical: 12,
+    backgroundColor: "#2E5266",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadMoreText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: FONTS["GTWalsheimPro-Medium"],
+  },
+});

@@ -30,12 +30,13 @@ export function LoginForm() {
     },
   });
 
-  // ✅ Навигация только когда токен реально появился в контексте
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+
   useEffect(() => {
-    if (token) {
+    if (token && justLoggedIn) {
       router.replace("/(tabs)/main");
     }
-  }, [token]);
+  }, [token, justLoggedIn]);
 
   const onSubmit = async (data: LoginFormInputs) => {
     setServerError(null);
@@ -43,6 +44,7 @@ export function LoginForm() {
       const result = await loginUser(data).unwrap();
       if (result && typeof result === "string" && result.split(".").length > 2) {
         setToken(result); // просто сохраняем — useEffect выше сделает navigate
+        setJustLoggedIn(true);
       } else {
         setServerError(result);
       }

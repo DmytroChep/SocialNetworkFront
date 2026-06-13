@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
 	FlatList,
@@ -440,7 +440,7 @@ export default function Friends() {
 	);
 	const visibleFriends = allFriends.slice(0, visibleFriendsCount);
 
-	const navigateToProfile = (cardUser: FriendCardUser) => {
+	const navigateToProfile = useCallback((cardUser: FriendCardUser) => {
 		router.push({
 			pathname: "/profile",
 			params: {
@@ -450,9 +450,9 @@ export default function Friends() {
 				avatar: cardUser.avatar,
 			},
 		});
-	};
+	}, [router]);
 
-	const navigateToChat = (cardUser: FriendCardUser) => {
+	const navigateToChat = useCallback((cardUser: FriendCardUser) => {
 		router.push({
 			pathname: "/chats",
 			params: {
@@ -461,23 +461,23 @@ export default function Friends() {
 				avatar: cardUser.avatar,
 			},
 		});
-	};
+	}, [router]);
 
-	const handleMessagePress = (cardUser: FriendCardUser) => {
+	const handleMessagePress = useCallback((cardUser: FriendCardUser) => {
 		if (Platform.OS === "web") {
 			navigateToChat(cardUser);
 			return;
 		}
 
 		navigateToProfile(cardUser);
-	};
+	}, [navigateToChat, navigateToProfile]);
 
-	const askConfirmation = (action: () => Promise<void>) => {
+	const askConfirmation = useCallback((action: () => Promise<void>) => {
 		setConfirmAction(() => action);
 		setModalVisible(true);
-	};
+	}, []);
 
-	const handleConfirmAction = async () => {
+	const handleConfirmAction = useCallback(async () => {
 		if (!confirmAction) return;
 
 		try {
@@ -486,34 +486,45 @@ export default function Friends() {
 			setConfirmAction(null);
 			setModalVisible(false);
 		}
-	};
+	}, [confirmAction]);
 
-	const acceptRequest = async (requestId: number) => {
-		await updateFriendshipStatus({ requestId, status: "accepted" }).unwrap();
-	};
+	const removeFriend = useCallback(
+		async (friendshipId: number) => {
+			await deleteFriendship(friendshipId).unwrap();
+		},
+		[deleteFriendship],
+	);
 
-	const deleteRequest = async (request: IFriendRequest) => {
-		await updateFriendshipStatus({
-			requestId: request.id,
-			status: "blacklisted",
-		}).unwrap();
-	};
+	const acceptRequest = useCallback(
+		async (requestId: number) => {
+			await updateFriendshipStatus({ requestId, status: "accepted" }).unwrap();
+		},
+		[updateFriendshipStatus],
+	);
 
-	const removeFriend = async (friendshipId: number) => {
-		await deleteFriendship(friendshipId).unwrap();
-	};
+	const deleteRequest = useCallback(
+		async (request: IFriendRequest) => {
+			await updateFriendshipStatus({
+				requestId: request.id,
+				status: "blacklisted",
+			}).unwrap();
+		},
+		[updateFriendshipStatus],
+	);
 
-	const blacklistUser = async (userId: number) => {
-		if (!currentUserId) return;
+	const blacklistUser = useCallback(
+		async (userId: number) => {
+			if (!currentUserId) return;
+			await createFriendshipRequest({
+				senderId: currentUserId,
+				receiverId: userId,
+				status: "blacklisted",
+			}).unwrap();
+		},
+		[currentUserId, createFriendshipRequest],
+	);
 
-		await createFriendshipRequest({
-			senderId: currentUserId,
-			receiverId: userId,
-			status: "blacklisted",
-		}).unwrap();
-	};
-
-	const getRecommendationActions = (recommendedUserId: number) => {
+	const getRecommendationActions = useCallback((recommendedUserId: number) => {
 		return {
 			primaryText: "Додати",
 			secondaryText: "Видалити",
@@ -521,9 +532,9 @@ export default function Friends() {
 			onPrimaryPress: undefined,
 			onSecondaryPress: () => blacklistUser(recommendedUserId),
 		};
-	};
+	}, [blacklistUser]);
 
-	const renderRequestCard = (request: IFriendRequest) => {
+	const renderRequestCard = useCallback((request: IFriendRequest) => {
 		const cardUser = profileToCardUser(
 			request.from_profile,
 			usersById.get(getProfileUserId(request.from_profile) ?? 0),
@@ -541,9 +552,9 @@ export default function Friends() {
 				onAvatarPress={() => navigateToProfile(cardUser)}
 			/>
 		);
-	};
+	}, [usersById, isActionLoading, acceptRequest, deleteRequest, askConfirmation, navigateToProfile]);
 
-	const renderRecommendationCard = (recommendedUser: IUser) => {
+	const renderRecommendationCard = useCallback((recommendedUser: IUser) => {
 		const cardUser = userToCardUser(recommendedUser);
 		const actions = getRecommendationActions(recommendedUser.id);
 
@@ -559,9 +570,9 @@ export default function Friends() {
 				onSecondaryPress={actions.onSecondaryPress}
 			/>
 		);
-	};
+	}, [isActionLoading, navigateToProfile, getRecommendationActions]);
 
-	const renderFriendCard = (friendship: IProfileFriend) => {
+	const renderFriendCard = useCallback((friendship: IProfileFriend) => {
 		const friendProfile = getFriendProfile(
 			friendship,
 			currentUserId,
@@ -586,11 +597,11 @@ export default function Friends() {
 				onAvatarPress={() => navigateToProfile(cardUser)}
 			/>
 		);
-	};
+	}, [currentUserId, currentProfileId, usersById, isActionLoading, handleMessagePress, askConfirmation, removeFriend, navigateToProfile]);
 
-	const openTab = (tab: FriendTab) => {
+	const openTab = useCallback((tab: FriendTab) => {
 		setActiveTab(tab);
-	};
+	}, []);
 
 	const RequestsPreviewSection = () => {
 		const previewRequests = incomingRequests.slice(0, REQUESTS_PREVIEW_LIMIT);

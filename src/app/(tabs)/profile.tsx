@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
 	ActivityIndicator,
 	Image,
 	SafeAreaView,
 	ScrollView,
+	StyleSheet,
 	Text,
 	TouchableOpacity,
 	View,
@@ -27,6 +28,7 @@ import {
 	useUpdateFriendshipStatusMutation,
 } from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
+import { FONTS } from "../../shared/constants/fonts";
 import { ICONS } from "../../shared/icons";
 import {
 	getUserAlbums,
@@ -39,6 +41,7 @@ import { Button } from "../../shared/ui/button";
 import { styles } from "./profile.styles";
 
 const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
+const PROFILE_POSTS_PAGE_SIZE = 5;
 
 type ProfileRelation =
 	| { type: "self" }
@@ -85,6 +88,7 @@ export default function UserProfile() {
 	const { id, name, handle, avatar } = useLocalSearchParams();
 	const profileUserId = Number(id);
 	const currentUserId = currentUser?.id;
+	const [currentPostsPage, setCurrentPostsPage] = useState(1);
 
 	const {
 		data: profileUser,
@@ -196,16 +200,13 @@ export default function UserProfile() {
 	const isActionLoading =
 		isCreatingRequest || isUpdatingFriendship || isDeletingFriendship;
 
-	const handleUpdatePost = useCallback((_updatedPost: IPost) => {}, []);
-	const handleDeletePost = useCallback((_postId: number) => {}, []);
-
-	const returnToUsersPage = () => {
+	const returnToUsersPage = useCallback(() => {
 		router.replace({
 			pathname: "/friends",
 		});
-	};
+	}, [router]);
 
-	const sendFriendRequest = async () => {
+	const sendFriendRequest = useCallback(async () => {
 		if (!currentUserId || !profileUserId) return;
 
 		await createFriendshipRequest({
@@ -213,23 +214,32 @@ export default function UserProfile() {
 			receiverId: profileUserId,
 		}).unwrap();
 		returnToUsersPage();
-	};
+	}, [currentUserId, profileUserId, createFriendshipRequest, returnToUsersPage]);
 
-	const acceptRequest = async (requestId: number) => {
-		await updateFriendshipStatus({ requestId, status: "accepted" }).unwrap();
-	};
+	const acceptRequest = useCallback(
+		async (requestId: number) => {
+			await updateFriendshipStatus({ requestId, status: "accepted" }).unwrap();
+		},
+		[updateFriendshipStatus],
+	);
 
-	const rejectRequest = async (requestId: number) => {
-		await updateFriendshipStatus({ requestId, status: "blacklisted" }).unwrap();
-		returnToUsersPage();
-	};
+	const rejectRequest = useCallback(
+		async (requestId: number) => {
+			await updateFriendshipStatus({ requestId, status: "blacklisted" }).unwrap();
+			returnToUsersPage();
+		},
+		[updateFriendshipStatus, returnToUsersPage],
+	);
 
-	const removeFriend = async (friendshipId: number) => {
-		await deleteFriendship(friendshipId).unwrap();
-		returnToUsersPage();
-	};
+	const removeFriend = useCallback(
+		async (friendshipId: number) => {
+			await deleteFriendship(friendshipId).unwrap();
+			returnToUsersPage();
+		},
+		[deleteFriendship, returnToUsersPage],
+	);
 
-	const deleteFromRecommendations = async () => {
+	const deleteFromRecommendations = useCallback(async () => {
 		if (!currentUserId) return;
 
 		if (relation.type === "incoming" || relation.type === "outgoing") {
@@ -246,9 +256,9 @@ export default function UserProfile() {
 		}
 
 		returnToUsersPage();
-	};
+	}, [currentUserId, relation, updateFriendshipStatus, createFriendshipRequest, profileUserId, returnToUsersPage]);
 
-	const openChat = () => {
+	const openChat = useCallback(() => {
 		router.push({
 			pathname: "/chats",
 			params: {
@@ -257,7 +267,18 @@ export default function UserProfile() {
 				avatar: avatarUrl || DEFAULT_AVATAR,
 			},
 		});
-	};
+	}, [router, profileUserId, displayName, avatarUrl]);
+
+	const handleUpdatePost = useCallback((_updatedPost: IPost) => {}, []);
+	const handleDeletePost = useCallback((_postId: number) => {}, []);
+
+	const paginatedPosts = useMemo(() => {
+		const start = (currentPostsPage - 1) * PROFILE_POSTS_PAGE_SIZE;
+		const end = start + PROFILE_POSTS_PAGE_SIZE;
+		return posts.slice(start, end);
+	}, [posts, currentPostsPage]);
+
+	const hasMorePosts = posts.length > currentPostsPage * PROFILE_POSTS_PAGE_SIZE;
 
 	const renderActionButtons = () => {
 		if (relation.type === "self") return null;
@@ -449,16 +470,26 @@ export default function UserProfile() {
 				<View style={styles.postsSection}>
 					{isPostsLoading ? (
 						<ActivityIndicator style={{ marginVertical: 16 }} />
-					) : posts.length > 0 ? (
-						posts.map((post) => (
-							<PublicationCard
-								key={post.id}
-								post={post}
-								userId={currentUser?.id}
-								onDelete={handleDeletePost}
-								onUpdate={handleUpdatePost}
-							/>
-						))
+					) : paginatedPosts.length > 0 ? (
+						<>
+							{paginatedPosts.map((post) => (
+								<PublicationCard
+									key={post.id}
+									post={post}
+									userId={currentUser?.id}
+									onDelete={handleDeletePost}
+									onUpdate={handleUpdatePost}
+								/>
+							))}
+							{hasMorePosts && (
+								<TouchableOpacity
+									style={profileStyles.loadMoreButton}
+									onPress={() => setCurrentPostsPage(prev => prev + 1)}
+								>
+									<Text style={profileStyles.loadMoreText}>Завантажити ще</Text>
+								</TouchableOpacity>
+							)}
+						</>
 					) : (
 						<Text style={styles.emptyText}>Дописів поки немає</Text>
 					)}
@@ -467,3 +498,21 @@ export default function UserProfile() {
 		</SafeAreaView>
 	);
 }
+
+const profileStyles = StyleSheet.create({
+	loadMoreButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		marginHorizontal: 12,
+		marginTop: 12,
+		backgroundColor: "#2E5266",
+		borderRadius: 8,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	loadMoreText: {
+		color: "#FFFFFF",
+		fontSize: 14,
+		fontFamily: FONTS["GTWalsheimPro-Medium"],
+	},
+});

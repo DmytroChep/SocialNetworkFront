@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	FlatList,
 	View,
+	Text,
+	TouchableOpacity,
+	StyleSheet,
 	type ViewToken,
 } from "react-native";
 import type { IPost } from "../../modules/my-publications/types/Post.type";
@@ -12,9 +15,13 @@ import {
 	useViewsIncreaseMutation,
 } from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
+import { FONTS } from "../../shared/constants/fonts";
+
+const POSTS_PAGE_SIZE = 5;
 
 export default function MyPublicationsScreen() {
 	const { user } = useUserContext();
+	const [currentPage, setCurrentPage] = useState(1);
 
 	const { data: publications } = useGetUserPostsQuery(
 		{ userId: user?.id ?? 0 },
@@ -29,6 +36,17 @@ export default function MyPublicationsScreen() {
 	useEffect(() => {
 		setLocalPublications(publications || []);
 	}, [publications]);
+
+	const paginatedPublications = useMemo(() => {
+		const start = (currentPage - 1) * POSTS_PAGE_SIZE;
+		const end = start + POSTS_PAGE_SIZE;
+		return localPublications.slice(start, end);
+	}, [localPublications, currentPage]);
+
+	const hasMorePosts = useMemo(
+		() => localPublications.length > currentPage * POSTS_PAGE_SIZE,
+		[localPublications.length, currentPage],
+	);
 
 	const viewedIds = useRef(new Set<number>());
 
@@ -61,6 +79,19 @@ export default function MyPublicationsScreen() {
 		);
 	}, []);
 
+	const handleLoadMore = useCallback(() => {
+		setCurrentPage((prev) => prev + 1);
+	}, []);
+
+	const renderItem = useCallback(({ item }: { item: IPost }) => (
+		<PublicationCard
+			post={item}
+			userId={user?.id ?? 0}
+			onDelete={handleDeletePost}
+			onUpdate={handleUpdatePost}
+		/>
+	), [user?.id, handleDeletePost, handleUpdatePost]);
+
 	if (!user) {
 		return <ActivityIndicator style={{ flex: 1 }} />;
 	}
@@ -68,22 +99,46 @@ export default function MyPublicationsScreen() {
 	return (
 		<View style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
 			<FlatList
-				data={localPublications}
+				data={paginatedPublications}
 				keyExtractor={(item) => item.id.toString()}
 				ItemSeparatorComponent={() => <View style={{ height: 9 }} />}
-				renderItem={({ item }) => (
-					<PublicationCard
-						post={item}
-						userId={user.id}
-						onDelete={handleDeletePost}
-						onUpdate={handleUpdatePost}
-					/>
-				)}
+				ListFooterComponent={
+					hasMorePosts ? (
+						<View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
+							<TouchableOpacity
+								style={styles.loadMoreButton}
+								onPress={handleLoadMore}
+							>
+								<Text style={styles.loadMoreText}>Завантажити ще</Text>
+							</TouchableOpacity>
+						</View>
+					) : null
+				}
+				renderItem={renderItem}
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={viewabilityConfig}
 				contentContainerStyle={{ paddingBottom: 24 }}
 				showsVerticalScrollIndicator={false}
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={10}
+				updateCellsBatchingPeriod={50}
 			/>
 		</View>
 	);
 }
+
+const styles = StyleSheet.create({
+	loadMoreButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		backgroundColor: "#2E5266",
+		borderRadius: 8,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	loadMoreText: {
+		color: "#FFFFFF",
+		fontSize: 14,
+		fontFamily: FONTS["GTWalsheimPro-Medium"],
+	},
+});

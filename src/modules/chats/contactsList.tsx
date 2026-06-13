@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
+	FlatList,
 	Image,
 	ScrollView,
+	StyleSheet,
 	Text,
 	TextInput,
 	TouchableOpacity,
@@ -9,6 +11,7 @@ import {
 } from "react-native";
 import { useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
+import { FONTS } from "../../shared/constants/fonts";
 import { ICONS } from "../../shared/icons";
 import { DEFAULT_AVATAR_URL, toMediaUrl } from "../../shared/lib/model-helpers";
 import type {
@@ -16,6 +19,8 @@ import type {
 	IProfileFriend,
 } from "../friends/types/Friendship.type";
 import { styles } from "./contactList.styles"; // Імпорт винесених стилей
+
+const CONTACTS_PAGE_SIZE = 15;
 
 export interface ContactType {
 	id: number;
@@ -62,6 +67,7 @@ const profileToContact = (profile: IFriendshipProfile): ContactType => {
 
 export function ContactsList({ contacts, onContactPress }: ContactsListProps) {
 	const { user } = useUserContext();
+	const [currentPage, setCurrentPage] = useState(1);
 	const { data: friendships, error: friendshipsError } = useGetUserFriendshipsQuery(user?.id as number, {
 		skip: !user?.id || Boolean(contacts),
 	});
@@ -88,8 +94,56 @@ export function ContactsList({ contacts, onContactPress }: ContactsListProps) {
 		});
 	}, [contacts, friendships?.friends, user]);
 
-	const filteredContacts = friends.filter((contact: ContactType) =>
-		contact.name.toLowerCase().includes(searchQuery.toLowerCase()),
+	const filteredContacts = useMemo(
+		() =>
+			friends.filter((contact: ContactType) =>
+				contact.name.toLowerCase().includes(searchQuery.toLowerCase()),
+			),
+		[friends, searchQuery],
+	);
+
+	const paginatedContacts = useMemo(() => {
+		const start = (currentPage - 1) * CONTACTS_PAGE_SIZE;
+		const end = start + CONTACTS_PAGE_SIZE;
+		return filteredContacts.slice(start, end);
+	}, [filteredContacts, currentPage]);
+
+	const hasMoreContacts = useMemo(
+		() => filteredContacts.length > currentPage * CONTACTS_PAGE_SIZE,
+		[filteredContacts.length, currentPage],
+	);
+
+	const handleSearchChange = useCallback((text: string) => {
+		setSearchQuery(text);
+		setCurrentPage(1);
+	}, []);
+
+	const handleContactPress = useCallback(
+		(contact: ContactType) => {
+			onContactPress?.(contact);
+		},
+		[onContactPress],
+	);
+
+	const handleLoadMore = useCallback(() => {
+		setCurrentPage((prev) => prev + 1);
+	}, []);
+
+	const renderContactItem = useCallback(
+		({ item: contact }: { item: ContactType }) => (
+			<TouchableOpacity
+				key={contact.id}
+				style={styles.contactItem}
+				onPress={() => handleContactPress(contact)}
+			>
+				<Image
+					source={{ uri: toMediaUrl(contact.avatar) || contact.avatar }}
+					style={styles.avatar}
+				/>
+				<Text style={styles.contactName}>{contact.name}</Text>
+			</TouchableOpacity>
+		),
+		[handleContactPress],
 	);
 
 	return (
@@ -109,33 +163,51 @@ export function ContactsList({ contacts, onContactPress }: ContactsListProps) {
 					placeholder="Пошук"
 					placeholderTextColor="#8E8E93"
 					value={searchQuery}
-					onChangeText={setSearchQuery}
+					onChangeText={handleSearchChange}
 					autoCapitalize="none"
 				/>
 			</View>
 
-			<ScrollView
+			<FlatList
+				data={paginatedContacts}
+				keyExtractor={(item) => item.id.toString()}
+				renderItem={renderContactItem}
+				ListEmptyComponent={
+					<Text style={styles.noResultsText}>Нікого не знайдено</Text>
+				}
+				ListFooterComponent={
+					hasMoreContacts ? (
+						<TouchableOpacity
+							style={contactsStyles.loadMoreButton}
+							onPress={handleLoadMore}
+						>
+							<Text style={contactsStyles.loadMoreText}>Завантажити ще</Text>
+						</TouchableOpacity>
+					) : null
+				}
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={styles.scrollPadding}
-			>
-				{filteredContacts.length === 0 ? (
-					<Text style={styles.noResultsText}>Нікого не знайдено</Text>
-				) : (
-					filteredContacts.map((contact) => (
-						<TouchableOpacity
-							key={contact.id}
-							style={styles.contactItem}
-							onPress={() => onContactPress?.(contact)}
-						>
-							<Image
-								source={{ uri: toMediaUrl(contact.avatar) || contact.avatar }}
-								style={styles.avatar}
-							/>
-							<Text style={styles.contactName}>{contact.name}</Text>
-						</TouchableOpacity>
-					))
-				)}
-			</ScrollView>
+				removeClippedSubviews={true}
+				maxToRenderPerBatch={10}
+				updateCellsBatchingPeriod={50}
+			/>
 		</View>
 	);
 }
+
+const contactsStyles = StyleSheet.create({
+	loadMoreButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		marginVertical: 12,
+		backgroundColor: "#2E5266",
+		borderRadius: 8,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	loadMoreText: {
+		color: "#FFFFFF",
+		fontSize: 14,
+		fontFamily: FONTS["GTWalsheimPro-Medium"],
+	},
+});
