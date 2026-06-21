@@ -272,80 +272,65 @@ export default function Chats() {
   // Presence listeners: keep `onlineUserIds` in sync with server
   // Presence listeners: keep `onlineUserIds` in sync with server
   useEffect(() => {
-    if (!socket) return;
+  if (!socket) return;
 
-    const handleUsersOnline = (payload: any) => {
-      const list = Array.isArray(payload)
-        ? payload
-        : payload?.users ?? payload?.userIds ?? [];
-        
-      const ids = list
-        .map((item: any) => {
-          const id = typeof item === 'object' ? (item.id ?? item.userId ?? item.user_id) : item;
-          return Number(id);
-        })
-        .filter((id: number) => !isNaN(id) && id !== 0);
-        
-      console.log('[PRESENCE] initial online ids:', ids);
-      setOnlineUserIds(new Set(ids));
-    };
+  console.log('[PRESENCE] useEffect fired, socket.id:', socket.id, 'connected:', socket.connected);
 
-    const handleUserOnline = (payload: any) => {
-      const id = payload?.id ?? payload?.userId ?? payload;
-      if (id === undefined || id === null) return;
-      setOnlineUserIds((prev) => {
-        const s = new Set(prev);
-        s.add(Number(id));
-        return s;
-      });
-    };
+  const handleUsersOnline = (payload: any) => {
+    console.log('[PRESENCE] users:initial_online RAW:', JSON.stringify(payload));
+    const list = Array.isArray(payload) ? payload : [];
+    const ids = list.map(Number).filter((id: number) => !isNaN(id) && id > 0);
+    console.log('[PRESENCE] parsed ids:', ids);
+    setOnlineUserIds(new Set(ids));
+  };
 
-    
-  
-    const handleUserOffline = (payload: any) => {
-      const id = payload?.id ?? payload?.userId ?? payload;
-      if (id === undefined || id === null) return;
-      setOnlineUserIds((prev) => {
-        const s = new Set(prev);
-        s.delete(Number(id));
-        return s;
-      });
-    };
+  const handleUserOnline = (payload: any) => {
+    console.log('[PRESENCE] user:online:', JSON.stringify(payload));
+    const id = Number(payload?.id ?? payload?.userId ?? payload);
+    if (id > 0) setOnlineUserIds(prev => new Set([...prev, id]));
+  };
 
-    const handlePresenceUpdate = (payload: any) => {
-      const id = payload?.userId ?? payload?.id;
-      if (id === undefined || id === null) return;
-      const online = Boolean(payload?.online ?? payload?.isOnline);
-      setOnlineUserIds((prev) => {
-        const s = new Set(prev);
-        if (online) s.add(Number(id));
-        else s.delete(Number(id));
-        return s;
-      });
-    };
+  const handleUserOffline = (payload: any) => {
+    console.log('[PRESENCE] user:offline:', JSON.stringify(payload));
+    const id = Number(payload?.id ?? payload?.userId ?? payload);
+    if (id > 0) setOnlineUserIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+  };
 
-    socket.on("users:initial_online", handleUsersOnline);
-    
-    socket.on("user:online", handleUserOnline);
-    socket.on("user:offline", handleUserOffline);
-    socket.on("presence:update", handlePresenceUpdate);
-    socket.on("user:status", handlePresenceUpdate);
+  socket.on("users:initial_online", handleUsersOnline);
+  socket.on("user:online", handleUserOnline);
+  socket.on("user:offline", handleUserOffline);
 
-    socket.onAny((event, ...args) => {
-      console.log('[SOCKET ALL]', event, JSON.stringify(args));
+  // Принудительный запрос если уже подключён
+  if (socket.connected) {
+    console.log('[PRESENCE] socket already connected, emitting users:get_online');
+    socket.emit("users:get_online", (response: any) => {
+      console.log('[PRESENCE] users:get_online ACK:', JSON.stringify(response));
+      if (Array.isArray(response?.data)) {
+        setOnlineUserIds(new Set(response.data.map(Number)));
+      }
     });
+  }
 
-    return () => {
-      // Незабываем убрать слушатель при размонтировании
-      socket.off("users:initial_online", handleUsersOnline);
-      
-      socket.off("user:online", handleUserOnline);
-      socket.off("user:offline", handleUserOffline);
-      socket.off("presence:update", handlePresenceUpdate);
-      socket.off("user:status", handlePresenceUpdate);
-    };
-  }, [socket]);
-  
+  // Также слушаем событие connect на случай переподключения
+  const handleConnect = () => {
+    console.log('[PRESENCE] socket connected event fired');
+    socket.emit("users:get_online", (response: any) => {
+      console.log('[PRESENCE] users:get_online after connect:', JSON.stringify(response));
+      if (Array.isArray(response?.data)) {
+        setOnlineUserIds(new Set(response.data.map(Number)));
+      }
+    });
+  };
+
+  socket.on("connect", handleConnect);
+
+  return () => {
+    socket.off("users:initial_online", handleUsersOnline);
+    socket.off("user:online", handleUserOnline);
+    socket.off("user:offline", handleUserOffline);
+    socket.off("connect", handleConnect);
+  };
+}, [socket]);
   const usersById = useMemo(
     () => new Map(users.map((item) => [item.id, item])),
     [users],

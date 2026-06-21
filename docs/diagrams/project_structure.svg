@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360">
+  <style>
+    .bg{fill:#ffffff}
+    .box{fill:#ffffff;stroke:#2b2f33;stroke-width:1.6;filter:drop-shadow(0 1px 1px rgba(0,0,0,0.08))}
+    .label{font:16px Arial, Helvetica, sans-serif;fill:#111}
+    .small{font:13px Arial, Helvetica, sans-serif;fill:#111}
+    .arrow{stroke:#2b2f33;stroke-width:1.4;fill:none;marker-end:url(#arrowhead)}
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#2b2f33" />
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="900" height="360" class="bg" />
+
+  <!-- Client App -->
+  <rect x="40" y="40" width="240" height="60" rx="8" class="box" />
+  <text x="160" y="70" text-anchor="middle" alignment-baseline="middle" class="label">Client App (src/)</text>
+
+  <!-- Native -->
+  <rect x="40" y="130" width="240" height="80" rx="8" class="box" />
+  <text x="160" y="170" text-anchor="middle" alignment-baseline="middle" class="small">android/  •  ios/</text>
+
+  <!-- modules -->
+  <rect x="340" y="30" width="160" height="48" rx="8" class="box" />
+  <text x="420" y="54" text-anchor="middle" alignment-baseline="middle" class="small">modules/</text>
+
+  <!-- shared -->
+  <rect x="340" y="120" width="160" height="48" rx="8" class="box" />
+  <text x="420" y="144" text-anchor="middle" alignment-baseline="middle" class="small">shared/</text>
+
+  <!-- children of modules -->
+  <rect x="560" y="8" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="26" text-anchor="middle" alignment-baseline="middle" class="small">auth</text>
+  <rect x="560" y="56" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="74" text-anchor="middle" alignment-baseline="middle" class="small">chats</text>
+  <rect x="560" y="104" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="122" text-anchor="middle" alignment-baseline="middle" class="small">friends</text>
+  <rect x="560" y="152" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="170" text-anchor="middle" alignment-baseline="middle" class="small">my-publications</text>
+  <rect x="560" y="200" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="218" text-anchor="middle" alignment-baseline="middle" class="small">profile</text>
+
+  <!-- children of shared -->
+  <rect x="560" y="256" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="274" text-anchor="middle" alignment-baseline="middle" class="small">api</text>
+  <rect x="560" y="304" width="140" height="36" rx="6" class="box" />
+  <text x="630" y="322" text-anchor="middle" alignment-baseline="middle" class="small">constants</text>
+  <rect x="720" y="304" width="140" height="36" rx="6" class="box" />
+  <text x="790" y="322" text-anchor="middle" alignment-baseline="middle" class="small">ui</text>
+
+  <!-- arrows -->
+  <path d="M280 70 L340 54" class="arrow" />
+  <path d="M280 70 L340 144" class="arrow" />
+  <path d="M500 54 L560 26" class="arrow" />
+  <path d="M500 54 L560 74" class="arrow" />
+  <path d="M500 54 L560 122" class="arrow" />
+  <path d="M500 144 L560 170" class="arrow" />
+  <path d="M500 144 L560 218" class="arrow" />
+  <path d="M500 144 L560 274" class="arrow" />
+  <path d="M700 322 L720 322" class="arrow" />
+
+</svg>

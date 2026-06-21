@@ -199,7 +199,6 @@ const MessageItem = memo(
             </View>
         );
     },
-    // Custom comparator — re-render only when something actually changed
     (prev, next) =>
     prev.item.id === next.item.id &&
     prev.item.text === next.item.text &&
@@ -209,7 +208,6 @@ const MessageItem = memo(
     prev.senderAvatar === next.senderAvatar &&
     prev.senderName === next.senderName &&
     (prev.item.images?.length ?? 0) === (next.item.images?.length ?? 0) &&
-    // ↓ ДОДАТИ — перевіряємо чи змінились URL картинок
     JSON.stringify(prev.item.images?.map(i => i.image)) === 
     JSON.stringify(next.item.images?.map(i => i.image)),
 );
