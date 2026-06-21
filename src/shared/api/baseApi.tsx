@@ -4,6 +4,7 @@ import { IPartialUser } from "../context/types/partial-user.type";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IAlbum, IAlbumImage, ITag } from "../context/types/User.type";
 import { ip } from "../../config/ip";
+import { toMediaUrl, DEFAULT_AVATAR_URL } from "../lib/model-helpers";
 import {
   IPostCreation,
   IPost,
@@ -32,15 +33,16 @@ import type {
 export const baseApi = createApi({
   reducerPath: "api",
     baseQuery: fetchBaseQuery({
-        baseUrl: `http://${ip}:8000/`,
+        baseUrl: `${ip}`,
         prepareHeaders: async (headers) => {
             const token = await AsyncStorage.getItem("token");
-        try {
-          console.log('DEBUG baseApi.prepareHeaders tokenPresent:', Boolean(token), 'tokenMask:', token ? `***${String(token).slice(-8)}` : null);
-        } catch (e) {}
-            if (token) {
-                headers.set("Authorization", `Bearer ${token}`);
-            }
+            headers.set("ngrok-skip-browser-warning", "true");
+            try {
+              console.log('DEBUG baseApi.prepareHeaders tokenPresent:', Boolean(token), 'tokenMask:', token ? `***${String(token).slice(-8)}` : null);
+            } catch (e) {}
+                if (token) {
+                    headers.set("Authorization", `Bearer ${token}`);
+                }
             return headers;
         },
     }),
@@ -260,6 +262,37 @@ export const baseApi = createApi({
 
     getUserFriendships: builder.query<IUserFriendships, number>({
       query: (userId) => `/friendship/user/${userId}`,
+      transformResponse: (response: IUserFriendships) => {
+        console.log('[API] getUserFriendships transformResponse', {
+          friends: Array.isArray(response?.friends) ? response.friends.length : 0,
+          incoming: Array.isArray(response?.incomingRequests) ? response.incomingRequests.length : 0,
+          outgoing: Array.isArray(response?.outgoingRequests) ? response.outgoingRequests.length : 0,
+        });
+        const normalizeProfile = (p: any) => {
+          if (!p) return p;
+          const avatar = toMediaUrl(p.avatar, 'avatar', p.user?.id || p.id) || DEFAULT_AVATAR_URL;
+          return { ...p, avatar };
+        };
+
+        const normalizeFriend = (f: any) => ({
+          ...f,
+          from_profile: normalizeProfile(f.from_profile),
+          to_profile: normalizeProfile(f.to_profile),
+        });
+
+        return {
+          friends: Array.isArray(response.friends) ? response.friends.map(normalizeFriend) : [],
+          incomingRequests: Array.isArray(response.incomingRequests)
+            ? response.incomingRequests.map((r: any) => ({ ...r, from_profile: normalizeProfile(r.from_profile), to_profile: normalizeProfile(r.to_profile) }))
+            : [],
+          outgoingRequests: Array.isArray(response.outgoingRequests)
+            ? response.outgoingRequests.map((r: any) => ({ ...r, from_profile: normalizeProfile(r.from_profile), to_profile: normalizeProfile(r.to_profile) }))
+            : [],
+          blacklistedRequests: Array.isArray(response.blacklistedRequests)
+            ? response.blacklistedRequests.map((r: any) => ({ ...r, from_profile: normalizeProfile(r.from_profile), to_profile: normalizeProfile(r.to_profile) }))
+            : undefined,
+        } as IUserFriendships;
+      },
       providesTags: ['Friendship'],
     }),
 
@@ -312,16 +345,47 @@ export const baseApi = createApi({
       invalidatesTags: ['Chats'],
     }),
 
-    getChatMessages: builder.query<IPaginatedMessagesResponse, IChatMessagesPaginationParams>({
-      query: ({ chatId, limit, cursorId }) => ({
+   getChatMessages: builder.query<IPaginatedMessagesResponse, IChatMessagesPaginationParams>({
+    query: ({ chatId, limit, cursorId }) => ({
         url: `chats/${chatId}/messages`,
         params: {
-          limit: limit ?? 30,
-          ...(cursorId ? { cursorId } : {}),
+            limit: limit ?? 30,
+            ...(cursorId ? { cursorId } : {}),
         },
-      }),
-      providesTags: (_result, _error, arg) => [{ type: 'Messages', id: arg.chatId }],
     }),
+    transformResponse: (response: IPaginatedMessagesResponse) => {
+      console.log('[API] getChatMessages transformResponse, messages:', Array.isArray(response?.messages) ? response.messages.length : 0);
+      const sanitizeUrl = (value?: string | null, owner?: string | number) => {
+        if (!value) return undefined;
+        // Metro bundler dev asset URLs (unstable_path) — don't use them as media
+        if (value.includes("unstable_path=")) return undefined;
+        return toMediaUrl(value, 'message', owner);
+      };
+
+      const normalizeMessage = (m: any) => ({
+        ...m,
+        sender: m.sender
+          ? { ...m.sender, avatar: toMediaUrl(m.sender.avatar, 'avatar', m.sender?.id) || DEFAULT_AVATAR_URL }
+          : m.sender,
+        images: Array.isArray(m.images)
+          ? m.images
+              .map((img: any) => ({ ...img, image: sanitizeUrl(img.image, m.sender?.id) }))
+              .filter((img: any) => img.image)
+          : [],
+      });
+      console.log('[MSG SENDER]', JSON.stringify(
+        response.messages?.[0]?.sender ?? 'NO SENDER'
+    ));
+
+      return {
+        messages: Array.isArray(response.messages) ? response.messages.map(normalizeMessage) : [],
+        hasMore: response.hasMore,
+        nextCursor: response.nextCursor,
+      } as IPaginatedMessagesResponse;
+    },
+    providesTags: (_result, _error, arg) => [{ type: 'Messages', id: arg.chatId }],
+    keepUnusedDataFor: 300, // ← 5 хвилин замість 60 секунд
+}),
 
     markChatAsRead: builder.mutation<IMarkChatAsReadResponse, number>({
       query: (chatId) => ({
@@ -421,5 +485,6 @@ export const {
   useCreateFriendshipRequestMutation,
   useUpdateFriendshipStatusMutation,
   useDeleteFriendshipMutation,
+  usePrefetch
   
 } = baseApi;

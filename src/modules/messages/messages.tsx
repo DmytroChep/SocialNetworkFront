@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
 import { FlatList, Image, Text, TouchableOpacity, View } from "react-native";
-import { toMediaUrl, getUserAvatar } from "../../shared/lib/model-helpers";
+import { toMediaUrl, getUserAvatar, DEFAULT_AVATAR_URL } from "../../shared/lib/model-helpers";
 import { styles } from "./messages.styles";
 
-const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
+const DEFAULT_AVATAR = DEFAULT_AVATAR_URL || "";
 
 const getProfileUserId = (profile?: any) => profile?.user?.id ?? profile?.user_id;
 
@@ -18,7 +18,7 @@ const profileName = (profile: any, fallbackUser?: any) => {
 const profileToCardUser = (profile: any, fallbackUser?: any) => ({
     id: profile.user?.id ?? profile.user_id ?? fallbackUser?.id ?? 0,
     name: profileName(profile, fallbackUser),
-    avatar: toMediaUrl(profile.avatar) || getUserAvatar(fallbackUser) || DEFAULT_AVATAR,
+    avatar: toMediaUrl(profile.avatar, 'avatar', profile.user?.id ?? profile.user_id) || getUserAvatar(fallbackUser) || DEFAULT_AVATAR,
 });
 
 const getFriendProfile = (friendship: any, currentUserId?: number, currentProfileId?: number) => {

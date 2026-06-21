@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	FlatList,
@@ -10,10 +10,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { IPost } from "../../modules/my-publications/types/Post.type";
 import { PublicationCard } from "../../modules/my-publications/ui/publicationCard/publicationCard";
-import {
-	useLazyGetAllPostsQuery,
-	useViewsIncreaseMutation,
-} from "../../shared/api/baseApi";
+import { useLazyGetAllPostsQuery,
+	useViewsIncreaseMutation, useGetPersonalChatsQuery, useGetAllHashtagsQuery, useGetUserFriendshipsQuery, useMeQuery, 
+	useGetAllUsersQuery,
+	useGetUserPostsQuery,
+	usePrefetch} from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
 import {
 	getUserAvatar,
@@ -23,7 +24,7 @@ import {
 import { FirstEnterModal } from "../../shared/ui/first-enter-modal/firstEnterModal";
 import { COLORS } from "../../shared/constants/colors"
 
-const POSTS_LIMIT = 5;
+const POSTS_LIMIT = 3;
 
 function needsFirstEnterProfile(
 	user: ReturnType<typeof useUserContext>["user"],
@@ -38,8 +39,35 @@ function needsFirstEnterProfile(
 }
 
 export default function Main() {
-	const { user } = useUserContext();
-	const router = useRouter();
+  const { user } = useUserContext();
+  const router = useRouter();
+
+  // --- Prefetch ---
+  useMeQuery();
+  useGetAllHashtagsQuery();
+  useGetAllUsersQuery();
+  useGetUserFriendshipsQuery(user?.id ?? 0, { skip: !user?.id });
+  useGetUserPostsQuery({ userId: user?.id ?? 0 }, { skip: !user?.id });
+  const { data: chatsData } = useGetPersonalChatsQuery(
+    { take: 50 },
+    { skip: !user?.id }
+  );
+  const prefetchMessages = usePrefetch('getChatMessages');
+
+  const chatIds = useMemo(
+    () => chatsData?.chats?.map((chat) => chat.id) ?? [],
+    [chatsData]
+  );
+
+  useEffect(() => {
+	if (chatIds.length === 0) return;
+
+	chatIds.forEach((chatId, index) => {
+		setTimeout(() => {
+		prefetchMessages({ chatId, limit: 10 }); // ← було 30, треба 10
+		}, index * 150);
+	});
+	}, [chatIds, prefetchMessages]);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [posts, setPosts] = useState<IPost[]>([]);
@@ -209,15 +237,15 @@ export default function Main() {
 				keyExtractor={(item) => item.id.toString()}
 				ItemSeparatorComponent={() => <View style={{ height: 9 }} />}
 				renderItem={({ item }) => (
-					<PublicationCard
-						post={item}
-						userId={user?.id}
-						onDelete={handleDeletePost}
-						onUpdate={handleUpdatePost}
-						onToggleLikeLocal={handleToggleLikeLocal}
-						onProfilePress={() => handleNavigateToProfile(item.author)}
-					/>
-				)}
+    <PublicationCard
+        post={item}
+        userId={user?.id}
+        onDelete={handleDeletePost}
+        onUpdate={handleUpdatePost} // ← Мы будем использовать только этот колбэк
+					onToggleLikeLocal={handleToggleLikeLocal}
+        onProfilePress={() => handleNavigateToProfile(item.author)}
+    />
+)}
 				onEndReached={() => loadPosts()}
 				onEndReachedThreshold={0.5}
 				onViewableItemsChanged={onViewableItemsChanged}

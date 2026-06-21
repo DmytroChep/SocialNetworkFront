@@ -165,7 +165,7 @@ export default function TabsLayout() {
             return {
                 id: friendProfile.user?.id ?? friendProfile.user_id,
                 name: profileName(friendProfile),
-                avatar: toMediaUrl(friendProfile.avatar) || DEFAULT_AVATAR_URL,
+                avatar: toMediaUrl(friendProfile.avatar, 'avatar', friendProfile.user?.id ?? friendProfile.user_id) || DEFAULT_AVATAR_URL,
                 avatarColor: "#5C465A",
             };
         });

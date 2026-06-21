@@ -7,17 +7,17 @@ export const styles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         paddingHorizontal: 16,
-        paddingTop: 16,
+        paddingTop: 10,
         marginTop: 10,
         // ВИПРАВЛЕНО: компенсуємо бічні відступи батьківського екрана,
         // щоб картка встала рівно на всю ширину (від краю до краю)
         marginHorizontal: -16, 
     },
-    cardHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 16,
-    },
+    // cardHeader: {
+    //     flexDirection: "row",
+    //     alignItems: "center",
+    //     marginBottom: 16,
+    // },
     iconWrapper: {
         position: "relative",
         width: 24,

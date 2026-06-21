@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Alert, View, Text, Image, TouchableOpacity, StatusBar, Platform, Linking } from 'react-native';
+import { Alert, View, Text, Image, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { useRouter } from 'expo-router'; // Додано для навігації
 import { IPost } from '../../types/Post.type';
 import { styles } from './publicationCard.styles';
@@ -7,6 +7,7 @@ import { ICONS } from '../../../../shared/icons';
 import { 
     useHeartIncreaseMutation, 
     useThumbUpIncreaseMutation, 
+    useThumbUpDecreaseMutation,
     useUpdatePostMutation,
     useReplacePostImagesMutation,
     useDeletePostMutation
@@ -79,17 +80,6 @@ const buildLocalUpdatedPost = (post: IPost, formData: any): IPost => ({
     })) || [],
 });
 
-const openLink = async (url: string) => {
-    // Додаємо протокол якщо його немає
-    const fullUrl = url.startsWith('http') ? url : `https://${url}`;
-    const supported = await Linking.canOpenURL(fullUrl);
-    if (supported) {
-        await Linking.openURL(fullUrl);
-    } else {
-        Alert.alert('Помилка', `Не вдалося відкрити посилання: ${url}`);
-    }
-};
-
 export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLikeLocal, onProfilePress }: PostProps) {
     const router = useRouter();
     const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -98,6 +88,30 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
     useEffect(() => {
         setCurrentPost(post);
     }, [post]);
+
+    // Derive initial liked/hearted flags from reactions arrays when possible
+    useEffect(() => {
+        if (!post) return;
+        const likes = post.likes ?? [];
+        const hearts = post.hearts ?? [];
+        const matchUser = (r: any) => {
+            if (!r) return false;
+            return (
+                (typeof r.user_id === 'number' && r.user_id === userId) ||
+                (typeof r.userId === 'number' && r.userId === userId) ||
+                (r.user && typeof r.user.id === 'number' && r.user.id === userId)
+            );
+        };
+        const userLiked = !!(userId && likes.some((r) => matchUser(r)));
+        const userHearted = !!(userId && hearts.some((r) => matchUser(r)));
+        setCurrentPost((prev) => ({
+            ...prev,
+            isThumbsUpLiked: prev.isThumbsUpLiked ?? userLiked,
+            isHeartLiked: prev.isHeartLiked ?? userHearted,
+            thumbsUpCount: prev.thumbsUpCount ?? (likes.length || (post.thumbsUpCount ?? 0)),
+            heartCount: prev.heartCount ?? (hearts.length || (post.heartCount ?? 0)),
+        }));
+    }, [post, userId]);
 
     const images = getPostImages(currentPost);
     const topImages = images.slice(0, 2);
@@ -108,6 +122,7 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
     const authorName = getUserDisplayName(currentPost.author);
 
     const [increaseThumbUp] = useThumbUpIncreaseMutation();
+    const [decreaseThumbUp] = useThumbUpDecreaseMutation();
     const [increaseHeart] = useHeartIncreaseMutation();
     const [updatePost] = useUpdatePostMutation();
     const [replacePostImages] = useReplacePostImagesMutation();
@@ -167,7 +182,11 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
         onToggleLikeLocal?.(currentPost.id, !isCurrentlyLiked);
 
         try {
-            await increaseThumbUp({ postId: currentPost.id }).unwrap();
+            if (isCurrentlyLiked) {
+                await decreaseThumbUp({ postId: currentPost.id }).unwrap();
+            } else {
+                await increaseThumbUp({ postId: currentPost.id }).unwrap();
+            }
         } catch (err) {
             setCurrentPost(previousPost);
             onToggleLikeLocal?.(currentPost.id, isCurrentlyLiked);
@@ -281,21 +300,6 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
                 </View>
             </View>
 
-            {currentPost.links && currentPost.links.length > 0 && (
-    <View style={styles.linksContainer}>
-        {currentPost.links.map((link, index) => (
-            <TouchableOpacity 
-                key={link.id ?? index} 
-                onPress={() => openLink(link.url)}
-            >
-                <Text style={styles.linkText} numberOfLines={1}>
-                    {link.url}
-                </Text>
-            </TouchableOpacity>
-        ))}
-    </View>
-)}
-
             <View style={styles.gridContainer}>
                 <View style={styles.topRow}>
                     {topImages.map((img, index) => {
@@ -305,7 +309,7 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
                         const guessedOriginal = img.url ? img.url.replace('/compressed_images/', '/original_images/') : undefined;
                         const fallback = img.url ? img.url.replace('/image/upload/f_auto,q_auto', '/image/upload') : undefined;
                         const publicPath = img.url ? img.url.replace(/^https?:\/\/[^/]+\/image\/upload\//, '') : undefined;
-                        const backendCompressed = publicPath && !publicPath.startsWith('http') ? `${BACKEND_MEDIA_BASE}/media/${publicPath}` : undefined;
+                        const backendCompressed = publicPath ? `${BACKEND_MEDIA_BASE}/media/${publicPath}` : undefined;
                         const backendOriginal = backendCompressed ? backendCompressed.replace('/compressed_images/', '/original_images/') : undefined;
                         const candidates = Array.from(new Set([img.url, originalResolved, guessedOriginal, backendOriginal, backendCompressed, fallback].filter(Boolean))) as string[];
                         return <SmartImage key={`top-${img.id}-${index}`} candidates={candidates} style={styles.largeImage} />;
@@ -320,7 +324,7 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
                             const guessedOriginal = img.url ? img.url.replace('/compressed_images/', '/original_images/') : undefined;
                             const fallback = img.url ? img.url.replace('/image/upload/f_auto,q_auto', '/image/upload') : undefined;
                             const publicPath = img.url ? img.url.replace(/^https?:\/\/[^/]+\/image\/upload\//, '') : undefined;
-                            const backendCompressed = publicPath && !publicPath.startsWith('http') ? `${BACKEND_MEDIA_BASE}/media/${publicPath}` : undefined;
+                            const backendCompressed = publicPath ? `${BACKEND_MEDIA_BASE}/media/${publicPath}` : undefined;
                             const backendOriginal = backendCompressed ? backendCompressed.replace('/compressed_images/', '/original_images/') : undefined;
                             const candidates = Array.from(new Set([img.url, originalResolved, guessedOriginal, backendOriginal, backendCompressed, fallback].filter(Boolean))) as string[];
                             return <SmartImage key={`bottom-${img.id}-${index}`} candidates={candidates} style={styles.smallImage} />;
@@ -358,4 +362,3 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
         </View>
     );
 }
- 

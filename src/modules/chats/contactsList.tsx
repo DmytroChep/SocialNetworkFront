@@ -13,7 +13,7 @@ import { useGetUserFriendshipsQuery } from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
 import { FONTS } from "../../shared/constants/fonts";
 import { ICONS } from "../../shared/icons";
-import { DEFAULT_AVATAR_URL, toMediaUrl } from "../../shared/lib/model-helpers";
+import { DEFAULT_AVATAR_URL, toMediaUrl, getUserAvatar } from "../../shared/lib/model-helpers";
 import type {
 	IFriendshipProfile,
 	IProfileFriend,
@@ -57,11 +57,20 @@ const profileToContact = (profile: IFriendshipProfile): ContactType => {
 		.join(" ")
 		.trim();
 
+	const resolvedAvatar = toMediaUrl(profile.avatar, 'avatar', profile.user?.id ?? profile.user_id) ||
+		// fallback to nested user avatar if profile-level avatar missing
+		(profile.user ? getUserAvatar(profile.user) : undefined) || DEFAULT_AVATAR_URL;
+	const contactId = getProfileUserId(profile) ?? profile.id;
+	if (contactId === 4) {
+		try {
+			console.debug('[ContactsList] profile id=4, profile.avatar=', profile.avatar, 'resolvedAvatar=', resolvedAvatar, 'profile.user=', profile.user);
+		} catch (e) {}
+	}
 	return {
-		id: getProfileUserId(profile) ?? profile.id,
+		id: contactId,
 		name:
 			profile.pseudonym || fullName || profile.user?.username || "Користувач",
-		avatar: toMediaUrl(profile.avatar) || DEFAULT_AVATAR_URL,
+		avatar: resolvedAvatar,
 	};
 };
 
@@ -137,7 +146,7 @@ export function ContactsList({ contacts, onContactPress }: ContactsListProps) {
 				onPress={() => handleContactPress(contact)}
 			>
 				<Image
-					source={{ uri: toMediaUrl(contact.avatar) || contact.avatar }}
+					source={{ uri: contact.avatar }}
 					style={styles.avatar}
 				/>
 				<Text style={styles.contactName}>{contact.name}</Text>
@@ -209,5 +218,10 @@ const contactsStyles = StyleSheet.create({
 		color: "#FFFFFF",
 		fontSize: 14,
 		fontFamily: FONTS["GTWalsheimPro-Medium"],
+	},
+	avatar: {
+		width: 50,  // Обязательно
+		height: 50, // Обязательно
+		borderRadius: 25, // По желанию (для круглых аватарок)
 	},
 });

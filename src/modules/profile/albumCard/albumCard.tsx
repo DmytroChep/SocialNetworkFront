@@ -27,7 +27,7 @@ export function AlbumCard({ element, onOpenPopup, onAddImages, readonly = false 
                     {element.images?.map((image: any) => (
                         <Image
                             key={image.id}
-                            source={{ uri: toMediaUrl(image.image) }}
+                            source={{ uri: toMediaUrl(image.image, 'post', element.user_id || element.user?.id || element.ownerId) }}
                             style={{ width: 140, height: 140, borderRadius: 8 }}
                         />
                     ))}

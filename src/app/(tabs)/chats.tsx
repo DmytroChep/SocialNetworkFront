@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -36,10 +37,74 @@ import {
   getUserAvatar,
   getUserDisplayName,
   toMediaUrl,
+  DEFAULT_AVATAR_URL,
+  BACKEND_MEDIA_BASE,
+  CLOUDINARY_BASE,
 } from "../../shared/lib/model-helpers";
 import { useGroupCreation, type ModalUser } from "../../shared/context/group-creation-context";
 
-const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
+const DEFAULT_AVATAR = DEFAULT_AVATAR_URL || "";
+
+function Avatar({ uri, style }: { uri?: string | null; style?: any }) {
+  const [idx, setIdx] = useState(0);
+  const raw = uri || DEFAULT_AVATAR;
+  const buildCandidates = (): string[] => {
+    const c: string[] = [];
+    if (!raw) return [DEFAULT_AVATAR];
+    // if already absolute, try it first
+    if (/^https?:\/\//i.test(raw)) c.push(raw);
+    // if it's a backend media path that contains BACKEND_MEDIA_BASE, try as-is
+    if (raw.startsWith(BACKEND_MEDIA_BASE)) c.push(raw);
+    // if raw is an absolute backend URL containing /media/, extract public path and try Cloudinary candidate
+    try {
+      const mediaIdx = raw.indexOf('/media/');
+      if (mediaIdx !== -1) {
+        const publicPath = raw.slice(mediaIdx + '/media/'.length);
+        if (CLOUDINARY_BASE && publicPath) {
+          c.unshift(`${CLOUDINARY_BASE}/${publicPath}`);
+        }
+      }
+    } catch (e) {}
+    // try backend-media fallback
+    if (!raw.startsWith("http") && raw.length) c.push(`${BACKEND_MEDIA_BASE}/media/${raw}`);
+    // try cloudinary candidate if configured and raw is a path
+    if (CLOUDINARY_BASE && !raw.startsWith("http")) c.unshift(`${CLOUDINARY_BASE}/${raw}`);
+    // ensure default avatar last
+    if (!c.includes(DEFAULT_AVATAR)) c.push(DEFAULT_AVATAR);
+    return Array.from(new Set(c));
+  };
+
+    const candidates = useMemo(() => {
+      const base = buildCandidates();
+      const exts = [".png", ".jpg", ".jpeg", ".webp"];
+      const expanded: string[] = [];
+      for (const item of base) {
+        expanded.push(item);
+        try {
+          const hasExt = /\.[a-z0-9]{2,5}($|\?)/i.test(item);
+          if (!hasExt) {
+            for (const e of exts) expanded.push(item + e);
+          }
+        } catch (e) {}
+      }
+      return Array.from(new Set(expanded));
+    }, [raw]);
+    const src = candidates[idx] || DEFAULT_AVATAR;
+
+  return (
+    <Image
+      source={{ uri: src }}
+      style={style}
+      onError={(e) => {
+        try { console.debug('[Avatar] load error, src=', src, 'error=', e.nativeEvent?.error); } catch (err) {}
+        if (idx < candidates.length - 1) setIdx((i) => i + 1);
+      }}
+      onLoad={() => {
+        try { console.debug('[Avatar] loaded', src); } catch (err) {}
+      }}
+    />
+  );
+}
 
 
 interface ChatListItem extends ChatPeer {
@@ -79,8 +144,8 @@ const profileToCardUser = (
 ) => ({
   id: profile.user?.id ?? profile.user_id ?? fallbackUser?.id ?? 0,
   name: profileName(profile, fallbackUser),
-  avatar:
-    toMediaUrl(profile.avatar) || getUserAvatar(fallbackUser) || DEFAULT_AVATAR,
+    avatar:
+      toMediaUrl(profile.avatar, 'avatar', profile.user?.id ?? profile.user_id) || getUserAvatar(fallbackUser) || DEFAULT_AVATAR,
 });
 
 const getFriendProfile = (
@@ -122,7 +187,13 @@ const chatToListItem = (
     id: peer.id,
     chatId: chat.id,
     name: chat.name || getUserDisplayName(peer) || "Користувач",
-    avatar: toMediaUrl(chat.avatar) || getUserAvatar(peer) || DEFAULT_AVATAR,
+      avatar: (() => {
+        const resolved = toMediaUrl(chat.avatar, 'avatar', peer.id) || getUserAvatar(peer) || DEFAULT_AVATAR;
+        if (peer.id === 4) {
+          try { console.debug('[Chats] peer id=4, chat.avatar=', chat.avatar, 'resolved=', resolved, 'peer=', peer); } catch (e) {}
+        }
+        return resolved;
+      })(),
     lastMessage:
       chat.lastMessage?.text ||
       (imagesCount > 0 ? "Фото" : "Немає повідомлень"),
@@ -150,6 +221,7 @@ const OnlineIndicator = ({
 };
 export default function Chats() {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const router = useRouter();
   const params = useLocalSearchParams<{
     userId?: string;
@@ -198,6 +270,7 @@ export default function Chats() {
   }, [socket, refetchChats]);
 
   // Presence listeners: keep `onlineUserIds` in sync with server
+  // Presence listeners: keep `onlineUserIds` in sync with server
   useEffect(() => {
     if (!socket) return;
 
@@ -213,13 +286,13 @@ export default function Chats() {
         })
         .filter((id: number) => !isNaN(id) && id !== 0);
         
-      console.log('[PRESENCE] online ids:', ids); // временный лог
+      console.log('[PRESENCE] initial online ids:', ids);
       setOnlineUserIds(new Set(ids));
     };
 
     const handleUserOnline = (payload: any) => {
       const id = payload?.id ?? payload?.userId ?? payload;
-      if (!id && id !== 0) return;
+      if (id === undefined || id === null) return;
       setOnlineUserIds((prev) => {
         const s = new Set(prev);
         s.add(Number(id));
@@ -227,9 +300,11 @@ export default function Chats() {
       });
     };
 
+    
+  
     const handleUserOffline = (payload: any) => {
       const id = payload?.id ?? payload?.userId ?? payload;
-      if (!id && id !== 0) return;
+      if (id === undefined || id === null) return;
       setOnlineUserIds((prev) => {
         const s = new Set(prev);
         s.delete(Number(id));
@@ -238,7 +313,6 @@ export default function Chats() {
     };
 
     const handlePresenceUpdate = (payload: any) => {
-      // payload could be { userId, online }
       const id = payload?.userId ?? payload?.id;
       if (id === undefined || id === null) return;
       const online = Boolean(payload?.online ?? payload?.isOnline);
@@ -250,37 +324,28 @@ export default function Chats() {
       });
     };
 
-    socket.on("users:online", handleUsersOnline);
+    socket.on("users:initial_online", handleUsersOnline);
+    
     socket.on("user:online", handleUserOnline);
     socket.on("user:offline", handleUserOffline);
     socket.on("presence:update", handlePresenceUpdate);
     socket.on("user:status", handlePresenceUpdate);
 
-      socket.onAny((event, ...args) => {
-        console.log('[SOCKET ALL]', event, JSON.stringify(args));
-      });
-
-    // Try to request current online users (server may accept a callback)
-    try {
-      socket.emit("users:online", (response: any) => {
-        handleUsersOnline(response);
-      });
-    } catch (e) {}
-    try {
-      socket.emit("presence:get", (response: any) => {
-        handleUsersOnline(response);
-      });
-    } catch (e) {}
+    socket.onAny((event, ...args) => {
+      console.log('[SOCKET ALL]', event, JSON.stringify(args));
+    });
 
     return () => {
-      socket.off("users:online", handleUsersOnline);
+      // Незабываем убрать слушатель при размонтировании
+      socket.off("users:initial_online", handleUsersOnline);
+      
       socket.off("user:online", handleUserOnline);
       socket.off("user:offline", handleUserOffline);
       socket.off("presence:update", handlePresenceUpdate);
       socket.off("user:status", handlePresenceUpdate);
     };
   }, [socket]);
-
+  
   const usersById = useMemo(
     () => new Map(users.map((item) => [item.id, item])),
     [users],
@@ -310,7 +375,7 @@ export default function Chats() {
           if (!item) return null;
           
           const peer = chat.users?.find((u: any) => u.user_id !== currentUserId);
-          
+
           return {
             ...item,
             peerId: peer?.user_id,
@@ -320,11 +385,23 @@ export default function Chats() {
     [chatsResponse?.chats, currentUserId],
   );
 
+  
+
   const paginatedChatList = useMemo(() => {
-    const start = (personalChatsPage - 1) * CHATS_PAGE_SIZE;
-    const end = start + CHATS_PAGE_SIZE;
-    return chatList.slice(start, end);
-  }, [chatList, personalChatsPage]);
+  const start = (personalChatsPage - 1) * CHATS_PAGE_SIZE;
+  const end = start + CHATS_PAGE_SIZE;
+  return chatList.slice(start, end);
+}, [chatList, personalChatsPage]);
+
+const filteredChatList = useMemo(() => {
+  if (!searchQuery.trim()) return paginatedChatList;
+  const q = searchQuery.toLowerCase().trim();
+  return paginatedChatList.filter(
+    (chat) =>
+      chat.name.toLowerCase().includes(q) ||
+      chat.lastMessage.toLowerCase().includes(q),
+  );
+}, [paginatedChatList, searchQuery]);
 
   const hasMoreChats = chatList.length > personalChatsPage * CHATS_PAGE_SIZE;
 
@@ -354,7 +431,7 @@ export default function Chats() {
           id: chat.id,
           chatId: chat.id,
           name: chat.name || "Група",
-          avatar: toMediaUrl(chat.avatar) || DEFAULT_AVATAR,
+          avatar: toMediaUrl(chat.avatar, 'avatar', chat.admin_id ?? chat.id) || DEFAULT_AVATAR,
           adminId: chat.admin_id,
           isAdmin,
           users: chat.users,
@@ -532,25 +609,38 @@ export default function Chats() {
 
           {!activeChat && choosedTab === "Повідомлення" && (
             <FlatList
-              data={paginatedChatList}
-              keyExtractor={(item) => item.chatId.toString()}
-              showsVerticalScrollIndicator={false}
-              ListHeaderComponent={
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionHeaderLeft}>
-                    <View style={{ position: "relative" }}>
-                      <ICONS.chat />
-                      {unreadCount > 0 && (
-                        <View style={styles.tabBadge}>
-                          <Text style={styles.tabBadgeText}>{unreadCount}</Text>
-                        </View>
-                      )}
-                    </View>
+            data={filteredChatList}
+            extraData={onlineUserIds} 
+            keyExtractor={(item) => item.chatId.toString()}
+            showsVerticalScrollIndicator={false}
+                ListHeaderComponent={
+  <View>
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderLeft}>
+        <View style={{ position: "relative" }}>
+          <ICONS.chat />
+          {unreadCount > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.sectionHeaderText}>Повідомлення</Text>
+      </View>
+    </View>
 
-                    <Text style={styles.sectionHeaderText}>Повідомлення</Text>
-                  </View>
-                </View>
-              }
+    <View style={styles.searchWrapper}>
+        <ICONS.search color="#8E8E93" style={styles.searchIcon} />
+        <TextInput
+            style={styles.searchInput}
+            placeholder="Пошук"
+            placeholderTextColor="#8E8E93"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+        />
+    </View>
+  </View>
+}
               ListEmptyComponent={
                 <Text style={styles.emptyText}>Поки немає діалогів</Text>
               }
@@ -565,7 +655,9 @@ export default function Chats() {
                 ) : null
               }
               renderItem={({ item }) => {
+                console.log(item.avatar)
                 const isOnline = item.peerId !== undefined && onlineUserIds.has(Number(item.peerId));
+                console.log(isOnline, item.name)
                 return (
                 <TouchableOpacity
                   style={styles.chatItem}
@@ -573,7 +665,7 @@ export default function Chats() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.avatarContainer}>
-                    <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                                  <Avatar uri={item.avatar} style={styles.avatar} />
                     <OnlineIndicator 
                       userId={item.peerId} 
                       onlineUserIds={onlineUserIds} 
@@ -655,6 +747,27 @@ export default function Chats() {
 }
 
 const styles = StyleSheet.create({
+  searchWrapper: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#FFFFFF", // ВИПРАВЛЕНО: тепер фон пошуку білий
+        borderWidth: 1,             // Додано тонку рамку, щоб інпут виділявся на білому тлі
+        borderColor: "#E5E5EA",     // Світло-сірий колір рамки за макетом
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 44,
+        marginBottom: 16,
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        fontFamily: "GTWalsheimPro-Regular",
+        color: "#000000",
+        paddingVertical: 0,
+    },
   container: {
     position: "absolute",
     top: 0,
@@ -739,9 +852,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionHeaderText: {
+    paddingTop: 5,
     fontSize: 17,
     fontFamily: FONTS["GTWalsheimPro-Medium"],
-    color: "#1C1C1E",
+    color:"#81818DE",
   },
   sectionBadge: {
     backgroundColor: "#FF3B30",

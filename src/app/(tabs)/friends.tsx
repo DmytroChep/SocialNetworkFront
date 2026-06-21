@@ -4,7 +4,6 @@ import {
 	ActivityIndicator,
 	FlatList,
 	Image,
-	Platform,
 	ScrollView,
 	Text,
 	TouchableOpacity,
@@ -33,12 +32,13 @@ import {
 	getUserDisplayName,
 	getUserHandle,
 	toMediaUrl,
+	DEFAULT_AVATAR_URL,
 } from "../../shared/lib/model-helpers";
 import { RadioTabs } from "../../shared/ui/RadioTab";
 import type { IRadioTab } from "../../shared/ui/RadioTab/radioTab.types";
 import { styles } from "./friends.styles";
 
-const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
+const DEFAULT_AVATAR = DEFAULT_AVATAR_URL || "";
 const REQUESTS_PAGE_SIZE = 3;
 const RECOMMENDATIONS_PAGE_SIZE = 5;
 const FRIENDS_PAGE_SIZE = 3;
@@ -84,11 +84,9 @@ const isFriendshipData = (value: unknown): value is IUserFriendships => {
 
 const getTabFromParam = (tab?: string | string[]): FriendTab => {
 	const value = Array.isArray(tab) ? tab[0] : tab;
-
 	if (value === "requests") return "Запити";
 	if (value === "recommendations") return "Рекомендації";
 	if (value === "all") return "Всі друзі";
-
 	return "Головна";
 };
 
@@ -127,7 +125,6 @@ const profileToCardUser = (
 	fallbackUser?: IUser,
 ): FriendCardUser => {
 	const handle = profile.user?.username || fallbackUser?.username;
-
 	return {
 		id: profile.user?.id ?? profile.user_id ?? fallbackUser?.id ?? 0,
 		name: profileName(profile, fallbackUser),
@@ -135,7 +132,7 @@ const profileToCardUser = (
 			? `@${handle}`
 			: profile.user?.email || fallbackUser?.email || "",
 		avatar:
-			toMediaUrl(profile.avatar) ||
+			toMediaUrl(profile.avatar, 'avatar', profile.user?.id ?? profile.user_id) ||
 			getUserAvatar(fallbackUser) ||
 			DEFAULT_AVATAR,
 	};
@@ -159,9 +156,13 @@ const getFriendProfile = (
 		return friendship.from_profile;
 	if (getProfileUserId(friendship.from_profile) === currentUserId)
 		return friendship.to_profile;
-
 	return friendship.from_profile;
 };
+
+// ─── Pure presentational components (defined OUTSIDE Friends) ────────────────
+// These must live outside the parent component so React never treats them as
+// new component types on re-render, which would unmount/remount FlatList and
+// reset the scroll position.
 
 const SectionHeader = ({
 	title,
@@ -283,6 +284,94 @@ const FriendCard = ({
 	</View>
 );
 
+// ─── Full-section list components (also outside Friends) ─────────────────────
+
+interface RequestsFullSectionProps {
+	visibleRequests: IFriendRequest[];
+	incomingRequests: IFriendRequest[];
+	renderRequestCard: (item: IFriendRequest) => ReactNode;
+	onLoadMore: () => void;
+}
+
+const RequestsFullSection = ({
+	visibleRequests,
+	incomingRequests,
+	renderRequestCard,
+	onLoadMore,
+}: RequestsFullSectionProps) => (
+	<FlatList
+		data={visibleRequests}
+		keyExtractor={(request) => `incoming-${request.id}`}
+		renderItem={({ item }) => renderRequestCard(item)}
+		contentContainerStyle={styles.listContent}
+		showsVerticalScrollIndicator={false}
+		onEndReached={onLoadMore}
+		onEndReachedThreshold={0.5}
+		ListHeaderComponent={<SectionHeader title="Запити" />}
+		ListEmptyComponent={
+			<Text style={styles.emptyText}>Нових запитів поки немає</Text>
+		}
+	/>
+);
+
+interface RecommendationsFullSectionProps {
+	visibleRecommendations: IUser[];
+	recommendations: IUser[];
+	renderRecommendationCard: (item: IUser) => ReactNode;
+	onLoadMore: () => void;
+}
+
+const RecommendationsFullSection = ({
+	visibleRecommendations,
+	recommendations,
+	renderRecommendationCard,
+	onLoadMore,
+}: RecommendationsFullSectionProps) => (
+	<FlatList
+		data={visibleRecommendations}
+		keyExtractor={(user) => `rec-${user.id}`}
+		renderItem={({ item }) => renderRecommendationCard(item)}
+		contentContainerStyle={styles.listContent}
+		showsVerticalScrollIndicator={false}
+		onEndReached={onLoadMore}
+		onEndReachedThreshold={0.5}
+		ListHeaderComponent={<SectionHeader title="Рекомендації" />}
+		ListEmptyComponent={
+			<Text style={styles.emptyText}>Немає нових рекомендацій</Text>
+		}
+	/>
+);
+
+interface FriendsFullSectionProps {
+	visibleFriends: IProfileFriend[];
+	allFriends: IProfileFriend[];
+	renderFriendCard: (item: IProfileFriend) => ReactNode;
+	onLoadMore: () => void;
+}
+
+const FriendsFullSection = ({
+	visibleFriends,
+	allFriends,
+	renderFriendCard,
+	onLoadMore,
+}: FriendsFullSectionProps) => (
+	<FlatList
+		data={visibleFriends}
+		keyExtractor={(friendship) => `all-${friendship.id}`}
+		renderItem={({ item }) => renderFriendCard(item)}
+		contentContainerStyle={styles.listContent}
+		showsVerticalScrollIndicator={false}
+		onEndReached={onLoadMore}
+		onEndReachedThreshold={0.5}
+		ListHeaderComponent={<SectionHeader title="Всі друзі" />}
+		ListEmptyComponent={
+			<Text style={styles.emptyText}>Список друзів порожній</Text>
+		}
+	/>
+);
+
+// ─── Main screen ─────────────────────────────────────────────────────────────
+
 export default function Friends() {
 	const router = useRouter();
 	const { tab } = useLocalSearchParams<{ tab?: string }>();
@@ -308,7 +397,10 @@ export default function Friends() {
 		isError: isFriendshipsError,
 	} = useGetUserFriendshipsQuery(currentUserId as number, {
 		skip: !currentUserId,
-		pollingInterval: 3000,
+		// FIX: increased from 3 s to 10 s — frequent polling causes RTK Query to
+		// update state, which re-renders the parent and can cause FlatList to lose
+		// its scroll position on slower devices.
+		pollingInterval: 10_000,
 	});
 	const { data: users = [], isLoading: isUsersLoading } = useGetAllUsersQuery();
 
@@ -351,7 +443,6 @@ export default function Friends() {
 			);
 			const friendUserId = getProfileUserId(friendProfile);
 			if (!friendUserId) return;
-
 			relations.set(friendUserId, {
 				type: "friend",
 				friendshipId: friendship.id,
@@ -366,14 +457,11 @@ export default function Friends() {
 
 		allRequests.forEach((request) => {
 			if (!isBlacklistedRequest(request)) return;
-
 			const fromUserId = getProfileUserId(request.from_profile);
 			const toUserId = getProfileUserId(request.to_profile);
 			const blacklistedUserId =
 				fromUserId === currentUserId ? toUserId : fromUserId;
-
 			if (!blacklistedUserId) return;
-
 			relations.set(blacklistedUserId, {
 				type: "blacklisted",
 				requestId: request.id,
@@ -383,21 +471,13 @@ export default function Friends() {
 		friendships.incomingRequests.filter(isVisibleRequest).forEach((request) => {
 			const senderUserId = getProfileUserId(request.from_profile);
 			if (!senderUserId) return;
-
-			relations.set(senderUserId, {
-				type: "incoming",
-				requestId: request.id,
-			});
+			relations.set(senderUserId, { type: "incoming", requestId: request.id });
 		});
 
 		friendships.outgoingRequests.filter(isVisibleRequest).forEach((request) => {
 			const receiverUserId = getProfileUserId(request.to_profile);
 			if (!receiverUserId) return;
-
-			relations.set(receiverUserId, {
-				type: "outgoing",
-				requestId: request.id,
-			});
+			relations.set(receiverUserId, { type: "outgoing", requestId: request.id });
 		});
 
 		return relations;
@@ -407,9 +487,7 @@ export default function Friends() {
 		return [...users]
 			.filter((item) => {
 				if (item.id === currentUserId) return false;
-
 				const relation = relationByUserId.get(item.id);
-
 				return (
 					relation?.type !== "friend" &&
 					relation?.type !== "incoming" &&
@@ -417,21 +495,30 @@ export default function Friends() {
 					relation?.type !== "blacklisted"
 				);
 			})
-			.sort((firstUser, secondUser) => secondUser.id - firstUser.id);
+			.sort((a, b) => b.id - a.id);
 	}, [currentUserId, relationByUserId, users]);
 
-	const incomingRequests = useMemo(() => {
-		return friendships.incomingRequests.filter(isVisibleRequest);
-	}, [friendships.incomingRequests]);
+	const incomingRequests = useMemo(
+		() => friendships.incomingRequests.filter(isVisibleRequest),
+		[friendships.incomingRequests],
+	);
 
-	const allFriends = useMemo(() => {
-		return [...friendships.friends].sort(
-			(firstFriend, secondFriend) => secondFriend.id - firstFriend.id,
-		);
-	}, [friendships.friends]);
-	const usersById = useMemo(() => {
-		return new Map(users.map((item) => [item.id, item]));
-	}, [users]);
+	const params = useLocalSearchParams<{
+		userId?: string;
+		name?: string;
+		avatar?: string;
+	  }>();
+	
+
+	const allFriends = useMemo(
+		() => [...friendships.friends].sort((a, b) => b.id - a.id),
+		[friendships.friends],
+	);
+
+	const usersById = useMemo(
+		() => new Map(users.map((item) => [item.id, item])),
+		[users],
+	);
 
 	const visibleRequests = incomingRequests.slice(0, visibleRequestsCount);
 	const visibleRecommendations = recommendations.slice(
@@ -440,37 +527,31 @@ export default function Friends() {
 	);
 	const visibleFriends = allFriends.slice(0, visibleFriendsCount);
 
-	const navigateToProfile = useCallback((cardUser: FriendCardUser) => {
-		router.push({
-			pathname: "/profile",
-			params: {
-				id: String(cardUser.id),
-				name: cardUser.name,
-				handle: cardUser.handle,
-				avatar: cardUser.avatar,
-			},
-		});
-	}, [router]);
+	const navigateToProfile = useCallback(
+		(cardUser: FriendCardUser) => {
+			router.push({
+				pathname: "/profile",
+				params: {
+					id: String(cardUser.id),
+					name: cardUser.name,
+					handle: cardUser.handle,
+					avatar: cardUser.avatar,
+				},
+			});
+		},
+		[router],
+	);
 
-	const navigateToChat = useCallback((cardUser: FriendCardUser) => {
-		router.push({
-			pathname: "/chats",
-			params: {
-				userId: String(cardUser.id),
-				name: cardUser.name,
-				avatar: cardUser.avatar,
-			},
-		});
-	}, [router]);
-
-	const handleMessagePress = useCallback((cardUser: FriendCardUser) => {
-		if (Platform.OS === "web") {
-			navigateToChat(cardUser);
-			return;
-		}
-
-		navigateToProfile(cardUser);
-	}, [navigateToChat, navigateToProfile]);
+	// FIX: always open chat regardless of platform
+	const navigateToChat = useCallback(
+		(cardUser: FriendCardUser) => {
+			router.replace({
+				pathname: "/chats",
+				params: params
+			});
+		},
+		[router],
+	);
 
 	const askConfirmation = useCallback((action: () => Promise<void>) => {
 		setConfirmAction(() => action);
@@ -479,7 +560,6 @@ export default function Friends() {
 
 	const handleConfirmAction = useCallback(async () => {
 		if (!confirmAction) return;
-
 		try {
 			await confirmAction();
 		} finally {
@@ -524,226 +604,237 @@ export default function Friends() {
 		[currentUserId, createFriendshipRequest],
 	);
 
-	const getRecommendationActions = useCallback((recommendedUserId: number) => {
-		return {
+	const getRecommendationActions = useCallback(
+		(recommendedUserId: number) => ({
 			primaryText: "Додати",
 			secondaryText: "Видалити",
 			primaryDisabled: false,
-			onPrimaryPress: undefined,
 			onSecondaryPress: () => blacklistUser(recommendedUserId),
-		};
-	}, [blacklistUser]);
+		}),
+		[blacklistUser],
+	);
 
-	const renderRequestCard = useCallback((request: IFriendRequest) => {
-		const cardUser = profileToCardUser(
-			request.from_profile,
-			usersById.get(getProfileUserId(request.from_profile) ?? 0),
-		);
+	const renderRequestCard = useCallback(
+		(request: IFriendRequest) => {
+			const cardUser = profileToCardUser(
+				request.from_profile,
+				usersById.get(getProfileUserId(request.from_profile) ?? 0),
+			);
+			return (
+				<FriendCard
+					key={`incoming-${request.id}`}
+					{...cardUser}
+					primaryText="Підтвердити"
+					secondaryText="Видалити"
+					disabled={isActionLoading}
+					onPrimaryPress={() => acceptRequest(request.id)}
+					onSecondaryPress={() =>
+						askConfirmation(() => deleteRequest(request))
+					}
+					onAvatarPress={() => navigateToProfile(cardUser)}
+				/>
+			);
+		},
+		[
+			usersById,
+			isActionLoading,
+			acceptRequest,
+			deleteRequest,
+			askConfirmation,
+			navigateToProfile,
+		],
+	);
 
-		return (
-			<FriendCard
-				key={`incoming-${request.id}`}
-				{...cardUser}
-				primaryText="Підтвердити"
-				secondaryText="Видалити"
-				disabled={isActionLoading}
-				onPrimaryPress={() => acceptRequest(request.id)}
-				onSecondaryPress={() => askConfirmation(() => deleteRequest(request))}
-				onAvatarPress={() => navigateToProfile(cardUser)}
-			/>
-		);
-	}, [usersById, isActionLoading, acceptRequest, deleteRequest, askConfirmation, navigateToProfile]);
+	const renderRecommendationCard = useCallback(
+		(recommendedUser: IUser) => {
+			const cardUser = userToCardUser(recommendedUser);
+			const actions = getRecommendationActions(recommendedUser.id);
+			return (
+				<FriendCard
+					key={`rec-${recommendedUser.id}`}
+					{...cardUser}
+					primaryText={actions.primaryText}
+					secondaryText={actions.secondaryText}
+					disabled={isActionLoading}
+					primaryDisabled={actions.primaryDisabled}
+					onPrimaryPress={() => navigateToProfile(cardUser)}
+					onSecondaryPress={actions.onSecondaryPress}
+				/>
+			);
+		},
+		[isActionLoading, navigateToProfile, getRecommendationActions],
+	);
 
-	const renderRecommendationCard = useCallback((recommendedUser: IUser) => {
-		const cardUser = userToCardUser(recommendedUser);
-		const actions = getRecommendationActions(recommendedUser.id);
-
-		return (
-			<FriendCard
-				key={`rec-${recommendedUser.id}`}
-				{...cardUser}
-				primaryText={actions.primaryText}
-				secondaryText={actions.secondaryText}
-				disabled={isActionLoading}
-				primaryDisabled={actions.primaryDisabled}
-				onPrimaryPress={() => navigateToProfile(cardUser)}
-				onSecondaryPress={actions.onSecondaryPress}
-			/>
-		);
-	}, [isActionLoading, navigateToProfile, getRecommendationActions]);
-
-	const renderFriendCard = useCallback((friendship: IProfileFriend) => {
-		const friendProfile = getFriendProfile(
-			friendship,
+	const renderFriendCard = useCallback(
+		(friendship: IProfileFriend) => {
+			const friendProfile = getFriendProfile(
+				friendship,
+				currentUserId,
+				currentProfileId,
+			);
+			const cardUser = profileToCardUser(
+				friendProfile,
+				usersById.get(getProfileUserId(friendProfile) ?? 0),
+			);
+			return (
+				<FriendCard
+					key={`all-${friendship.id}`}
+					{...cardUser}
+					primaryText="Повідомлення"
+					secondaryText="Видалити"
+					disabled={isActionLoading}
+					// FIX: navigate directly to chat, not profile
+					onPrimaryPress={() => navigateToChat(cardUser)}
+					onSecondaryPress={() =>
+						askConfirmation(() => removeFriend(friendship.id))
+					}
+					onAvatarPress={() => navigateToProfile(cardUser)}
+				/>
+			);
+		},
+		[
 			currentUserId,
 			currentProfileId,
-		);
-		const cardUser = profileToCardUser(
-			friendProfile,
-			usersById.get(getProfileUserId(friendProfile) ?? 0),
-		);
+			usersById,
+			isActionLoading,
+			navigateToChat,
+			navigateToProfile,
+			askConfirmation,
+			removeFriend,
+		],
+	);
 
-		return (
-			<FriendCard
-				key={`all-${friendship.id}`}
-				{...cardUser}
-				primaryText="Повідомлення"
-				secondaryText="Видалити"
-				disabled={isActionLoading}
-				onPrimaryPress={() => handleMessagePress(cardUser)}
-				onSecondaryPress={() =>
-					askConfirmation(() => removeFriend(friendship.id))
-				}
-				onAvatarPress={() => navigateToProfile(cardUser)}
-			/>
-		);
-	}, [currentUserId, currentProfileId, usersById, isActionLoading, handleMessagePress, askConfirmation, removeFriend, navigateToProfile]);
-
-	const openTab = useCallback((tab: FriendTab) => {
-		setActiveTab(tab);
+	const openTab = useCallback((nextTab: FriendTab) => {
+		setActiveTab(nextTab);
 	}, []);
 
-	const RequestsPreviewSection = () => {
-		const previewRequests = incomingRequests.slice(0, REQUESTS_PREVIEW_LIMIT);
-
-		return (
-			<FriendSection
-				title="Запити"
-				emptyText="Нових запитів поки немає"
-				count={previewRequests.length}
-				onSeeAll={
-					incomingRequests.length > 0 ? () => openTab("Запити") : undefined
-				}
-			>
-				{previewRequests.map(renderRequestCard)}
-			</FriendSection>
+	// ── Callbacks for pagination (stable references, no inline arrows in JSX) ──
+	const loadMoreRequests = useCallback(() => {
+		setVisibleRequestsCount((c) =>
+			Math.min(c + REQUESTS_PAGE_SIZE, incomingRequests.length),
 		);
-	};
+	}, [incomingRequests.length]);
 
-	const RecommendationsPreviewSection = () => {
-		const previewRecommendations = recommendations.slice(
-			0,
-			RECOMMENDATIONS_PREVIEW_LIMIT,
+	const loadMoreRecommendations = useCallback(() => {
+		setVisibleRecommendationsCount((c) =>
+			Math.min(c + RECOMMENDATIONS_PAGE_SIZE, recommendations.length),
 		);
+	}, [recommendations.length]);
 
-		return (
-			<FriendSection
-				title="Рекомендації"
-				emptyText="Немає нових рекомендацій"
-				count={previewRecommendations.length}
-				onSeeAll={
-					recommendations.length > 0 ? () => openTab("Рекомендації") : undefined
-				}
-			>
-				{previewRecommendations.map(renderRecommendationCard)}
-			</FriendSection>
+	const loadMoreFriends = useCallback(() => {
+		setVisibleFriendsCount((c) =>
+			Math.min(c + FRIENDS_PAGE_SIZE, allFriends.length),
 		);
-	};
+	}, [allFriends.length]);
 
-	const FriendsPreviewSection = () => {
-		const previewFriends = allFriends.slice(0, FRIENDS_PREVIEW_LIMIT);
+	const radioTabsArray: IRadioTab[] = useMemo(
+		() => [
+			{
+				title: "Головна",
+				content: (
+					<ScrollView
+						contentContainerStyle={styles.scrollContent}
+						showsVerticalScrollIndicator={false}
+					>
+						{/* Requests preview */}
+						<FriendSection
+							title="Запити"
+							emptyText="Нових запитів поки немає"
+							count={Math.min(incomingRequests.length, REQUESTS_PREVIEW_LIMIT)}
+							onSeeAll={
+								incomingRequests.length > 0 ? () => openTab("Запити") : undefined
+							}
+						>
+							{incomingRequests
+								.slice(0, REQUESTS_PREVIEW_LIMIT)
+								.map(renderRequestCard)}
+						</FriendSection>
 
-		return (
-			<FriendSection
-				title="Всі друзі"
-				emptyText="Список друзів порожній"
-				count={previewFriends.length}
-				onSeeAll={
-					allFriends.length > 0 ? () => openTab("Всі друзі") : undefined
-				}
-			>
-				{previewFriends.map(renderFriendCard)}
-			</FriendSection>
-		);
-	};
+						{/* Recommendations preview */}
+						<FriendSection
+							title="Рекомендації"
+							emptyText="Немає нових рекомендацій"
+							count={Math.min(
+								recommendations.length,
+								RECOMMENDATIONS_PREVIEW_LIMIT,
+							)}
+							onSeeAll={
+								recommendations.length > 0
+									? () => openTab("Рекомендації")
+									: undefined
+							}
+						>
+							{recommendations
+								.slice(0, RECOMMENDATIONS_PREVIEW_LIMIT)
+								.map(renderRecommendationCard)}
+						</FriendSection>
 
-	const RequestsFullSection = () => (
-		<FlatList
-			data={visibleRequests}
-			keyExtractor={(request) => `incoming-${request.id}`}
-			renderItem={({ item }) => renderRequestCard(item)}
-			contentContainerStyle={styles.listContent}
-			showsVerticalScrollIndicator={false}
-			onEndReached={() =>
-				setVisibleRequestsCount((count) =>
-					Math.min(count + REQUESTS_PAGE_SIZE, incomingRequests.length),
-				)
-			}
-			onEndReachedThreshold={0.5}
-			ListHeaderComponent={<SectionHeader title="Запити" />}
-			ListEmptyComponent={
-				<Text style={styles.emptyText}>Нових запитів поки немає</Text>
-			}
-		/>
+						{/* Friends preview */}
+						<FriendSection
+							title="Всі друзі"
+							emptyText="Список друзів порожній"
+							count={Math.min(allFriends.length, FRIENDS_PREVIEW_LIMIT)}
+							onSeeAll={
+								allFriends.length > 0 ? () => openTab("Всі друзі") : undefined
+							}
+						>
+							{allFriends
+								.slice(0, FRIENDS_PREVIEW_LIMIT)
+								.map(renderFriendCard)}
+						</FriendSection>
+					</ScrollView>
+				),
+			},
+			{
+				title: "Запити",
+				content: (
+					<RequestsFullSection
+						visibleRequests={visibleRequests}
+						incomingRequests={incomingRequests}
+						renderRequestCard={renderRequestCard}
+						onLoadMore={loadMoreRequests}
+					/>
+				),
+			},
+			{
+				title: "Рекомендації",
+				content: (
+					<RecommendationsFullSection
+						visibleRecommendations={visibleRecommendations}
+						recommendations={recommendations}
+						renderRecommendationCard={renderRecommendationCard}
+						onLoadMore={loadMoreRecommendations}
+					/>
+				),
+			},
+			{
+				title: "Всі друзі",
+				content: (
+					<FriendsFullSection
+						visibleFriends={visibleFriends}
+						allFriends={allFriends}
+						renderFriendCard={renderFriendCard}
+						onLoadMore={loadMoreFriends}
+					/>
+				),
+			},
+		],
+		[
+			incomingRequests,
+			recommendations,
+			allFriends,
+			visibleRequests,
+			visibleRecommendations,
+			visibleFriends,
+			renderRequestCard,
+			renderRecommendationCard,
+			renderFriendCard,
+			loadMoreRequests,
+			loadMoreRecommendations,
+			loadMoreFriends,
+			openTab,
+		],
 	);
-
-	const RecommendationsFullSection = () => (
-		<FlatList
-			data={visibleRecommendations}
-			keyExtractor={(recommendedUser) => `rec-${recommendedUser.id}`}
-			renderItem={({ item }) => renderRecommendationCard(item)}
-			contentContainerStyle={styles.listContent}
-			showsVerticalScrollIndicator={false}
-			onEndReached={() =>
-				setVisibleRecommendationsCount((count) =>
-					Math.min(count + RECOMMENDATIONS_PAGE_SIZE, recommendations.length),
-				)
-			}
-			onEndReachedThreshold={0.5}
-			ListHeaderComponent={<SectionHeader title="Рекомендації" />}
-			ListEmptyComponent={
-				<Text style={styles.emptyText}>Немає нових рекомендацій</Text>
-			}
-		/>
-	);
-
-	const FriendsFullSection = () => (
-		<FlatList
-			data={visibleFriends}
-			keyExtractor={(friendship) => `all-${friendship.id}`}
-			renderItem={({ item }) => renderFriendCard(item)}
-			contentContainerStyle={styles.listContent}
-			showsVerticalScrollIndicator={false}
-			onEndReached={() =>
-				setVisibleFriendsCount((count) =>
-					Math.min(count + FRIENDS_PAGE_SIZE, allFriends.length),
-				)
-			}
-			onEndReachedThreshold={0.5}
-			ListHeaderComponent={<SectionHeader title="Всі друзі" />}
-			ListEmptyComponent={
-				<Text style={styles.emptyText}>Список друзів порожній</Text>
-			}
-		/>
-	);
-
-	const radioTabsArray: IRadioTab[] = [
-		{
-			title: "Головна",
-			content: (
-				<ScrollView
-					contentContainerStyle={styles.scrollContent}
-					showsVerticalScrollIndicator={false}
-				>
-					<RequestsPreviewSection />
-					<RecommendationsPreviewSection />
-					<FriendsPreviewSection />
-				</ScrollView>
-			),
-		},
-		{
-			title: "Запити",
-			content: <RequestsFullSection />,
-		},
-		{
-			title: "Рекомендації",
-			content: <RecommendationsFullSection />,
-		},
-		{
-			title: "Всі друзі",
-			content: <FriendsFullSection />,
-		},
-	];
 
 	if (!currentUserId) {
 		return (
@@ -770,14 +861,16 @@ export default function Friends() {
 			<View style={{ flex: 1 }}>
 				{isFriendshipsError ? (
 					<View style={styles.centered}>
-						<Text style={styles.emptyText}>Не вдалося завантажити друзів</Text>
+						<Text style={styles.emptyText}>
+							Не вдалося завантажити друзів
+						</Text>
 					</View>
 				) : (
 					<RadioTabs
 						activeTab={activeTab}
 						fullHeight
 						variant="friends"
-						onTabChange={(tab) => setActiveTab(tab as FriendTab)}
+						onTabChange={(nextTab) => setActiveTab(nextTab as FriendTab)}
 						radioTabsArray={radioTabsArray}
 					/>
 				)}

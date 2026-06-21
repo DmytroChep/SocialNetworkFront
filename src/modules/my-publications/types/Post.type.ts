@@ -17,8 +17,6 @@ export interface IPostImage {
     original_image: string;
     compressed_image?: string | null;
     post_id: number;
-
-    /** Legacy response field. */
     url?: string;
 }
 
@@ -54,9 +52,6 @@ export interface IPost {
     hearts?: IPostReaction[];
     views?: IPostReaction[] | number;
 
-    /**
-     * Legacy fields are optional during the migration to the new backend models.
-     */
     authorId?: number;
     description?: string | null;
     link?: string | null;

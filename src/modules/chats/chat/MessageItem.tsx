@@ -1,12 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
-import { memo } from "react";
+import { memo, useState, useMemo } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { COLORS } from "../../../shared/constants";
 import { FONTS } from "../../../shared/constants/fonts";
-import { getUserAvatar, getUserDisplayName, toMediaUrl } from "../../../shared/lib/model-helpers";
+import { DEFAULT_AVATAR_URL, getUserAvatar, getUserDisplayName, toMediaUrl, BACKEND_MEDIA_BASE, CLOUDINARY_BASE } from "../../../shared/lib/model-helpers";
 import type { IChatMessage } from "../types/chat";
 
 // ─── Pure helpers (outside component — never recreated) ────────────────────
+
+const BoundedImage = memo(({ uri, style }: { uri: string; style: any }) => {
+    const [failed, setFailed] = useState(false);
+    if (failed) return null; // просто ховаємо якщо 404
+    return (
+        <Image
+            source={{ uri }}
+            style={style}
+            onError={() => setFailed(true)}
+        />
+    );
+}); 
 
 export const formatMessageTime = (value?: string): string => {
     if (!value) return "";
@@ -56,7 +68,7 @@ export interface MessageItemProps {
     isFirstUnread: boolean;
     isReadByPeer: boolean;
     senderName: string;
-    senderAvatar: string;
+    senderAvatar?: string;
     isNewDay: boolean;
     formattedDate: string;
 }
@@ -74,6 +86,46 @@ const MessageItem = memo(
         isNewDay,
         formattedDate,
     }: MessageItemProps) => {
+        const [avatarIndex, setAvatarIndex] = useState(0);
+        const rawAvatar = senderAvatar || DEFAULT_AVATAR_URL;
+        const avatarCandidates = useMemo(() => {
+            const c: string[] = [];
+            if (!rawAvatar) return [DEFAULT_AVATAR_URL];
+            // absolute URL first
+            if (/^https?:\/\//i.test(rawAvatar)) c.push(rawAvatar);
+            // if it contains /media/, try extracting public path for cloudinary
+            try {
+                const mediaIdx = rawAvatar.indexOf('/media/');
+                if (mediaIdx !== -1) {
+                    const publicPath = rawAvatar.slice(mediaIdx + '/media/'.length);
+                    if (CLOUDINARY_BASE && publicPath) c.unshift(`${CLOUDINARY_BASE}/${publicPath}`);
+                }
+            } catch (e) {}
+            // backend absolute
+            if (rawAvatar.startsWith(BACKEND_MEDIA_BASE)) c.push(rawAvatar);
+            // backend media path for non-absolute
+            if (!rawAvatar.startsWith('http') && rawAvatar.length) c.push(`${BACKEND_MEDIA_BASE}/media/${rawAvatar}`);
+            // cloudinary candidate for raw path
+            if (CLOUDINARY_BASE && !rawAvatar.startsWith('http')) c.unshift(`${CLOUDINARY_BASE}/${rawAvatar}`);
+            if (!c.includes(DEFAULT_AVATAR_URL)) c.push(DEFAULT_AVATAR_URL);
+            return Array.from(new Set(c));
+        }, [rawAvatar]);
+        const avatarUri = (() => {
+            const exts = [".png", ".jpg", ".jpeg", ".webp"];
+            const base = avatarCandidates;
+            const expanded: string[] = [];
+            for (const item of base) {
+                expanded.push(item);
+                try {
+                    const hasExt = /\.[a-z0-9]{2,5}($|\?)/i.test(item);
+                    if (!hasExt) {
+                        for (const e of exts) expanded.push(item + e);
+                    }
+                } catch (e) {}
+            }
+            const uniq = Array.from(new Set(expanded));
+            return uniq[avatarIndex] || DEFAULT_AVATAR_URL;
+        })();
         return (
             <View>
                 {isNewDay && (
@@ -93,8 +145,15 @@ const MessageItem = memo(
                 <View style={isMe ? styles.myMessageRow : styles.otherMessageRow}>
                     {!isMe && (
                         <Image
-                            source={{ uri: senderAvatar }}
+                            source={{ uri: avatarUri }}
                             style={styles.messageAvatar}
+                            onError={(e) => {
+                                try { console.debug('[MessageItem Avatar] load error, src=', avatarUri, 'error=', e.nativeEvent?.error); } catch (err) {}
+                                if (avatarIndex < avatarCandidates.length - 1) setAvatarIndex((i) => i + 1);
+                            }}
+                            onLoad={() => {
+                                try { console.debug('[MessageItem Avatar] loaded', avatarUri); } catch (err) {}
+                            }}
                         />
                     )}
 
@@ -105,13 +164,17 @@ const MessageItem = memo(
 
                         {(item.images?.length ?? 0) > 0 && (
                             <View style={styles.messageImagesGrid}>
-                                {item.images?.map((image) => (
-                                    <Image
-                                        key={image.id}
-                                        source={{ uri: toMediaUrl(image.image) || image.image }}
-                                        style={styles.messageImage}
-                                    />
-                                ))}
+                                {item.images?.map((image) => {
+                        const resolvedUri = toMediaUrl(image.image, 'message', item.sender_id) || image.image;
+    
+    return (
+        <BoundedImage
+            key={image.id}
+            uri={resolvedUri}
+            style={styles.messageImage}
+        />
+    );
+})} 
                             </View>
                         )}
 
@@ -123,24 +186,13 @@ const MessageItem = memo(
                             <Text style={styles.timeText}>
                                 {formatMessageTime(item.created_at)}
                             </Text>
-                            {isMe && (
-                                <View style={styles.checkRow}>
-                                    <Ionicons
-                                        name="checkmark"
-                                        size={14}
-                                        color={isReadByPeer ? COLORS.plum : "#8E8E93"}
-                                        style={styles.checkIcon}
-                                    />
-                                    {isReadByPeer && (
-                                        <Ionicons
-                                            name="checkmark"
-                                            size={14}
-                                            color={COLORS.plum}
-                                            style={styles.checkIconSecond}
-                                        />
-                                    )}
-                                </View>
-                            )}
+{isMe && (
+    <View style={styles.checkRow}>
+        <Text style={{ color: isReadByPeer ? COLORS.plum : "#8E8E93", fontSize: 12 }}>
+            {isReadByPeer ? "✓✓" : "✓"}
+        </Text>
+    </View>
+)}
                         </View>
                     </View>
                 </View>
@@ -149,12 +201,17 @@ const MessageItem = memo(
     },
     // Custom comparator — re-render only when something actually changed
     (prev, next) =>
-        prev.item.id === next.item.id &&
-        prev.item.text === next.item.text &&
-        prev.isReadByPeer === next.isReadByPeer &&
-        prev.isFirstUnread === next.isFirstUnread &&
-        prev.isNewDay === next.isNewDay &&
-        (prev.item.images?.length ?? 0) === (next.item.images?.length ?? 0),
+    prev.item.id === next.item.id &&
+    prev.item.text === next.item.text &&
+    prev.isReadByPeer === next.isReadByPeer &&
+    prev.isFirstUnread === next.isFirstUnread &&
+    prev.isNewDay === next.isNewDay &&
+    prev.senderAvatar === next.senderAvatar &&
+    prev.senderName === next.senderName &&
+    (prev.item.images?.length ?? 0) === (next.item.images?.length ?? 0) &&
+    // ↓ ДОДАТИ — перевіряємо чи змінились URL картинок
+    JSON.stringify(prev.item.images?.map(i => i.image)) === 
+    JSON.stringify(next.item.images?.map(i => i.image)),
 );
 
 MessageItem.displayName = "MessageItem";

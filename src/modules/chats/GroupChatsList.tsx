@@ -40,13 +40,6 @@ export function GroupChatsList({ chats = [], onChatPress }: GroupChatsListProps)
 
     return (
         <View style={styles.cardContainer}>
-            <View style={styles.cardHeader}>
-                <View style={styles.iconWrapper}>
-                    <ICONS.people color="#8E8E93" />
-                </View>
-                <Text style={styles.cardTitle}>Групові чати</Text>
-            </View>
-
             <View style={styles.searchWrapper}>
                 <ICONS.search color="#8E8E93" style={styles.searchIcon} />
                 <TextInput

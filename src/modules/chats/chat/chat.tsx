@@ -22,12 +22,13 @@ import {
     baseApi,
     useCreatePersonalChatMutation,
     useDeleteGroupChatMutation,
+    useGetChatMessagesQuery,
     useLazyGetChatMessagesQuery,
     useMarkChatAsReadMutation,
     useUpdateGroupChatMutation,
 } from "../../../shared/api/baseApi";
 import { COLORS } from "../../../shared/constants";
-import { FONTS } from "../../../shared/constants/fonts";
+// removed unused import FONTS
 import { useSocketContext } from "../../../shared/context/socket-context";
 import { useUserContext } from "../../../shared/context/user-context";
 import { ICONS } from "../../../shared/icons";
@@ -132,8 +133,10 @@ export default function Chat({ peer, onBack }: ChatProps) {
         id?: string;
         chatId?: string;
     }>();
-    const { user, token } = useUserContext();
+    const { user } = useUserContext();
     const { socket, isConnected } = useSocketContext();
+    // Debug: uncomment if needed
+    // console.log('Is Socket Connected:', isConnected);
     const dispatch = useDispatch();
 
     // ── State ──────────────────────────────────────────────────────────────
@@ -185,8 +188,26 @@ export default function Chat({ peer, onBack }: ChatProps) {
         useUpdateGroupChatMutation();
     const [deleteGroupChat, { isLoading: isDeletingGroup }] =
         useDeleteGroupChatMutation();
+
+    // Для початкового завантаження з кешу (підписується на кеш)
+    const { data: initialMessagesData, isFetching: isInitialFetching } =
+        useGetChatMessagesQuery(
+            { chatId: chatId!, limit: 10 },
+            { skip: !chatId }
+        );
+
+        // Коли дані з кешу прийшли — кладемо в messages
+    useEffect(() => {
+        if (!initialMessagesData) return;
+        setMessages(mergeMessages(initialMessagesData.messages));
+        nextCursorRef.current = initialMessagesData.nextCursor;
+        hasMoreRef.current = initialMessagesData.hasMore;
+    }, [initialMessagesData]);
+
+    // Для пагінації і markChatAsRead (потрібен lazy)
     const [loadMessagesPage, { isFetching: isFetchingMore }] =
         useLazyGetChatMessagesQuery();
+
     const [markChatAsRead] = useMarkChatAsReadMutation();
 
     // ── Derived / memoized values ──────────────────────────────────────────
@@ -317,8 +338,8 @@ export default function Chat({ peer, onBack }: ChatProps) {
             await markChatAsRead(chatId).unwrap();
             try {
                 const page = await loadMessagesPage(
-                    { chatId, limit: 30 },
-                    false,
+                    { chatId, limit: 10 },
+                    true,
                 ).unwrap();
                 setMessages((current) =>
                     mergeMessages([...page.messages, ...current]),
@@ -347,15 +368,34 @@ export default function Chat({ peer, onBack }: ChatProps) {
     // ── Socket callbacks ───────────────────────────────────────────────────
 
     const handleNewMessageCallback = useCallback(
-        (payload: { chatId: number | string; message: any }) => {
-            if (!chatId || Number(payload.chatId) !== Number(chatId)) return;
-            const msgSenderId = Number(payload.message.sender_id);
+        (payload: any) => {
+            // Support multiple payload shapes from backend:
+            // { chatId, message } or { chat_id, message } or direct message object
+            try {
+                console.debug("Socket message payload:", payload);
+            } catch (e) {}
+
+            const incomingChatId =
+                payload?.chatId ?? payload?.chat_id ?? payload?.message?.chatId ?? payload?.message?.chat_id ?? null;
+
+            if (!chatId || Number(incomingChatId) !== Number(chatId)) return;
+
+            const rawMessage = payload?.message ?? payload;
+            if (!rawMessage) return;
+
+            const msgSenderId = Number(rawMessage.sender_id ?? rawMessage.sender?.id);
             const currentUserId = Number(user?.id);
             if (msgSenderId === currentUserId) return; // own message arrives via ACK
-            const message = normalizeMessage(payload.message);
+
+            const message = normalizeMessage(rawMessage);
+
+            // ensure images array exists
+            if (!Array.isArray(message.images)) (message as any).images = [];
+
             if (Number(message.sender_id) !== Number(user?.id)) {
                 (message as any).is_read = true;
             }
+
             setMessages((current) => {
                 const filtered = current.filter(
                     (m) =>
@@ -367,6 +407,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
                 );
                 return mergeMessages([message, ...filtered]);
             });
+
             setErrorText(null);
             scrollToBottom(true);
             markCurrentChatAsReadRef.current();
@@ -479,7 +520,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
         setIsInitialMessagesLoading(true);
         let markReadTimeout: ReturnType<typeof setTimeout> | null = null;
 
-        loadMessagesPage({ chatId, limit: 30 }, false)
+        loadMessagesPage({ chatId, limit: 10 }, false   )
             .unwrap()
             .then((page) => {
                 if (!isMounted) return;
@@ -557,7 +598,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
         try {
             const page = await loadMessagesPage({
                 chatId,
-                limit: 30,
+                limit: 10,
                 cursorId: nextCursorRef.current,
             }).unwrap();
             setMessages((current) =>
@@ -806,6 +847,15 @@ export default function Chat({ peer, onBack }: ChatProps) {
 
     const renderItem = useCallback(
         ({ item, index }: { item: IChatMessage; index: number }) => {
+            console.log('sender:', JSON.stringify(item.sender));
+            const resolvedSenderAvatar =
+                item.sender?.avatar ||
+                toMediaUrl(item.sender?.profile?.avatar, 'avatar', item.sender?.id) ||
+                getUserAvatar(item.sender) ||
+                DEFAULT_AVATAR_URL;
+            try {
+                console.debug('[Chat][renderItem] resolvedSenderAvatar=', resolvedSenderAvatar, 'item.sender.profile?.avatar=', item.sender?.profile?.avatar, 'chatAvatarParam=', item.chat_avatar || item.chatAvatar || null);
+            } catch (e) {}
             const isMe = Number(item.sender_id) === Number(user?.id);
             const nextItem = messages[index + 1];
             const isNewDay =
@@ -821,7 +871,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
                     senderName={
                         getUserDisplayName(item.sender) || activePeer.name
                     }
-                    senderAvatar={getUserAvatar(item.sender) || peerAvatar}
+                    senderAvatar={resolvedSenderAvatar}
                     isNewDay={isNewDay}
                     formattedDate={new Date(item.created_at).toLocaleDateString(
                         "uk-UA",
@@ -832,6 +882,8 @@ export default function Chat({ peer, onBack }: ChatProps) {
         },
         [messages, user?.id, firstUnreadId, activePeer.name, peerAvatar],
     );
+
+    
 
     // ── Render ─────────────────────────────────────────────────────────────
 
@@ -851,7 +903,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
                         onPress={handleBack}
                         style={styles.backButton}
                     >
-                        <Ionicons name="chevron-back" size={22} color="#8E8E93" />
+                        <ICONS.ArrowIcon/>
                     </TouchableOpacity>
 
                     <View style={styles.chatAvatar}>
@@ -874,6 +926,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
                         <Text style={styles.chatSubtitle}>
                             {activePeer.isGroup ? "Груповий чат" : "Особистий чат"}
                         </Text>
+                        {/* connection indicator removed */}
                     </View>
 
                     <View
@@ -1068,7 +1121,7 @@ const styles = StyleSheet.create({
     chatAvatarText: {
         color: "#FFFFFF",
         fontSize: 14,
-        fontFamily: "GTWalsheimPro-Medium",
+        // fontFamily: "GTWalsheimPro-Medium",
     },
     chatTitleWrapper: {
         flex: 1,
@@ -1076,15 +1129,16 @@ const styles = StyleSheet.create({
     },
     chatTitle: {
         fontSize: 16,
-        fontFamily: "GTWalsheimPro-Medium",
+        // fontFamily: "GTWalsheimPro-Medium",
         color: "#1C1C1E",
     },
     chatSubtitle: {
         fontSize: 12,
-        fontFamily: "GTWalsheimPro-Regular",
+        // fontFamily: "GTWalsheimPro-Regular",
         color: "#8E8E93",
         marginTop: 2,
     },
+    /* connection indicator styles removed */
     moreButton: {
         padding: 4,
     },
@@ -1104,7 +1158,7 @@ const styles = StyleSheet.create({
     },
     emptyMessagesText: {
         fontSize: 14,
-        fontFamily: "GTWalsheimPro-Regular",
+        // fontFamily: "GTWalsheimPro-Regular",
         color: "#8E8E93",
     },
     errorText: {
@@ -1112,7 +1166,7 @@ const styles = StyleSheet.create({
         paddingBottom: 8,
         color: "#FF3B30",
         fontSize: 12,
-        fontFamily: "GTWalsheimPro-Regular",
+        // fontFamily: "GTWalsheimPro-Regular",
     },
     selectedImagesRow: {
         flexDirection: "row",
@@ -1146,7 +1200,7 @@ const styles = StyleSheet.create({
     removeImageText: {
         color: "#FFFFFF",
         fontSize: 12,
-        fontFamily: "GTWalsheimPro-Medium",
+        // fontFamily: "GTWalsheimPro-Medium",
         lineHeight: 14,
     },
     bottomInputRow: {
@@ -1170,7 +1224,7 @@ const styles = StyleSheet.create({
     },
     textInput: {
         fontSize: 14,
-        fontFamily: "GTWalsheimPro-Regular",
+        // fontFamily: "GTWalsheimPro-Regular",
         color: "#1C1C1E",
         paddingVertical: 6,
         maxHeight: 80,

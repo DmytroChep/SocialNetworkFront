@@ -158,7 +158,7 @@ export function Albums() {
                                 <Text style={{fontSize: 16, fontWeight: '500'}}>Фотографії</Text>
                                 <View style={styles.avatarsView}>
                                     {element.images && element.images.length > 0 && element.images.map((image) => {
-                                                const imageUri = toMediaUrl(image.image);
+                                                const imageUri = toMediaUrl(image.image, 'post', element.user_id || element.user?.id || element.ownerId);
                                                 return (
                                                     <View key={image.id}>
                                                         {imageUri && (

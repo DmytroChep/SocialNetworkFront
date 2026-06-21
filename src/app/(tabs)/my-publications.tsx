@@ -16,8 +16,9 @@ import {
 } from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
 import { FONTS } from "../../shared/constants/fonts";
+import { COLORS } from "../../shared/constants";
 
-const POSTS_PAGE_SIZE = 5;
+const POSTS_PAGE_SIZE = 3;
 
 export default function MyPublicationsScreen() {
 	const { user } = useUserContext();
@@ -25,8 +26,8 @@ export default function MyPublicationsScreen() {
 
 	const { data: publications } = useGetUserPostsQuery(
 		{ userId: user?.id ?? 0 },
-		{ pollingInterval: 1000, skip: !user?.id },
-	);
+		{ skip: !user?.id }
+		);
 	const [increaseView] = useViewsIncreaseMutation();
 
 	const [localPublications, setLocalPublications] = useState(
@@ -97,7 +98,7 @@ export default function MyPublicationsScreen() {
 	}
 
 	return (
-		<View style={{ flex: 1, backgroundColor: "#F5F5F5" }}>
+		<View style={{ flex: 1, paddingVertical: 8, backgroundColor: COLORS.plum50 }}>
 			<FlatList
 				data={paginatedPublications}
 				keyExtractor={(item) => item.id.toString()}

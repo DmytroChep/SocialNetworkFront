@@ -188,7 +188,7 @@ export function EditGroupModal({
               <View style={styles.avatarSection}>
                 {groupAvatar ? (
                   <Image
-                    source={{ uri: toMediaUrl(groupAvatar) || groupAvatar }}
+                    source={{ uri: toMediaUrl(groupAvatar, 'avatar') || groupAvatar }}
                     style={styles.groupAvatarImage}
                   />
                 ) : (
@@ -232,7 +232,7 @@ export function EditGroupModal({
                 }
                 renderItem={({ item }) => {
                   const isSelected = selectedIds.has(String(item.id));
-                  const avatarUrl = toMediaUrl(item.avatar) || item.avatar;
+                  const avatarUrl = toMediaUrl(item.avatar, 'avatar', item.id) || item.avatar;
 
                   return (
                     <TouchableOpacity

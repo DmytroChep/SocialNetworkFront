@@ -179,11 +179,11 @@ export const StepSelectUsers: React.FC<StepSelectUsersProps> = ({
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionHeader}>{section.title}</Text>
         )}
-        renderItem={({ item }) => {
+            renderItem={({ item }) => {
           const selected = isSelected(item);
           return (
             <TouchableOpacity style={styles.userRow} onPress={() => onToggle(item)}>
-              <Avatar uri={toMediaUrl(item.avatar)} initials={getInitials(item.username)} />
+              <Avatar uri={toMediaUrl(item.avatar, 'avatar', item.id)} initials={getInitials(item.username)} />
               <Text style={styles.userName}>{item.username}</Text>
               <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
                 {selected && <Text style={styles.checkmark}>✓</Text>}
@@ -286,9 +286,9 @@ export const StepGroupDetails: React.FC<StepGroupDetailsProps> = ({
 
       {/* Participants */}
       <Text style={styles.participantsLabel}>Учасники</Text>
-      {selectedUsers.map(user => (
+        {selectedUsers.map(user => (
         <View key={user.id} style={styles.participantRow}>
-          <Avatar uri={toMediaUrl(user.avatar)} initials={getInitials(user.username)} />
+          <Avatar uri={toMediaUrl(user.avatar, 'avatar', user.id)} initials={getInitials(user.username)} />
           <Text style={styles.participantName}>{user.username}</Text>
           <TouchableOpacity
             onPress={() => onRemoveUser(user.id)}

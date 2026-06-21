@@ -15,7 +15,7 @@ interface AvatarFieldProps {
 }
 
 export function AvatarField({ value, onChange, disabled }: AvatarFieldProps) {
-	const finalValue = toMediaUrl(value);
+	const finalValue = toMediaUrl(value, 'avatar');
 	async function pickImage() {
 		const result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ["images"],

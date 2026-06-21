@@ -36,11 +36,12 @@ import {
 	getUserDisplayName,
 	getUserHandle,
 	toMediaUrl,
+	DEFAULT_AVATAR_URL,
 } from "../../shared/lib/model-helpers";
 import { Button } from "../../shared/ui/button";
 import { styles } from "./profile.styles";
 
-const DEFAULT_AVATAR = toMediaUrl("/media/avatars/default_avatar.png") || "";
+const DEFAULT_AVATAR = DEFAULT_AVATAR_URL || "";
 const PROFILE_POSTS_PAGE_SIZE = 5;
 
 type ProfileRelation =

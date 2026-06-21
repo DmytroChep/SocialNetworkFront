@@ -9,7 +9,7 @@ interface ISocketContext {
 }
 
 const SocketContext = createContext<ISocketContext | null>(null);
-const socketUrl = `http://${ip}:8000`;
+const socketUrl = `${ip}`;
 
 export function SocketContextProvider({ children }: { children: ReactNode }) {
 	const { token } = useUserContext();
@@ -23,22 +23,29 @@ export function SocketContextProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 
+		// Debug: log token presence (do not log token value in production)
+		console.debug("SocketContext: initializing socket, token present:", Boolean(token));
+
 		const nextSocket = io(socketUrl, {
 			auth: { token: `Bearer ${token}` },
 			reconnection: true,
-			transports: ["websocket"],
+			// allow polling fallback in case websocket handshake fails
+			transports: ["websocket", "polling"],
 		});
 
 		const handleConnect = () => setIsConnected(true);
 		const handleDisconnect = () => setIsConnected(false);
+		const handleConnectError = (err: any) => console.warn("SocketContext connect_error:", err?.message || err);
 
 		nextSocket.on("connect", handleConnect);
 		nextSocket.on("disconnect", handleDisconnect);
+		nextSocket.on("connect_error", handleConnectError);
 		setSocket(nextSocket);
 
 		return () => {
 			nextSocket.off("connect", handleConnect);
 			nextSocket.off("disconnect", handleDisconnect);
+			nextSocket.off("connect_error", handleConnectError);
 			nextSocket.disconnect();
 			setSocket(null);
 			setIsConnected(false);
