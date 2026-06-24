@@ -25,6 +25,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.socialNetowrk"
     },
+    "softwareKeyboardLayoutMode": "pan",
     "web": {
       "favicon": "./assets/favicon.png"
     },

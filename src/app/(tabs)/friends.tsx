@@ -9,6 +9,7 @@ import {
 	TouchableOpacity,
 	View,
 } from "react-native";
+import { useSocketContext } from "../../shared/context/socket-context";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DeleteFriendModal } from "../../modules/friends/friendsDeletePopUp/friendsDeletePopUp";
 import type {
@@ -56,6 +57,7 @@ interface FriendCardUser {
 }
 
 interface FriendCardProps extends FriendCardUser {
+	isOnline?: boolean;
 	primaryText: string;
 	secondaryText?: string;
 	disabled?: boolean;
@@ -212,6 +214,7 @@ const FriendSection = ({
 );
 
 const FriendCard = ({
+	isOnline,
 	name,
 	handle,
 	avatar,
@@ -232,8 +235,7 @@ const FriendCard = ({
 		>
 			<View style={styles.avatarContainer}>
 				<Image source={{ uri: avatar }} style={styles.avatar} />
-				<View style={styles.statusIndicator} />
-			</View>
+				<View style={[styles.statusIndicator, { backgroundColor: isOnline ? "#22C55E" : "#CDCED2" }]} /></View>
 			<Text
 				style={[styles.name, { fontFamily: FONTS["GTWalsheimPro-Regular"] }]}
 			>
@@ -427,6 +429,38 @@ export default function Friends() {
 			setVisibleRecommendationsCount(RECOMMENDATIONS_PAGE_SIZE);
 		if (activeTab === "Всі друзі") setVisibleFriendsCount(FRIENDS_PAGE_SIZE);
 	}, [activeTab]);
+
+	const { socket } = useSocketContext();
+const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
+
+useEffect(() => {
+    if (!socket) return;
+    const handleUsersOnline = (payload: any) => {
+        const ids = (Array.isArray(payload) ? payload : []).map(Number).filter((id: number) => id > 0);
+        setOnlineUserIds(new Set(ids));
+    };
+    const handleUserOnline = (payload: any) => {
+        const id = Number(payload?.id ?? payload?.userId ?? payload);
+        if (id > 0) setOnlineUserIds(prev => new Set([...prev, id]));
+    };
+    const handleUserOffline = (payload: any) => {
+        const id = Number(payload?.id ?? payload?.userId ?? payload);
+        if (id > 0) setOnlineUserIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    };
+    socket.on("users:initial_online", handleUsersOnline);
+    socket.on("user:online", handleUserOnline);
+    socket.on("user:offline", handleUserOffline);
+    if (socket.connected) {
+        socket.emit("users:get_online", (response: any) => {
+            if (Array.isArray(response?.data)) setOnlineUserIds(new Set(response.data.map(Number)));
+        });
+    }
+    return () => {
+        socket.off("users:initial_online", handleUsersOnline);
+        socket.off("user:online", handleUserOnline);
+        socket.off("user:offline", handleUserOffline);
+    };
+}, [socket]);
 
 	useEffect(() => {
 		setActiveTab(getTabFromParam(tab));
@@ -627,6 +661,7 @@ export default function Friends() {
 					primaryText="Підтвердити"
 					secondaryText="Видалити"
 					disabled={isActionLoading}
+					isOnline={onlineUserIds.has(cardUser.id)}
 					onPrimaryPress={() => acceptRequest(request.id)}
 					onSecondaryPress={() =>
 						askConfirmation(() => deleteRequest(request))
@@ -656,6 +691,7 @@ export default function Friends() {
 					primaryText={actions.primaryText}
 					secondaryText={actions.secondaryText}
 					disabled={isActionLoading}
+					isOnline={onlineUserIds.has(cardUser.id)}
 					primaryDisabled={actions.primaryDisabled}
 					onPrimaryPress={() => navigateToProfile(cardUser)}
 					onSecondaryPress={actions.onSecondaryPress}
@@ -683,6 +719,7 @@ export default function Friends() {
 					primaryText="Повідомлення"
 					secondaryText="Видалити"
 					disabled={isActionLoading}
+					isOnline={onlineUserIds.has(cardUser.id)}
 					// FIX: navigate directly to chat, not profile
 					onPrimaryPress={() => navigateToChat(cardUser)}
 					onSecondaryPress={() =>

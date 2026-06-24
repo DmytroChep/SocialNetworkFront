@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 
 export interface IRadioTab {
-	title: string;
-	content: ReactNode;
+  title: string;
+  content: ReactNode;
+  badge?: number; // новое поле
 }
+
 export interface IProps {
 	radioTabsArray: IRadioTab[];
 	activeTab?: string;

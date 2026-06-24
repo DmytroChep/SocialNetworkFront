@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Alert, View, Text, Image, TouchableOpacity, StatusBar, Platform, Linking } from 'react-native';
+import { Avatar } from '../../../../modules/chats/chat/createGroupModal/createGroupModal';
 import { useRouter } from 'expo-router'; // Додано для навігації
 import { IPost } from '../../types/Post.type';
 import { styles } from './publicationCard.styles';
@@ -27,13 +28,14 @@ import {
     BACKEND_MEDIA_BASE,
 } from '../../../../shared/lib/model-helpers';
 
-interface PostProps {
+interface PublicationCardProps {
     post: IPost;
     userId?: number;
-    onDelete?: (postId: number) => void;
-    onUpdate?: (post: IPost) => void;
-    onToggleLikeLocal?: (postId: number, isLiked: boolean) => void;
-    onProfilePress?: () => void;
+    onlineUserIds?: Set<number>;
+    onDelete: (postId: number) => void;
+    onUpdate: (post: IPost) => void;
+    onToggleLikeLocal: (postId: number, isLiked: boolean) => void;
+    onProfilePress: () => void;
 }
 
 const areSameImages = (currentImages: string[], nextImages: string[]) =>
@@ -45,6 +47,24 @@ const areSameImages = (currentImages: string[], nextImages: string[]) =>
         (image) => toMediaUrl(image.compressed_image || image.original_image || image.url, 'post', post.author?.id) === imageUrl
     );
     return existingImage?.compressed_image || existingImage?.original_image || existingImage?.url || imageUrl;
+};
+
+const OnlineIndicator = ({ 
+    userId, 
+    onlineUserIds 
+}: { 
+    userId: number | undefined; 
+    onlineUserIds?: Set<number>;
+}) => {
+    const isOnline = userId !== undefined && onlineUserIds?.has(Number(userId));
+    return (
+        <View 
+            style={[
+                styles.onlineStatus, 
+                { backgroundColor: isOnline ? "#22C55E" : "#CDCED2" }
+            ]} 
+        />
+    );
 };
 
 const normalizeTag = (value: string) => value.replace(/^#+/, "").trim().toLowerCase();
@@ -90,7 +110,15 @@ const openLink = async (url: string) => {
     }
 };
 
-export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLikeLocal, onProfilePress }: PostProps) {
+export function PublicationCard({
+    post,
+    userId,
+    onlineUserIds = new Set(),
+    onDelete,
+    onUpdate,
+    onToggleLikeLocal,
+    onProfilePress,
+}: PublicationCardProps) {
     const router = useRouter();
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [currentPost, setCurrentPost] = useState(post);
@@ -252,9 +280,15 @@ export function PublicationCard({ post, userId, onDelete, onUpdate, onToggleLike
             <View style={styles.header}>
 
                 <TouchableOpacity style={styles.headerLeft} onPress={handleProfileNavigation}>
-                    <View style={styles.avatarWrapper}>
-                        {authorAvatar ? <Image source={{ uri: authorAvatar }} style={styles.avatar} /> : <View style={styles.avatar} />}
-                        <View style={styles.statusDot} />
+                    <View style={styles.avatarContainer}>
+                        <Avatar
+                            uri={post.author?.profile?.avatar}
+                            style={styles.avatar}
+                        />
+                        <OnlineIndicator 
+                            userId={post.author?.id} 
+                            onlineUserIds={onlineUserIds}
+                        />
                     </View>
                     <View>
                         <Text style={styles.userName}>{authorName}</Text>

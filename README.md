@@ -4,7 +4,34 @@
 
 **Прев'ю проекту**
 
-![Project Preview](src/assets/images/preview.png)
+<p align="center">
+  <img src="docs/preview.jpg" alt="Preview 1" width="30%" style="margin-right:2%;" />
+  <img src="docs/preview%202.jpg" alt="Preview 2" width="30%" style="margin-right:2%;" />
+  <img src="docs/preview%203.jpg" alt="Preview 3" width="30%" />
+</p>
+
+**Склад Команди**
+
+<p align="center">
+  <a href="https://github.com/DmytroChep" target="_blank" rel="noopener">
+    <img src="https://github.com/DmytroChep.png?size=96" alt="Дмитро Чепіков" width="96" style="border-radius:50%; margin:0 20px;" />
+  </a>
+  <a href="https://github.com/Mbarilo" target="_blank" rel="noopener">
+    <img src="https://github.com/Mbarilo.png?size=96" alt="Михайло Барило" width="96" style="border-radius:50%; margin:0 20px;" />
+  </a>
+  <a href="https://github.com/Davidptn" target="_blank" rel="noopener">
+    <img src="https://github.com/Davidptn.png?size=96" alt="Давид Петренко" width="96" style="border-radius:50%; margin:0 20px;" />
+  </a>
+</p>
+
+<p align="center">
+  <strong><a href="https://github.com/DmytroChep">Дмитро Чепіков</a></strong>
+  &nbsp;&nbsp;
+  <strong><a href="https://github.com/Mbarilo">Михайло Барило</a></strong>
+  &nbsp;&nbsp;
+  <strong><a href="https://github.com/Davidptn">Давид Петренко</a></strong>
+</p>
+
 
 **Для кого та навіщо**
 
@@ -135,14 +162,14 @@ npm install
   - Зображення користувачів та публікацій завантажуються через форми у фронтенді, кешуються у локальному сховищі (наприклад, AsyncStorage) для швидкого відтворення, і завантажуються на бекенд через multipart/form-data або через pre-signed URLs, якщо використовується S3.
   - При відображенні використовуються оптимізовані компоненти, що підвантажують зменшені прев'ю (thumbnails) і підвантажують повну картинку по потребі.
   - Для завантаження великих файлів передбачена індикація прогресу та обробка помилок мережі.
-  - GIF-приклад роботи: [Завантаження зображення](docs/gifs/feature_upload.gif)
+  
   🔙 Повернутись до змісту: [Зміст](#content)
 
 - Робота з веб-сокетами
   - Двосторонній зв'язок організований через WebSocket (Socket.IO або native WebSocket). На фронтенді є SocketManager (див. socket_backend_patch/SocketManager.example.ts), який: створює підключення, реєструє обробники подій (message, user-typing, presence), та ретранслює події у React context для компонентів.
   - При підключенні користувач надсилає свій токен авторизації для валідації на сервері.
   - Реалізовано повторні підключення, backoff та повідомлення про статус з'єднання у UI.
-  - GIF-приклад (чат): [Відправка повідомлення](docs/gifs/feature_chat.gif)
+  
   🔙 Повернутись до змісту: [Зміст](#content)
 
 - Принцип роботи постів, альбомів, налаштувань, чатів
@@ -158,20 +185,20 @@ npm install
     - Групові чати мають модель: група з учасниками, правами (адмін), назвою та аватаром.
     - Повідомлення надсилаються через API для збереження у базі та через WebSocket для миттєвої доставки.
     - Історія чатів підвантажується порціями (pagination) при скролі вгору.
-  - GIF-приклади: docs/gifs/posts_flow.gif, docs/gifs/albums_flow.gif, docs/gifs/chats_flow.gif
+  
   🔙 Повернутись до змісту: [Зміст](#content)
 
 - Робота з AJAX
   - Всі HTTP запити виконуються через централізований API-клієнт (shared/api) (наприклад, axios), який додає заголовки авторизації, обробляє помилкu та стандартизовано повертає дані.
   - Для критичних запитів реалізовано retry-логіку та кешування GET-запитів.
-  - GIF-приклад: docs/gifs/ajax_calls.gif
+  
   🔙 Повернутись до змісту: [Зміст](#content)
 
 - Принцип роботи реєстрації та авторизації
   - Реєстрація: фронтенд відправляє дані користувача (email, password, name) на POST /auth/register.
   - Авторизація: POST /auth/login повертає JWT токен або session cookie. Токен зберігається в безпечному сховищі (AsyncStorage з шифруванням за потреби) та додається до заголовку Authorization у всіх запитах.
   - Оновлення токена (refresh): якщо бекенд підтримує refresh tokens — логіка автоматично запитує новий токен при 401 і повторює запит.
-  - GIF-приклад: docs/gifs/auth_flow.gif
+  
   🔙 Повернутись до змісту: [Зміст](#content)
 
 - Принцип роботи додатку друзів та додавання нових користувачів
@@ -179,7 +206,7 @@ npm install
   - Надсилання запиту в друзі: POST /friends/request — recipent отримує пуш/веб-сокет повідомлення.
   - Прийняття/відхилення: POST /friends/accept або POST /friends/decline; статус у списку друзів оновлюється миттєво через WebSocket.
   - Видалення друга: DELETE /friends/:id з підтвердженням у UI (див. friends/friendsDeletePopUp).
-  - GIF-приклад: docs/gifs/friends_flow.gif
+  
   🔙 Повернутись до змісту: [Зміст](#content)
 
 Примітка: якщо опис функціоналу займає більше 50 рядків коду, у відповідній секції наведено посилання на файл реалізації (наприклад, socket_backend_patch/SocketManager.example.ts).

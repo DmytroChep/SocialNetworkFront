@@ -88,11 +88,23 @@ const TabButton = ({ route, children, badge = 0, ...props }: any) => {
         </Pressable>
     );
 };
-
 export default function TabsLayout() {
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
     const { user } = useUserContext();
     const currentUserId = user?.id;
+
+    // ← добавить запрос дружб
+    const { data: friendshipsResponse } = useGetUserFriendshipsQuery(
+        currentUserId as number,
+        { skip: !currentUserId, pollingInterval: 10_000 },
+    );
+
+    // ← посчитать только видимые входящие запросы
+    const friendRequestsCount = useMemo(() => {
+        const incoming = friendshipsResponse?.incomingRequests ?? [];
+        return incoming.filter((r) => r.status !== "blacklisted").length;
+    }, [friendshipsResponse]);
+
 
     const ChatsHeader = () => {
         const { openStep1 } = useGroupCreation();
@@ -278,7 +290,10 @@ export default function TabsLayout() {
                             />
                         ),
                         tabBarIcon: () => <ICONS.people />,
-                        tabBarButton: (props) => <TabButton {...props} route="friends" />,
+                        // ← передать badge
+                        tabBarButton: (props) => (
+                            <TabButton {...props} route="friends" badge={friendRequestsCount} />
+                        ),
                     }}
                 />
                 <Tabs.Screen

@@ -39,21 +39,30 @@ export function LoginForm() {
   }, [token, justLoggedIn]);
 
   const onSubmit = async (data: LoginFormInputs) => {
-    setServerError(null);
-    try {
-      const result = await loginUser(data).unwrap();
-      if (result && typeof result === "string" && result.split(".").length > 2) {
-        setToken(result); // просто сохраняем — useEffect выше сделает navigate
-        setJustLoggedIn(true);
-      } else {
-        setServerError(result);
-      }
-    } catch (error: any) {
-      const errorMessage =
-        error?.data?.message || error?.message || "Невірний логін або пароль";
-      setServerError(errorMessage);
+  setServerError(null);
+  try {
+    const result = await loginUser(data).unwrap();
+    if (result && typeof result === "string" && result.split(".").length > 2) {
+      setToken(result);
+      // Убираем setJustLoggedIn — используем useEffect более надёжно
+      // или лучше — делаем навигацию сразу после setToken
+      // но нужно дождаться, пока токен пройдёт через контекст
+    } else {
+      setServerError(result);
     }
-  };
+  } catch (error: any) {
+    const errorMessage =
+      error?.data?.message || error?.message || "Невірний логін або пароль";
+    setServerError(errorMessage);
+  }
+};
+
+useEffect(() => {
+  if (token) {
+    router.replace("/(tabs)/main");
+  }
+}, [token]);
+
 
   return (
     <View style={styles.container}>

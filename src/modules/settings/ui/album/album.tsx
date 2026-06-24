@@ -6,11 +6,13 @@ import { styles } from "./album.styles";
 import { RoundButton } from "../../../../shared/ui/RoundButton";
 import { ICONS } from "../../../../shared/icons";
 import { CreateAlbumModal } from "../redact-album-modal/redactalbumModal";
+import { chatImageAssetsToDataUris } from "../../../../shared/lib/image-upload";
 import { AlbumPopUp } from "../albumPopUp/albumPopUp";
 import { COLORS } from "../../../../shared/constants";
 import { useDeleteAlbumMutation, useAddAlbumImagesMutation, useDeleteAlbumImageMutation } from "../../../../shared/api/baseApi";
 import { IAlbum } from "../../../../shared/context/types";
 import { getUserAlbums, toMediaUrl } from "../../../../shared/lib/model-helpers";
+import * as FileSystem from "expo-file-system/legacy";
 import { imageAssetsToDataUris, LOW_QUALITY_IMAGE_PICKER_OPTIONS } from "../../../../shared/lib/image-upload";
 
 export function Albums() {
@@ -49,33 +51,54 @@ export function Albums() {
     };
 
     const pickAndAddImages = async (album: IAlbum) => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
-                allowsMultipleSelection: true,
-                allowsEditing: false,
-                ...LOW_QUALITY_IMAGE_PICKER_OPTIONS,
-            });
+    try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsMultipleSelection: true,
+            allowsEditing: false,
+            quality: 0.6,
+            base64: false, // не работает с multiple на iOS
+        });
 
-            if (!result.canceled && result.assets.length > 0) {
-                setIsAddingImages(true);
-                
-                const images = imageAssetsToDataUris(result.assets).map((image) => ({ image }));
+        if (!result.canceled && result.assets.length > 0) {
+            setIsAddingImages(true);
 
-                await addAlbumImages({ 
-                    albumId: album.id!,
-                    name: album.name,
-                    userId: user.id,
-                    images 
-                }).unwrap();
-                
-                setIsAddingImages(false);
-            }
-        } catch (error: any) {
-            setIsAddingImages(false);
-            console.error('Image upload error:', error);
+const images = await Promise.all(
+    result.assets.map(async (asset) => {
+        if (asset.base64) {
+            const mime = asset.mimeType ?? "image/jpeg";
+            return { image: `data:${mime};base64,${asset.base64}` };
         }
-    };
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+        });
+        return { image: `data:image/jpeg;base64,${base64}` };
+    })
+);
+
+    console.log('IMAGES TO SEND:', JSON.stringify({
+        count: images.length,
+        firstImagePrefix: images[0]?.image?.substring(0, 50),
+        totalSizeKb: Math.round(JSON.stringify(images).length / 1024), // ← добавь это
+        albumId: album.id,
+    }));
+
+    console.log('REQUEST URL:', `album/${album.id}/images`, 'type:', typeof album.id);
+
+            await addAlbumImages({
+                albumId: album.id!,
+                name: album.name,
+                userId: user.id,
+                images,
+            }).unwrap();
+
+            setIsAddingImages(false);
+        }
+    } catch (error: any) {
+        setIsAddingImages(false);
+        console.error('Image upload error:', error);
+    }
+};
 
     const handleDeleteImage = (imageId: number) => {
         const deleteAsync = async () => {

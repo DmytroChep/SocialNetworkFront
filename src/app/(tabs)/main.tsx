@@ -16,6 +16,7 @@ import { useLazyGetAllPostsQuery,
 	useGetUserPostsQuery,
 	usePrefetch} from "../../shared/api/baseApi";
 import { useUserContext } from "../../shared/context/user-context";
+import { useSocketContext } from "../../shared/context/socket-context";
 import {
 	getUserAvatar,
 	getUserDisplayName,
@@ -40,7 +41,11 @@ function needsFirstEnterProfile(
 
 export default function Main() {
   const { user } = useUserContext();
+  const { socket } = useSocketContext();
   const router = useRouter();
+
+  // --- Presence State ---
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<number>>(new Set());
 
   // --- Prefetch ---
   useMeQuery();
@@ -64,7 +69,7 @@ export default function Main() {
 
 	chatIds.forEach((chatId, index) => {
 		setTimeout(() => {
-		prefetchMessages({ chatId, limit: 10 }); // ← було 30, треба 10
+		prefetchMessages({ chatId, limit: 10 });
 		}, index * 150);
 	});
 	}, [chatIds, prefetchMessages]);
@@ -84,6 +89,71 @@ export default function Main() {
 		isLoading: false,
 	});
 
+	// --- Presence listeners: keep `onlineUserIds` in sync with server ---
+	useEffect(() => {
+		if (!socket) return;
+
+		console.log('[PRESENCE Main] useEffect fired, socket.id:', socket.id, 'connected:', socket.connected);
+
+		const handleUsersOnline = (payload: any) => {
+			console.log('[PRESENCE Main] users:initial_online RAW:', JSON.stringify(payload));
+			const list = Array.isArray(payload) ? payload : [];
+			const ids = list.map(Number).filter((id: number) => !isNaN(id) && id > 0);
+			console.log('[PRESENCE Main] parsed ids:', ids);
+			setOnlineUserIds(new Set(ids));
+		};
+
+		const handleUserOnline = (payload: any) => {
+			console.log('[PRESENCE Main] user:online:', JSON.stringify(payload));
+			const id = Number(payload?.id ?? payload?.userId ?? payload);
+			if (id > 0) setOnlineUserIds(prev => new Set([...prev, id]));
+		};
+
+		const handleUserOffline = (payload: any) => {
+			console.log('[PRESENCE Main] user:offline:', JSON.stringify(payload));
+			const id = Number(payload?.id ?? payload?.userId ?? payload);
+			if (id > 0) setOnlineUserIds(prev => { 
+				const s = new Set(prev); 
+				s.delete(id); 
+				return s; 
+			});
+		};
+
+		socket.on("users:initial_online", handleUsersOnline);
+		socket.on("user:online", handleUserOnline);
+		socket.on("user:offline", handleUserOffline);
+
+		// Якщо вже підключені, запросимо список онлайну
+		if (socket.connected) {
+			console.log('[PRESENCE Main] socket already connected, emitting users:get_online');
+			socket.emit("users:get_online", (response: any) => {
+				console.log('[PRESENCE Main] users:get_online ACK:', JSON.stringify(response));
+				if (Array.isArray(response?.data)) {
+					setOnlineUserIds(new Set(response.data.map(Number)));
+				}
+			});
+		}
+
+		// Слухаємо переподключення
+		const handleConnect = () => {
+			console.log('[PRESENCE Main] socket connected event fired');
+			socket.emit("users:get_online", (response: any) => {
+				console.log('[PRESENCE Main] users:get_online after connect:', JSON.stringify(response));
+				if (Array.isArray(response?.data)) {
+					setOnlineUserIds(new Set(response.data.map(Number)));
+				}
+			});
+		};
+
+		socket.on("connect", handleConnect);
+
+		return () => {
+			socket.off("users:initial_online", handleUsersOnline);
+			socket.off("user:online", handleUserOnline);
+			socket.off("user:offline", handleUserOffline);
+			socket.off("connect", handleConnect);
+		};
+	}, [socket]);
 
 	const handleNavigateToProfile = useCallback(
 		(
@@ -234,15 +304,17 @@ export default function Main() {
 			<FlatList
 				style = {{ paddingVertical: 8 }}
 				data={posts}
+				extraData={onlineUserIds}
 				keyExtractor={(item) => item.id.toString()}
 				ItemSeparatorComponent={() => <View style={{ height: 9 }} />}
 				renderItem={({ item }) => (
     <PublicationCard
         post={item}
         userId={user?.id}
+        onlineUserIds={onlineUserIds}
         onDelete={handleDeletePost}
-        onUpdate={handleUpdatePost} // ← Мы будем использовать только этот колбэк
-					onToggleLikeLocal={handleToggleLikeLocal}
+        onUpdate={handleUpdatePost}
+		onToggleLikeLocal={handleToggleLikeLocal}
         onProfilePress={() => handleNavigateToProfile(item.author)}
     />
 )}

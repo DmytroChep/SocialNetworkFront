@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import * as ImageManipulator from "expo-image-manipulator";
+import { readAsStringAsync } from "expo-file-system";
 import {
     ActivityIndicator,
     Alert,
@@ -89,6 +91,25 @@ const normalizeMessage = (m: any): IChatMessage => ({
         message_id: img.message_id ? Number(img.message_id) : undefined,
     })),
 });
+
+const compressAndEncodeImage = async (
+    asset: ImagePicker.ImagePickerAsset,
+): Promise<string> => {
+    const manipulated = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    const response = await fetch(manipulated.uri);
+    const blob = await response.blob();
+    const base64: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+    return `data:image/jpeg;base64,${base64}`;
+};
 
 const getInitials = (name: string): string => {
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -614,33 +635,53 @@ export default function Chat({ peer, onBack }: ChatProps) {
     }, [chatId, loadMessagesPage]);
 
     const handlePickImages = useCallback(async () => {
-        if (!chatId || !isConnected || isPickingImages) {
-            if (!isConnected) setErrorText("Немає з'єднання з чатом");
+    if (!chatId || !isConnected || isPickingImages) {
+        if (!isConnected) setErrorText("Немає з'єднання з чатом");
+        return;
+    }
+    try {
+        setIsPickingImages(true);
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            ...CHAT_IMAGE_PICKER_OPTIONS,
+        });
+        if (result.canceled) return;
+
+        // Компрессируем и кодируем каждый файл сами — chatImageAssetsToDataUris больше не нужна
+        const images = await Promise.all(
+            result.assets.map(async (asset) => {
+                try {
+                    return await compressAndEncodeImage(asset);
+                } catch {
+                    // fallback: читаем оригинал без компрессии
+                    const response = await fetch(asset.uri);
+                    const blob = await response.blob();
+                    const base64: string = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                    return `data:image/jpeg;base64,${base64}`;
+                }
+            }),
+        );
+
+        const valid = images.filter(Boolean);
+        if (valid.length === 0) {
+            setErrorText("Не вдалося прочитати зображення");
             return;
         }
-        try {
-            setIsPickingImages(true);
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsMultipleSelection: true,
-                ...CHAT_IMAGE_PICKER_OPTIONS,
-            });
-            if (result.canceled) return;
-            const images = await chatImageAssetsToDataUris(result.assets);
-            if (images.length === 0) {
-                setErrorText("Не вдалося прочитати зображення");
-                return;
-            }
-            setSelectedImages((current) =>
-                [...current, ...images].slice(0, 6),
-            );
-            setErrorText(null);
-        } catch {
-            setErrorText("Не вдалося вибрати зображення");
-        } finally {
-            setIsPickingImages(false);
-        }
-    }, [chatId, isConnected, isPickingImages]);
+        setSelectedImages((current) => [...current, ...valid].slice(0, 6));
+        setErrorText(null);
+    } catch {
+        setErrorText("Не вдалося вибрати зображення");
+    } finally {
+        setIsPickingImages(false);
+    }
+}, [chatId, isConnected, isPickingImages]);
+
 
     const removeSelectedImage = useCallback((index: number) => {
         setSelectedImages((current) =>
@@ -893,7 +934,7 @@ export default function Chat({ peer, onBack }: ChatProps) {
             keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 80}
             style={[
                 styles.chatFlexWrapper,
-                keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+                keyboardHeight > 0 && { paddingBottom: 160 },
             ]}
         >
             <View style={styles.chatCard}>

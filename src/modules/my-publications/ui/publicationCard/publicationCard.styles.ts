@@ -42,6 +42,9 @@ linkText: {
     avatarWrapper: {
         position: 'relative',
     },
+    avatarContainer: {
+        position: 'relative',
+    },
     avatar: {
         width: 48,
         height: 48,
@@ -137,4 +140,15 @@ linkText: {
         color: '#1A1A1A',
         fontWeight: '500',
     }
+        ,
+        onlineStatus: {
+        position: "absolute",
+        bottom: 0,
+        right: 0,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        borderWidth: 2,
+        borderColor: "#FFFFFF",
+    },
 });

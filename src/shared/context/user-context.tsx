@@ -57,22 +57,23 @@ export function UserContextProvider(props: IUserContextProviderProps) {
     }, []);
 
     const {
-        data: me,
-        error,
-        isLoading: isMeLoading,
-    } = useMeQuery(undefined, {
-        skip: !token || isStorageLoading,
-    });
+  data: me,
+  error,
+  isLoading: isMeLoading,
+} = useMeQuery(undefined, {
+  skip: !token || isStorageLoading,
+});
 
-    useEffect(() => {
-        if (me) {
-            setUser(me);
-        }
+useEffect(() => {
+  if (me) {
+    setUser(me);
+  }
+  // ❌ Убери это:
+  // if (error) {
+  //   logout();
+  // }
+}, [me, error]);
 
-        if (error) {
-            logout();
-        }
-    }, [me, error]);
 
     const isLoading =
         isStorageLoading || (!!token && isMeLoading);
